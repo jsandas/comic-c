@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+
+# Usage: unused-tiles FILE.TT2 FILE*.PT
+
+import sys
+import os.path
+
+seen = set()
+
+def process(f):
+    f.buffer.read(4)
+    while True:
+        c = f.buffer.read(1)
+        if not c:
+            break
+        seen.add(ord(c))
+
+tt2_filename = sys.argv[1]
+pt_filenames = sys.argv[2:]
+
+for filename in pt_filenames:
+    with open(filename) as f:
+        process(f)
+
+for i in range(os.path.getsize(tt2_filename)//128):
+    if i not in seen:
+        print("{:02x}".format(i))

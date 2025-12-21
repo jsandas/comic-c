@@ -39,3 +39,9 @@
 
 # debug information files
 *.dwo
+
+
+reference/disassembly/graphics/*.ega
+assets/extracted/*
+assets/original/*
+*.zip

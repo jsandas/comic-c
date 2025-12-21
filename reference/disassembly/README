@@ -1,0 +1,42 @@
+This directory contains hand-annotated disassembly of The Adventures of
+Captain Comic. You can assemble these files to get executables that are
+functionally identical to the original COMIC.EXE files.
+	$ make djlink/djlink
+	$ make
+
+To assemble the files, you will need NASM (https://nasm.us/) and djlink
+(http://www.delorie.com/djgpp/16bit/djlink/). A copy of djlink with a
+slightly patched makefile is included.
+
+The reassembled executables are not byte-for-byte identical to the
+originals, because NASM assembles some instructions differently than
+whatever the original assembler was (probably MASM). For example, NASM
+assembles `xor ax, ax` to 33C0 while the original uses 31C0. But if you
+ignore the instruction encodings and only look at the mnemonics, you
+should see that the few differences are inconsequential and all the
+offsets are the same. For example, NASM prefers `xchg al, ah` where the
+original has `xchg ah, al`, but the effect is the same.
+	$ diff -u <(ndisasm -k 0,512 ../deriv/R5sw1991/unpacked.exe | awk '{$2 = ""; print}') <(ndisasm -k 0,512 R5sw1991.exe | awk '{$2 = ""; print}') | grep '^[-+]'
+	-00000B55  xchg al,ah
+	+00000B55  xchg ah,al
+	-00000EF5  sub ax,0xb
+	+00000EF5  sub ax,byte +0xb
+	-000011CE  xchg ah,al
+	+000011CE  xchg al,ah
+	-000011D2  xchg ah,al
+	+000011D2  xchg al,ah
+	-000011E8  xchg ah,al
+	+000011E8  xchg al,ah
+	-000011EC  xchg ah,al
+	+000011EC  xchg al,ah
+	-000011F7  xchg ah,al
+	+000011F7  xchg al,ah
+	-000011FB  xchg ah,al
+	+000011FB  xchg al,ah
+	-0000224F  cmp ax,0xffff
+	+0000224F  cmp ax,byte -0x1
+
+Another way to compare disassemblies is with radare2:
+	$ r2 -q -e scr.color=false -e asm.lines=false -e asm.bytes=false -e asm.comments=false -e asm.offset=true -c 's 0; pD $s' ../deriv/R5sw1991/unpacked.exe > orig.asm
+	$ r2 -q -e scr.color=false -e asm.lines=false -e asm.bytes=false -e asm.comments=false -e asm.offset=true -c 's 0; pD $s' R5sw1991.exe > new.asm
+	$ diff -u orig.asm new.asm

@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+
+# Heuristically searches for sound effects in an unpacked comic.exe.
+# Usage: ./find-sounds ../deriv/R1sw1988/unpacked.exe
+
+import getopt
+import re
+import sys
+
+RE = re.compile(rb'((.[^\x00\x01]|\x28\x00)[\x01-\x20]\x00){2,}\x00\x00\x00\x00', re.S)
+
+_, filenames = getopt.gnu_getopt(sys.argv[1:], "")
+for filename in filenames:
+    with open(filename) as f:
+        data = f.buffer.read()
+        for m in RE.finditer(data, re.S):
+             print("{}: 0x{:x} length {}".format(filename, m.start(), int((m.end() - m.start() - 4) / 4)))
