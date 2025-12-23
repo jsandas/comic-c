@@ -1,0 +1,6 @@
+*.com
+*.exe
+djlink/djlink
+djlink/*.d
+djlink/*.o
+*.ega

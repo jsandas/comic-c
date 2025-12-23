@@ -42,6 +42,8 @@
 
 
 reference/disassembly/graphics/*.ega
-assets/extracted/*
-assets/original/*
+reference/deriv/*
+!reference/deriv/Makefile
+reference/orig/*
+!reference/orig/Makefile
 *.zip
