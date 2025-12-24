@@ -18,5 +18,7 @@ if ! command -v dosbox-x >/dev/null 2>&1; then
   exit 1
 fi
 
-# Start DOSBox, mount the assets directory as C: and switch to C:
-exec dosbox-x -conf dosbox_deterministic.conf -c "mount c \"$ASSETS_DIR\"" -c "c:"
+# Start DOSBox, mount the assets directory as C: and switch to C:ll
+cd tests; exec dosbox-x -conf $PWD/dosbox_deterministic.conf \
+  -savedir $PWD/savestates \
+  -c "mount c \"$ASSETS_DIR\"" -c "c:"
