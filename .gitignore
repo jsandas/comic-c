@@ -40,6 +40,13 @@
 # debug information files
 *.dwo
 
+# Build artifacts
+build/
+
+# Test artifacts (frames and diffs are regenerated)
+tests/golden/*/frames/
+tests/diffs/
+tests/golden/*/*.avi
 
 reference/disassembly/graphics/*.ega
 reference/deriv/*
