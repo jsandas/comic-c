@@ -55,112 +55,14 @@ tests/
 │   ├── level1_with_enemy.sav     # Enemy present for testing
 │   └── level1_near_item.sav      # Near collectible item
 └── validation_log.txt            # Manual testing results and notes
+├── capture/                      # Screenshots from test states
+│   ├── level1_start.png         # Starting position
+│   ├── level1_wall.png          # Near wall
+│   ├── level1_edge.png          # At platform edge
+│   ├── level1_drop.png          # After falling
+│   └── level1_ceiling.png       # Ceiling collision test
+└── HOW_TO_CREATE_SCENARIOS.md    # Guide for creating new test scenarios
 ```
-
-## Directory Structure
-
-```
-tests/
-├── dosbox_deterministic.conf    # DOSBox-X config for reproducible testing
-├── README.md                     # This file
-├── compare_frames.py             # Frame comparison script (to be created)
-├── Makefile                      # Validation automation (to be created)
-├── golden/
-│   ├── clip_1/
-│   │   ├── input.rec            # Recorded keyboard inputs
-│   │   └── frames/              # Extracted PNG frames (gitignored, regenerated)
-│   ├── clip_2/
-│   │   ├── input.rec
-│   │   └── frames/
-│   ├── clip_3/
-│   │   ├── input.rec
-│   │   └── frames/
-│   ├── clip_4/
-│   │   ├── input.rec
-│   │   └── frames/
-│   └── clip_5/
-│       ├── input.rec
-│       └── frames/
-└── diffs/                        # Visual diff images (gitignored, generated on failure)
-    ├── clip_1/
-    ├── clip_2/
-    ├── clip_3/
-    ├── clip_4/
-    └── clip_5/
-```
-
-## Recording Test Clips
-
-### Prerequisites
-
-1. Install DOSBox-X:
-   ```bash
-   brew install dosbox-x
-   ```
-
-2. Ensure original game executable exists:
-   ```bash
-   ls reference/orig/R5sw1991/COMIC.EXE
-   ```
-
-### Recording Procedure
-
-For each clip (1-5):
-
-1. **Start DOSBox-X with deterministic config:**
-   ```bash
-   dosbox-x -conf tests/dosbox_deterministic.conf
-   ```
-
-2. **Mount and run game:**
-   ```
-   mount c reference/orig/R5sw1991
-   c:
-   comic.exe
-   ```
-
-3. **Start input recording:**
-   ```
-   reckey start tests/golden/clip_1/input.rec
-   ```
-
-4. **Perform test actions** (see clip descriptions above)
-
-5. **Stop input recording:**
-   ```
-   reckey stop
-   ```
-
-6. **Start video capture:**
-   - Press `Ctrl+Alt+F5` (Mac: `Ctrl+Cmd+F5`)
-
-7. **Replay recording to capture video:**
-   ```
-   reckey play tests/golden/clip_1/input.rec
-   ```
-
-8. **Stop video capture:**
-   - Press `Ctrl+Alt+F5` again
-
-9. **Move captured video:**
-   ```bash
-   mv captures/*.avi tests/golden/clip_1/capture.avi
-   ```
-
-10. **Extract frames:**
-    ```bash
-    cd tests/golden/clip_1
-    mkdir -p frames
-    ffmpeg -i capture.avi -r 60 -vcodec png frames/frame_%04d.png
-    ```
-
-11. **Commit input recording only:**
-    ```bash
-    git add tests/golden/clip_1/input.rec
-    git commit -m "Add test clip 1: walk/jump"
-    ```
-
-Repeat for all 5 clips.
 
 ## Running Functional Tests
 
