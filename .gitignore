@@ -48,6 +48,27 @@ tests/golden/*/frames/
 tests/diffs/
 tests/golden/*/*.avi
 
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# DOSBox artifacts (keep savestates in tests/savestates/)
+*.sav
+!tests/savestates/*.sav
+
+# Logs
+*.log
+*.err
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
 reference/disassembly/graphics/*.ega
 reference/deriv/*
 !reference/deriv/Makefile
