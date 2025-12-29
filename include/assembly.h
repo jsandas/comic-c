@@ -27,6 +27,14 @@
 #pragma aux game_over "*"
 #pragma aux game_end_sequence "*"
 #pragma aux render_map "*"
+#pragma aux face_or_move_left "*"
+#pragma aux face_or_move_right "*"
+#pragma aux begin_teleport "*"
+#pragma aux activate_door "*"
+#pragma aux try_to_fire "*"
+#pragma aux increment_comic_hp "*"
+#pragma aux decrement_fireball_meter "*"
+#pragma aux increment_fireball_meter "*"
 
 /* Level and stage management */
 extern void load_new_level(void);
@@ -47,6 +55,18 @@ extern void handle_fireballs(void);
 extern void handle_item(void);
 extern void handle_fall_or_jump(void);
 extern void handle_teleport(void);
+
+/* Player movement functions */
+extern void face_or_move_left(void);
+extern void face_or_move_right(void);
+extern void begin_teleport(void);
+extern void activate_door(void);
+
+/* Combat functions */
+extern void try_to_fire(void);
+extern void increment_comic_hp(void);
+extern void decrement_fireball_meter(void);
+extern void increment_fireball_meter(void);
 
 /* Game state functions */
 extern void pause(void);

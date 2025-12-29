@@ -9,10 +9,6 @@
 #include "globals.h"
 #include "assembly.h"
 
-/* STUB: These assembly functions will be called; for now they're stubbed */
-void load_new_level(void) { }
-void game_loop(void) { }
-
 /* 
  * Main game function called from assembly
  * 
@@ -23,6 +19,9 @@ void game_loop(void) { }
  *   - Title sequence completed
  *   - Lives initialized (comic_num_lives = MAX_NUM_LIVES - 1)
  * 
+ * For now, this is a minimal stub that returns control to assembly.
+ * The assembly will call load_new_level and game_loop internally.
+ * 
  * Returns:
  *   GAME_EXIT_QUIT (0) - user quit via ESC menu
  *   GAME_EXIT_WIN (1) - player won the game
@@ -31,26 +30,29 @@ void game_loop(void) { }
 #pragma aux game_main "*"
 int game_main(void)
 {
-    /* Phase 1: Minimal integration - just call assembly functions */
-    
-    /* Load the initial level (LEVEL_NUMBER_FOREST, stage 0) */
-    /* These are already set by assembly initialization */
-    load_new_level();  /* Assembly function (currently stubbed) */
-    
-    /* Enter the main game loop (assembly implementation) */
-    /* This will run until the player quits, wins, or loses */
-    game_loop();   /* Assembly function (currently stubbed) */
-    
-    /* The game loop should never return under normal circumstances */
-    /* as it calls terminate_program directly, but we return a default */
+    /* Minimal stub - game runs entirely in assembly for now */
+    /* Future Phase 2: Implement C game loop here */
     return GAME_EXIT_QUIT;
 }
 
 /*
- * Future: game_loop_iteration() - C implementation of one game tick
+ * Phase 2 TODO: C implementation
  * 
- * This will replace game_loop_asm() when ported to C.
- * For now, it's a placeholder showing the intended structure.
+ * The game loop is at reference/disassembly/R5sw1991.asm:3861
+ * 
+ * To convert it:
+ * 1. Add global declarations to src/R5sw1991_c.asm for all needed symbols
+ * 2. Implement game_loop() in C calling assembly functions
+ * 3. Incrementally convert each assembly function to C (Phases 3-6)
+ */
+
+/*
+ * Future: Incremental conversion plan
+ * 
+ * Phase 3 (Rendering): Convert blit_* functions to C
+ * Phase 4 (Physics): Convert handle_fall_or_jump, movement functions to C
+ * Phase 5 (Actors): Convert handle_enemies, handle_fireballs, handle_item to C
+ * Phase 6 (Game State): Convert door activation, teleport, win/lose logic to C
  */
 #if 0
 int game_loop_iteration(void)

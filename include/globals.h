@@ -24,10 +24,14 @@
 #pragma aux comic_x_momentum "*"
 #pragma aux comic_y_vel "*"
 #pragma aux comic_jump_counter "*"
+#pragma aux comic_jump_power "*"
+#pragma aux comic_run_cycle "*"
 #pragma aux comic_hp "*"
+#pragma aux comic_hp_pending_increase "*"
 #pragma aux comic_num_lives "*"
 #pragma aux comic_firepower "*"
 #pragma aux fireball_meter "*"
+#pragma aux fireball_meter_counter "*"
 #pragma aux comic_has_corkscrew "*"
 #pragma aux comic_has_door_key "*"
 #pragma aux comic_has_boots "*"
@@ -118,10 +122,14 @@ extern uint8_t comic_is_falling_or_jumping;
 extern int8_t comic_x_momentum;
 extern int8_t comic_y_vel;
 extern uint8_t comic_jump_counter;
+extern uint8_t comic_jump_power;
+extern uint8_t comic_run_cycle;
 extern uint8_t comic_hp;
+extern uint8_t comic_hp_pending_increase;
 extern uint8_t comic_num_lives;
 extern uint8_t comic_firepower;
 extern uint8_t fireball_meter;
+extern uint8_t fireball_meter_counter;
 
 /* Player inventory flags */
 extern uint8_t comic_has_corkscrew;
