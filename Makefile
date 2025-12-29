@@ -32,7 +32,7 @@ ASM_SOURCE = $(REFERENCE_DIR)/R5sw1991.asm
 ASM_OBJECT = $(OBJ_DIR)/R5sw1991.obj
 
 # Output executable
-EXECUTABLE = $(BUILD_DIR)/COMIC.EXE
+EXECUTABLE = $(BUILD_DIR)/COMIC-C.EXE
 
 .PHONY: all docker-build compile clean shell help
 
