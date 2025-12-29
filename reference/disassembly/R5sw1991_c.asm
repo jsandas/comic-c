@@ -6,8 +6,8 @@
 
 bits	16
 
-; External C function
-extern _game_main
+; External C function (no underscore prefix due to #pragma aux "*")
+extern game_main
 
 ; Keyboard scancodes.
 ; https://www.win.tue.nl/~aeb/linux/kbd/scancodes-1.html
@@ -994,7 +994,7 @@ initialize_lives_sequence:
 	mov byte [win_counter], 200
 .num_lives_ok:
 	; MODIFICATION: Call C game_main() instead of jumping to load_new_level
-	call _game_main		; C function returns exit code in AX
+	call game_main		; C function returns exit code in AX
 	; Fall through to terminate_program
 	jmp terminate_program
 
@@ -6937,9 +6937,9 @@ global comic_x_checkpoint, comic_y_checkpoint
 global comic_facing, comic_animation
 global comic_is_falling_or_jumping
 global comic_x_momentum, comic_y_vel
-global comic_jump_counter
-global comic_hp, comic_num_lives
-global comic_firepower, fireball_meter
+global comic_jump_counter, comic_jump_power, comic_run_cycle
+global comic_hp, comic_hp_pending_increase, comic_num_lives
+global comic_firepower, fireball_meter, fireball_meter_counter
 global comic_has_corkscrew, comic_has_door_key
 global comic_has_boots, comic_has_lantern
 global comic_has_teleport_wand, comic_is_teleporting
@@ -6953,13 +6953,17 @@ global key_state_left, key_state_right, key_state_fire
 
 ; Export assembly functions for C to call
 global load_new_level, load_new_stage
-global game_loop
+; game_loop is now implemented in C, not exported from assembly
 global swap_video_buffers, wait_n_ticks
 global blit_map_playfield_offscreen, blit_comic_playfield_offscreen
 global handle_enemies, handle_fireballs, handle_item
 global handle_fall_or_jump, handle_teleport
 global pause, game_over, game_end_sequence
 global render_map
+global face_or_move_left, face_or_move_right
+global begin_teleport, activate_door
+global try_to_fire
+global increment_comic_hp, decrement_fireball_meter, increment_fireball_meter
 
 VIDEO_MODE_ERROR_MESSAGE	db `This program requires an EGA adapter with 256K installed\n\r$`
 
