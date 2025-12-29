@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION=${1:-R5sw1991}
 # scripts/run-dosbox.sh
-# Start DOSBox-X and mount $PWD/reference/orig/$VERSION as C:
+# Start DOSBox-X and mount $PWD/reference/original as C:
 # Usage: ./scripts/run-dosbox.sh
 
-ASSETS_DIR="$PWD/reference/orig/$VERSION"
+ORIGINAL_DIR="$PWD/reference/original"
 
-if [[ ! -d "$ASSETS_DIR" ]]; then
-  echo "Error: assets directory not found: $ASSETS_DIR" >&2
+if [[ ! -d "$ORIGINAL_DIR" ]]; then
+  echo "Error: assets directory not found: $ORIGINAL_DIR" >&2
   exit 1
 fi
 
@@ -21,4 +20,4 @@ fi
 # Start DOSBox, mount the assets directory as C: and switch to C:ll
 cd tests; exec dosbox-x -conf $PWD/dosbox_deterministic.conf \
   -savedir $PWD/savestates \
-  -c "mount c \"$ASSETS_DIR\"" -c "c:"
+  -c "mount c \"$ORIGINAL_DIR\"" -c "c:"
