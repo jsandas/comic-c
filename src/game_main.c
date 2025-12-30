@@ -108,25 +108,31 @@ check_pause_input:
         }
         
         /* Fire input and fireball meter recovery */
-        /* Counter cycles: 2 → 1 → 0 → 2 → 1 → 0 ...
-           When counter == 2 and fire pressed: decrement meter
-           When counter reaches 0: increment meter */
+        /* fireball_meter increases/decreases at a rate of 1 unit per 2 ticks.
+           fireball_meter_counter alternates 2, 1, 2, 1, ... to control when to adjust the meter.
+           We decrement fireball_meter when counter is 2 (and fire key is pressed), and
+           increment fireball_meter when counter reaches 0 (after being 1). */
         if (key_state_fire && fireball_meter > 0) {
             /* Fire key pressed and meter available: shoot fireball */
             try_to_fire();
             
-            /* Decrement meter only when counter == 2 (not when 1) */
-            if (fireball_meter_counter != 1) {
+            if (fireball_meter_counter == 1) {
+                /* Counter is 1: reset to 2, skip meter/counter decrement */
+                fireball_meter_counter = 2;
+            } else {
+                /* Counter is 2: decrement meter, then decrement counter */
                 decrement_fireball_meter();
+                fireball_meter_counter--;
+                /* Counter is now 1; will become 0 on next non-fire tick */
             }
-        }
-        
-        /* Always decrement counter (whether fire key pressed or not) */
-        fireball_meter_counter--;
-        if (fireball_meter_counter == 0) {
-            /* Counter reached 0: increment meter and reset to 2 */
-            increment_fireball_meter();
-            fireball_meter_counter = 2;
+        } else {
+            /* Fire key not pressed: allow meter to recover */
+            fireball_meter_counter--;
+            if (fireball_meter_counter == 0) {
+                /* Counter reached 0: increment meter and reset to 2 */
+                increment_fireball_meter();
+                fireball_meter_counter = 2;
+            }
         }
         
         /* Render */
