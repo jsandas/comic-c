@@ -82,6 +82,12 @@ This project refactors The Adventures of Captain Comic (1990 DOS game) from x86-
 comic-c/
 ├── Dockerfile              # Docker build environment
 ├── Makefile                # Build targets (docker-build, compile, clean)
+├── README.md               # Project documentation
+├── docs/                   # Documentation files
+│   ├── AGENT_INSTRUCTIONS.md   # This file
+│   ├── BUILD_SYSTEM.md     # Build system documentation
+│   ├── CODING_STANDARDS.md # C coding conventions
+│   └── REFACTOR_PLAN.md    # Refactoring roadmap
 ├── include/                # C header files
 │   ├── globals.h          # Assembly global variable declarations
 │   ├── assembly.h         # Assembly function declarations
@@ -89,18 +95,29 @@ comic-c/
 ├── src/                    # C source files
 │   ├── R5sw1991_c.asm     # Modified assembly (exports + calls C)
 │   ├── game_main.c        # C game loop entry point
-│   └── file_loaders.c     # Data file loading functions
+│   ├── file_loaders.c     # Data file loading functions
+│   └── runtime_stubs.c    # Runtime stub functions
 ├── build/                  # Build artifacts (generated)
-│   ├── obj/               # Object files
-│   └── COMIC.EXE          # Final executable
+│   └── obj/               # Object files
 ├── reference/              # Original assembly reference
-│   └── disassembly/
-│       ├── R5sw1991.asm   # Original commented disassembly
-│       └── djlink/        # OMF linker
+│   ├── assets/             # Extracted assets (png, gif, etc.)
+│   ├── disassembly/        # Original disassembly
+│   │   ├── graphics/       # EGA graphics files
+│   │   ├── Makefile        # Disassembly build configuration
+│   │   ├── R3_levels.asm   # Level assembly reference
+│   │   ├── R5sw1991.asm   # Original commented disassembly
+│   │   ├── README          # Disassembly documentation
+│   │   └── djlink/        # OMF linker
+│   └── original/          # Original game files
 └── tests/                  # Testing framework
-    ├── scenarios/         # Test scenario documentation
-    ├── savestates/        # DOSBox save states (1.sav-4.sav)
-    └── capture/           # Reference screenshots
+    ├── README.md           # Testing documentation
+    ├── HOW_TO_CREATE_SCENARIOS.md   # Scenario creation guide
+    ├── validation_log.txt  # Test validation results
+    ├── dosbox_deterministic.conf    # DOSBox-X configuration
+    ├── run-dosbox.sh       # Helper script for running DOSBox-X
+    ├── capture/           # Reference screenshots
+    ├── savestates/        # DOSBox save states
+    └── scenarios/         # Test scenario documentation
 ```
 
 ### 7. Testing Workflow
