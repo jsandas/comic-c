@@ -7314,66 +7314,66 @@ comic_x_checkpoint	db	14
 
 alignb	16
 GRAPHICS_COMIC:
-incbin	"graphics/R4_comic_standing_right_16x32m.ega"
-incbin	"graphics/R4_comic_running_1_right_16x32m.ega"
-incbin	"graphics/R4_comic_running_2_right_16x32m.ega"
-incbin	"graphics/R4_comic_running_3_right_16x32m.ega"
-incbin	"graphics/R4_comic_jumping_right_16x32m.ega"
-incbin	"graphics/R4_comic_standing_left_16x32m.ega"
-incbin	"graphics/R4_comic_running_1_left_16x32m.ega"
-incbin	"graphics/R4_comic_running_2_left_16x32m.ega"
-incbin	"graphics/R4_comic_running_3_left_16x32m.ega"
-incbin	"graphics/R4_comic_jumping_left_16x32m.ega"
+incbin	"reference/disassembly/graphics/R4_comic_standing_right_16x32m.ega"
+incbin	"reference/disassembly/graphics/R4_comic_running_1_right_16x32m.ega"
+incbin	"reference/disassembly/graphics/R4_comic_running_2_right_16x32m.ega"
+incbin	"reference/disassembly/graphics/R4_comic_running_3_right_16x32m.ega"
+incbin	"reference/disassembly/graphics/R4_comic_jumping_right_16x32m.ega"
+incbin	"reference/disassembly/graphics/R4_comic_standing_left_16x32m.ega"
+incbin	"reference/disassembly/graphics/R4_comic_running_1_left_16x32m.ega"
+incbin	"reference/disassembly/graphics/R4_comic_running_2_left_16x32m.ega"
+incbin	"reference/disassembly/graphics/R4_comic_running_3_left_16x32m.ega"
+incbin	"reference/disassembly/graphics/R4_comic_jumping_left_16x32m.ega"
 
 GRAPHIC_FIREBALL_0:
-incbin	"graphics/fireball_0_16x8m.ega"
+incbin	"reference/disassembly/graphics/fireball_0_16x8m.ega"
 GRAPHIC_FIREBALL_1:
-incbin	"graphics/fireball_1_16x8m.ega"
+incbin	"reference/disassembly/graphics/fireball_1_16x8m.ega"
 
 GRAPHIC_WHITE_SPARK_0:
-incbin	"graphics/white_spark_0_16x16m.ega"
+incbin	"reference/disassembly/graphics/white_spark_0_16x16m.ega"
 GRAPHIC_WHITE_SPARK_1:
-incbin	"graphics/white_spark_1_16x16m.ega"
+incbin	"reference/disassembly/graphics/white_spark_1_16x16m.ega"
 GRAPHIC_WHITE_SPARK_2:
-incbin	"graphics/white_spark_2_16x16m.ega"
+incbin	"reference/disassembly/graphics/white_spark_2_16x16m.ega"
 
 GRAPHIC_RED_SPARK_0:
-incbin	"graphics/red_spark_0_16x16m.ega"
+incbin	"reference/disassembly/graphics/red_spark_0_16x16m.ega"
 GRAPHIC_RED_SPARK_1:
-incbin	"graphics/red_spark_1_16x16m.ega"
+incbin	"reference/disassembly/graphics/red_spark_1_16x16m.ega"
 GRAPHIC_RED_SPARK_2:
-incbin	"graphics/red_spark_2_16x16m.ega"
+incbin	"reference/disassembly/graphics/red_spark_2_16x16m.ega"
 
 ANIMATION_COMIC_DEATH:
-incbin	"graphics/comic_death_0_16x32m.ega"
-incbin	"graphics/comic_death_1_16x32m.ega"
-incbin	"graphics/comic_death_2_16x32m.ega"
-incbin	"graphics/comic_death_3_16x32m.ega"
-incbin	"graphics/comic_death_4_16x32m.ega"
-incbin	"graphics/comic_death_5_16x32m.ega"
-incbin	"graphics/comic_death_6_16x32m.ega"
-incbin	"graphics/comic_death_7_16x32m.ega"
+incbin	"reference/disassembly/graphics/comic_death_0_16x32m.ega"
+incbin	"reference/disassembly/graphics/comic_death_1_16x32m.ega"
+incbin	"reference/disassembly/graphics/comic_death_2_16x32m.ega"
+incbin	"reference/disassembly/graphics/comic_death_3_16x32m.ega"
+incbin	"reference/disassembly/graphics/comic_death_4_16x32m.ega"
+incbin	"reference/disassembly/graphics/comic_death_5_16x32m.ega"
+incbin	"reference/disassembly/graphics/comic_death_6_16x32m.ega"
+incbin	"reference/disassembly/graphics/comic_death_7_16x32m.ega"
 
 GRAPHIC_TELEPORT_0:
-incbin	"graphics/teleport_0_16x32m.ega"
+incbin	"reference/disassembly/graphics/teleport_0_16x32m.ega"
 GRAPHIC_TELEPORT_1:
-incbin	"graphics/teleport_1_16x32m.ega"
+incbin	"reference/disassembly/graphics/teleport_1_16x32m.ega"
 GRAPHIC_TELEPORT_2:
-incbin	"graphics/teleport_2_16x32m.ega"
+incbin	"reference/disassembly/graphics/teleport_2_16x32m.ega"
 
 ANIMATION_MATERIALIZE:
-incbin	"graphics/materialize_0_16x32m.ega"
-incbin	"graphics/materialize_1_16x32m.ega"
-incbin	"graphics/materialize_2_16x32m.ega"
-incbin	"graphics/materialize_3_16x32m.ega"
-incbin	"graphics/materialize_4_16x32m.ega"
-incbin	"graphics/materialize_5_16x32m.ega"
-incbin	"graphics/materialize_6_16x32m.ega"
-incbin	"graphics/materialize_7_16x32m.ega"
-incbin	"graphics/materialize_8_16x32m.ega"
-incbin	"graphics/materialize_9_16x32m.ega"
-incbin	"graphics/materialize_10_16x32m.ega"
-incbin	"graphics/materialize_11_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_0_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_1_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_2_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_3_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_4_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_5_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_6_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_7_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_8_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_9_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_10_16x32m.ega"
+incbin	"reference/disassembly/graphics/materialize_11_16x32m.ega"
 
 ANIMATION_TABLE_FIREBALL:
 dw	GRAPHIC_FIREBALL_0
@@ -7410,74 +7410,74 @@ dw	GRAPHIC_TELEPORT_0
 ; item animation, or the dark version of the life icon.
 GRAPHICS_ITEMS_EVEN_FRAMES:
 GRAPHIC_CORKSCREW_EVEN:
-incbin	"graphics/corkscrew_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/corkscrew_even_16x16m.ega"
 GRAPHIC_DOOR_KEY_EVEN:
-incbin	"graphics/door_key_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/door_key_even_16x16m.ega"
 GRAPHIC_BOOTS_EVEN:
-incbin	"graphics/boots_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/boots_even_16x16m.ega"
 GRAPHIC_LANTERN_EVEN:
-incbin	"graphics/lantern_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/lantern_even_16x16m.ega"
 GRAPHIC_TELEPORT_WAND_EVEN:
-incbin	"graphics/teleport_wand_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/teleport_wand_even_16x16m.ega"
 GRAPHIC_GEMS_EVEN:
-incbin	"graphics/gems_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/gems_even_16x16m.ega"
 GRAPHIC_CROWN_EVEN:
-incbin	"graphics/crown_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/crown_even_16x16m.ega"
 GRAPHIC_GOLD_EVEN:
-incbin	"graphics/gold_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/gold_even_16x16m.ega"
 GRAPHIC_BLASTOLA_COLA_EVEN:
-incbin	"graphics/blastola_cola_even_16x16m.ega"
-incbin	"graphics/blastola_cola_inventory_1_even_16x16m.ega"
-incbin	"graphics/blastola_cola_inventory_2_even_16x16m.ega"
-incbin	"graphics/blastola_cola_inventory_3_even_16x16m.ega"
-incbin	"graphics/blastola_cola_inventory_4_even_16x16m.ega"
-incbin	"graphics/blastola_cola_inventory_5_even_16x16m.ega"
-incbin	"graphics/shield_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_inventory_1_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_inventory_2_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_inventory_3_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_inventory_4_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_inventory_5_even_16x16m.ega"
+incbin	"reference/disassembly/graphics/shield_even_16x16m.ega"
 GRAPHIC_LIFE_ICON:
-incbin	"graphics/life_icon_bright_16x16m.ega"
+incbin	"reference/disassembly/graphics/life_icon_bright_16x16m.ega"
 
 GRAPHICS_ITEMS_ODD_FRAMES:
-incbin	"graphics/corkscrew_odd_16x16m.ega"
-incbin	"graphics/door_key_odd_16x16m.ega"
-incbin	"graphics/boots_odd_16x16m.ega"
-incbin	"graphics/lantern_odd_16x16m.ega"
-incbin	"graphics/teleport_wand_odd_16x16m.ega"
-incbin	"graphics/gems_odd_16x16m.ega"
-incbin	"graphics/crown_odd_16x16m.ega"
-incbin	"graphics/gold_odd_16x16m.ega"
-incbin	"graphics/blastola_cola_odd_16x16m.ega"
-incbin	"graphics/blastola_cola_inventory_1_odd_16x16m.ega"
-incbin	"graphics/blastola_cola_inventory_2_odd_16x16m.ega"
-incbin	"graphics/blastola_cola_inventory_3_odd_16x16m.ega"
-incbin	"graphics/blastola_cola_inventory_4_odd_16x16m.ega"
-incbin	"graphics/blastola_cola_inventory_5_odd_16x16m.ega"
-incbin	"graphics/shield_odd_16x16m.ega"
-incbin	"graphics/life_icon_dark_16x16m.ega"
+incbin	"reference/disassembly/graphics/corkscrew_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/door_key_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/boots_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/lantern_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/teleport_wand_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/gems_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/crown_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/gold_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_inventory_1_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_inventory_2_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_inventory_3_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_inventory_4_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/blastola_cola_inventory_5_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/shield_odd_16x16m.ega"
+incbin	"reference/disassembly/graphics/life_icon_dark_16x16m.ega"
 
 GRAPHICS_SCORE_DIGITS:
-incbin	"graphics/score_digit_0_8x16.ega"
-incbin	"graphics/score_digit_1_8x16.ega"
-incbin	"graphics/score_digit_2_8x16.ega"
-incbin	"graphics/score_digit_3_8x16.ega"
-incbin	"graphics/score_digit_4_8x16.ega"
-incbin	"graphics/score_digit_5_8x16.ega"
-incbin	"graphics/score_digit_6_8x16.ega"
-incbin	"graphics/score_digit_7_8x16.ega"
-incbin	"graphics/score_digit_8_8x16.ega"
-incbin	"graphics/score_digit_9_8x16.ega"
+incbin	"reference/disassembly/graphics/score_digit_0_8x16.ega"
+incbin	"reference/disassembly/graphics/score_digit_1_8x16.ega"
+incbin	"reference/disassembly/graphics/score_digit_2_8x16.ega"
+incbin	"reference/disassembly/graphics/score_digit_3_8x16.ega"
+incbin	"reference/disassembly/graphics/score_digit_4_8x16.ega"
+incbin	"reference/disassembly/graphics/score_digit_5_8x16.ega"
+incbin	"reference/disassembly/graphics/score_digit_6_8x16.ega"
+incbin	"reference/disassembly/graphics/score_digit_7_8x16.ega"
+incbin	"reference/disassembly/graphics/score_digit_8_8x16.ega"
+incbin	"reference/disassembly/graphics/score_digit_9_8x16.ega"
 
 GRAPHIC_METER_EMPTY:
-incbin	"graphics/meter_empty_8x16.ega"
+incbin	"reference/disassembly/graphics/meter_empty_8x16.ega"
 GRAPHIC_METER_HALF:
-incbin	"graphics/meter_half_8x16.ega"
+incbin	"reference/disassembly/graphics/meter_half_8x16.ega"
 GRAPHIC_METER_FULL:
-incbin	"graphics/meter_full_8x16.ega"
+incbin	"reference/disassembly/graphics/meter_full_8x16.ega"
 
 GRAPHIC_PAUSE:
-incbin	"graphics/R4_pause_128x48.ega"
+incbin	"reference/disassembly/graphics/R4_pause_128x48.ega"
 
 GRAPHIC_GAME_OVER:
-incbin	"graphics/R4_game_over_128x48.ega"
+incbin	"reference/disassembly/graphics/R4_game_over_128x48.ega"
 
 alignb	16
 door_blit_offset	dw	0	; used as an extra pointer parameter by exit_door and enter_door
@@ -7761,7 +7761,7 @@ iend
 section level_data
 sectalign	16
 
-%include	"R3_levels.asm"
+%include	"reference/disassembly/R3_levels.asm"
 
 
 section input_config_strings

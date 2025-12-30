@@ -28,7 +28,7 @@ DJLINKFLAGS =
 # Source files
 C_SOURCES = $(wildcard $(SRC_DIR)/*.c)
 C_OBJECTS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.obj,$(C_SOURCES))
-ASM_SOURCE = $(REFERENCE_DIR)/R5sw1991.asm
+ASM_SOURCE = $(SRC_DIR)/R5sw1991_c.asm
 ASM_OBJECT = $(OBJ_DIR)/R5sw1991.obj
 
 # Output executable
@@ -84,7 +84,7 @@ $(OBJ_DIR)/%.obj: $(SRC_DIR)/%.c
 $(ASM_OBJECT): $(ASM_SOURCE)
 	@echo "Assembling $<..."
 	@mkdir -p $(OBJ_DIR)
-	cd $(REFERENCE_DIR) && $(NASM) $(NASMFLAGS) -o $(WORKSPACE)/$(OBJ_DIR)/R5sw1991.obj R5sw1991.asm
+	$(NASM) $(NASMFLAGS) -o $@ $<
 
 # Clean build artifacts
 clean:

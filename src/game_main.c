@@ -9,9 +9,12 @@
 #include "globals.h"
 #include "assembly.h"
 
-/* STUB: These assembly functions will be called; for now they're stubbed */
-void load_new_level(void) { }
-void game_loop(void) { }
+/* Assembly functions that will be called from C */
+#pragma aux load_new_level "*"
+extern void load_new_level(void);
+
+#pragma aux game_loop "*"
+extern void game_loop(void);
 
 /* 
  * Main game function called from assembly
@@ -28,7 +31,7 @@ void game_loop(void) { }
  *   GAME_EXIT_WIN (1) - player won the game
  *   GAME_EXIT_GAMEOVER (2) - player lost all lives
  */
-#pragma aux game_main "*"
+#pragma aux game_main "_*"
 int game_main(void)
 {
     /* Phase 1: Minimal integration - just call assembly functions */

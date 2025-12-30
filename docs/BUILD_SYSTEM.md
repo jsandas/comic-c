@@ -19,7 +19,7 @@ make docker-build
 # 2. Compile the project
 make compile
 
-# 3. Executable will be at: build/COMIC.EXE
+# 3. Executable will be at: build/COMIC-C.EXE
 ```
 
 ## Development Workflow
