@@ -11,7 +11,7 @@
 
 /*
  * C implementation of the game loop
- * Translated from assembly at reference/disassembly/R5sw1991.asm:3861
+ * Translated from assembly at reference/disassembly/R5sw1991_c.asm:3861
  */
 void game_loop(void)
 {
