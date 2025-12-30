@@ -108,13 +108,14 @@ check_pause_input:
         }
         
         /* Fire input and fireball meter recovery */
+        /* Counter cycles: 2 → 1 → 0 → 2 → 1 → 0 ...
+           When counter == 2 and fire pressed: decrement meter
+           When counter reaches 0: increment meter */
         if (key_state_fire && fireball_meter > 0) {
             /* Fire key pressed and meter available: shoot fireball */
             try_to_fire();
             
-            /* Meter adjustment based on counter alternating 2, 1, 2, 1, ...
-               Counter == 1: reset to 2 (skip decrement)
-               Counter == 2: decrement meter */
+            /* Decrement meter only when counter == 2 (not when 1) */
             if (fireball_meter_counter != 1) {
                 decrement_fireball_meter();
             }
@@ -125,9 +126,6 @@ check_pause_input:
         if (fireball_meter_counter == 0) {
             /* Counter reached 0: increment meter and reset to 2 */
             increment_fireball_meter();
-            fireball_meter_counter = 2;
-        } else if (fireball_meter_counter == 1) {
-            /* Counter just became 1: reset it to 2 */
             fireball_meter_counter = 2;
         }
         
