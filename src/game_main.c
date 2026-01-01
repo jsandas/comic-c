@@ -2,52 +2,20 @@
  * game_main.c - Main game loop in C
  * 
  * This is the C entry point called from assembly after initialization.
- * Initially wraps existing assembly functions, then incrementally converts
- * them to C.
+ * Currently not used - assembly calls load_new_level directly.
+ * Kept as placeholder for future C implementation of game loop.
  */
 
 #include "globals.h"
 #include "assembly.h"
 
-/* Assembly functions that will be called from C */
-#pragma aux load_new_level "*"
-extern void load_new_level(void);
-
-#pragma aux game_loop "*"
-extern void game_loop(void);
-
 /* 
- * Main game function called from assembly
+ * DEPRECATED: This was intended as a C wrapper but calling convention issues
+ * between 16-bit assembly and C made it problematic. For now, assembly calls
+ * load_new_level directly.
  * 
- * Called after:
- *   - DS segment initialized
- *   - Interrupt handlers installed
- *   - Video mode set to 320x200 16-color EGA
- *   - Title sequence completed
- *   - Lives initialized (comic_num_lives = MAX_NUM_LIVES - 1)
- * 
- * Returns:
- *   GAME_EXIT_QUIT (0) - user quit via ESC menu
- *   GAME_EXIT_WIN (1) - player won the game
- *   GAME_EXIT_GAMEOVER (2) - player lost all lives
+ * Future: Implement game loop in C instead of assembly
  */
-#pragma aux game_main "_*"
-int game_main(void)
-{
-    /* Phase 1: Minimal integration - just call assembly functions */
-    
-    /* Load the initial level (LEVEL_NUMBER_FOREST, stage 0) */
-    /* These are already set by assembly initialization */
-    load_new_level();  /* Assembly function (currently stubbed) */
-    
-    /* Enter the main game loop (assembly implementation) */
-    /* This will run until the player quits, wins, or loses */
-    game_loop();   /* Assembly function (currently stubbed) */
-    
-    /* The game loop should never return under normal circumstances */
-    /* as it calls terminate_program directly, but we return a default */
-    return GAME_EXIT_QUIT;
-}
 
 /*
  * Future: game_loop_iteration() - C implementation of one game tick

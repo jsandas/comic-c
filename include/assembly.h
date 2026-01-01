@@ -29,12 +29,13 @@
 #pragma aux render_map "*"
 
 /* Level and stage management */
-extern void load_new_level(void);
-extern void load_new_stage(void);
-extern void render_map(void);
+/* These are NEAR functions in assembly (use 'ret' not 'retf') */
+extern void __near load_new_level(void);
+extern void __near load_new_stage(void);
+extern void __near render_map(void);
 
 /* Main game loop (assembly implementation) */
-extern void game_loop(void);
+extern void __near game_loop(void);
 
 /* Video/rendering functions */
 extern void swap_video_buffers(void);

@@ -6,9 +6,6 @@
 
 bits	16
 
-; External C function
-extern _game_main
-
 ; Keyboard scancodes.
 ; https://www.win.tue.nl/~aeb/linux/kbd/scancodes-1.html
 SCANCODE_ALT		equ	56
@@ -993,10 +990,7 @@ initialize_lives_sequence:
 	; https://tcrf.net/The_Adventures_of_Captain_Comic_(DOS)#Unused_Instant-Win_Mode
 	mov byte [win_counter], 200
 .num_lives_ok:
-	; MODIFICATION: Call C game_main() instead of jumping to load_new_level
-	call _game_main		; C function returns exit code in AX
-	; Fall through to terminate_program
-	jmp terminate_program
+	jmp load_new_level	; Jump to load_new_level (never returns)
 
 ; Set the palette entries for colors 2, 10, and 12 (ordinarily green, bright
 ; green, bright red) to black (rgbRGB 000000). The effect is instant, with no
@@ -7026,73 +7020,73 @@ NOTE_C5			equ	0x08e9	; 523.096 Hz
 NOTE_D5			equ	0x07f1	; 586.907 Hz
 
 SOUND_TITLE:
-dw	NOTE_D3, 3
-dw	NOTE_E3, 3
-dw	NOTE_F3, 6
-dw	NOTE_A3, 3
-dw	NOTE_A3, 6
-dw	NOTE_A3, 3
-dw	NOTE_A3, 3
-dw	NOTE_A3, 3
-dw	NOTE_G3, 6
-dw	NOTE_F3, 6
-dw	NOTE_E3, 6
-dw	NOTE_D3, 3
-dw	NOTE_E3, 3
-dw	NOTE_F3, 6
-dw	NOTE_G3, 3
-dw	NOTE_G3, 5
-dw	NOTE_G3, 3
-dw	NOTE_G3, 3
-dw	NOTE_G3, 3
-dw	NOTE_F3, 6
-dw	NOTE_E3, 6
-dw	NOTE_D3, 6
-dw	NOTE_D3, 3
-dw	NOTE_E3, 3
-dw	NOTE_F3, 6
-dw	NOTE_A3, 3
-dw	NOTE_A3, 5
-dw	NOTE_A3, 3
-dw	NOTE_A3, 3
-dw	NOTE_A3, 3
-dw	NOTE_G3, 6
-dw	NOTE_F3, 7
-dw	NOTE_E3, 12
-dw	NOTE_A3, 6
-dw	NOTE_G3, 3
-dw	NOTE_F3, 6
-dw	NOTE_E3, 3
-dw	NOTE_D3, 9
-dw	NOTE_F3, 3
-dw	NOTE_E3, 6
-dw	NOTE_D3, 12
-dw	NOTE_A3, 14
-dw	NOTE_G3, 3
-dw	NOTE_F3, 3
-dw	NOTE_E3, 3
-dw	NOTE_F3, 13
-dw	NOTE_D3, 13
-dw	NOTE_G3, 15
-dw	NOTE_F3, 3
-dw	NOTE_E3, 3
-dw	NOTE_D3, 3
-dw	NOTE_E3, 13
-dw	NOTE_C3, 13
-dw	NOTE_A3, 16
-dw	NOTE_G3, 3
-dw	NOTE_F3, 3
-dw	NOTE_E3, 3
-dw	NOTE_F3, 13
-dw	NOTE_D3, 11
-dw	NOTE_A3, 6
-dw	NOTE_G3, 3
-dw	NOTE_F3, 6
-dw	NOTE_E3, 3
-dw	NOTE_D3, 10
-dw	NOTE_F3, 3
-dw	NOTE_E3, 6
-dw	NOTE_D3, 10
+; dw	NOTE_D3, 3
+; dw	NOTE_E3, 3
+; dw	NOTE_F3, 6
+; dw	NOTE_A3, 3
+; dw	NOTE_A3, 6
+; dw	NOTE_A3, 3
+; dw	NOTE_A3, 3
+; dw	NOTE_A3, 3
+; dw	NOTE_G3, 6
+; dw	NOTE_F3, 6
+; dw	NOTE_E3, 6
+; dw	NOTE_D3, 3
+; dw	NOTE_E3, 3
+; dw	NOTE_F3, 6
+; dw	NOTE_G3, 3
+; dw	NOTE_G3, 5
+; dw	NOTE_G3, 3
+; dw	NOTE_G3, 3
+; dw	NOTE_G3, 3
+; dw	NOTE_F3, 6
+; dw	NOTE_E3, 6
+; dw	NOTE_D3, 6
+; dw	NOTE_D3, 3
+; dw	NOTE_E3, 3
+; dw	NOTE_F3, 6
+; dw	NOTE_A3, 3
+; dw	NOTE_A3, 5
+; dw	NOTE_A3, 3
+; dw	NOTE_A3, 3
+; dw	NOTE_A3, 3
+; dw	NOTE_G3, 6
+; dw	NOTE_F3, 7
+; dw	NOTE_E3, 12
+; dw	NOTE_A3, 6
+; dw	NOTE_G3, 3
+; dw	NOTE_F3, 6
+; dw	NOTE_E3, 3
+; dw	NOTE_D3, 9
+; dw	NOTE_F3, 3
+; dw	NOTE_E3, 6
+; dw	NOTE_D3, 12
+; dw	NOTE_A3, 14
+; dw	NOTE_G3, 3
+; dw	NOTE_F3, 3
+; dw	NOTE_E3, 3
+; dw	NOTE_F3, 13
+; dw	NOTE_D3, 13
+; dw	NOTE_G3, 15
+; dw	NOTE_F3, 3
+; dw	NOTE_E3, 3
+; dw	NOTE_D3, 3
+; dw	NOTE_E3, 13
+; dw	NOTE_C3, 13
+; dw	NOTE_A3, 16
+; dw	NOTE_G3, 3
+; dw	NOTE_F3, 3
+; dw	NOTE_E3, 3
+; dw	NOTE_F3, 13
+; dw	NOTE_D3, 11
+; dw	NOTE_A3, 6
+; dw	NOTE_G3, 3
+; dw	NOTE_F3, 6
+; dw	NOTE_E3, 3
+; dw	NOTE_D3, 10
+; dw	NOTE_F3, 3
+; dw	NOTE_E3, 6
+; dw	NOTE_D3, 10
 dw	SOUND_TERMINATOR, 0
 
 ; Some strings are stored in an obfuscated form, with every byte xored with
