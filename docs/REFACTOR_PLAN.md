@@ -77,6 +77,18 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
 └────────────────────────────────────┘
 ```
 
+### Current State Note (As of 2025-12-31)
+
+The **Target State** diagram above represents the *eventual* goal. However, the current implementation takes a pragmatic approach:
+
+- **Assembly remains in control**: `R5sw1991_c.asm` orchestrates the entire program flow
+- **C acts as framework**: The C headers (`globals.h`, `assembly.h`) establish the interface for future porting
+- **No C/Assembly boundary crossing for game loop**: Instead of calling C functions with complex calling conventions, assembly calls `load_new_level()` directly
+- **Game loop entirely in assembly**: `load_new_level()` → `load_new_stage()` → `game_loop()` (all assembly)
+- **game_main.c is a placeholder**: Currently contains no active code, just commented-out pseudocode showing the intended game loop structure
+
+**Rationale**: Early attempts to call C functions from 16-bit assembly exposed calling convention incompatibilities with djlink. Rather than spend time on C/Assembly boundaries, we've prioritized getting the game running, with the C framework ready for incremental porting.
+
 ## Refactoring Strategy
 
 ### Phase 1: Foundation ✅ (COMPLETED)
@@ -89,48 +101,70 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
    - Volume mounting for workspace
 
 2. ✅ Create C/Assembly bridge
-   - Modified `R5sw1991_c.asm` with:
-     - `extern _game_main` declaration
-     - `global` exports for functions and variables
-     - Call to `_game_main()` after initialization
-   - `globals.h` with `#pragma aux "*"` declarations
-   - `assembly.h` for assembly function declarations
+   - Modified `R5sw1991_c.asm` with `global` exports for functions and variables
+   - `globals.h` with `#pragma aux "*"` declarations for all game state variables
+   - `assembly.h` for assembly function declarations with `__near` calling convention
+   - Successfully resolved 16-bit calling convention issues (far vs. near calls)
 
-3. ✅ Minimal C entry point
-   - `game_main.c` with stub `game_main()` function
-   - Initially just calls `load_new_level()` and `game_loop()` assembly functions
-   - Validates C→assembly→C transition works
+3. ✅ Establish direct assembly control
+   - `R5sw1991_c.asm` remains the primary control flow
+   - `game_main.c` is a placeholder for future C implementation
+   - Assembly directly calls `load_new_level()` which transitions to game
+   - Game loop runs entirely in assembly (`load_new_level` → `load_new_stage` → `game_loop`)
+   - This eliminates complex C/Assembly boundary crossing for now
 
 4. ✅ Data file loader infrastructure
    - `file_loaders.h` with file format definitions
-   - `file_loaders.c` with `load_pt_file()` implementation (first conversion)
+   - `file_loaders.c` with `load_pt_file()` stub (not yet active)
    - Placeholder stubs for `.TT2`, `.SHP`, `.EGA` loaders
+   - File I/O currently handled by assembly INT 21h calls
 
-### Phase 2: Game Loop Migration (NEXT)
+### Phase 2: Incremental Function Migration (NEXT)
+
+**Goal**: Start moving assembly functions to C one at a time
+
+**Strategy**: Rather than trying to move entire subsystems at once, migrate individual functions:
+1. Create C implementation of a function
+2. Declare it in `assembly.h` as `extern`
+3. Remove assembly implementation
+4. Assembly calls C function via same interface
+5. No calling convention issues since assembly and C are in same memory model
+
+**Suggested starting points** (simple, isolated):
+1. **render_map()** - Pre-render entire map to video buffer
+   - Takes no parameters, no return value
+   - Only modifies video memory
+   - Can validate by comparing rendered output
+
+2. **swap_video_buffers()** - Switch between 0x0000 and 0x2000 buffers
+   - One parameter (delay count)
+   - No side effects besides video
+   - Simplest possible function
+
+3. **wait_n_ticks()** - Wait for N game ticks
+   - One parameter (tick count)
+   - Reads `game_tick_flag` global
+   - Core timing mechanism
+
+**Migration checklist**:
+- [ ] Copy assembly logic to C function
+- [ ] Test with equivalent assembly code still present (side-by-side)
+- [ ] Compare behavior (timing, state changes)
+- [ ] Remove assembly version
+- [ ] Recompile and test with C version
+- [ ] Commit working state
+
+### Phase 3: Game Loop Migration (FUTURE)
 
 **Goal**: Move main game loop logic from assembly to C
 
-1. **Extract tick loop structure**
-   - Create `game_loop_iteration()` in C
-   - Implement wait-for-tick logic reading `game_tick_flag`
-   - Keep calling assembly functions for actual work
+Once individual function migration is working, consider implementing `game_loop_iteration()` in C:
+1. Implement tick-waiting logic
+2. Input state checking
+3. Call assembly functions for complex subsystems
+4. Win/lose condition checking
 
-2. **Input handling in C**
-   - Read `key_state_*` globals directly
-   - Implement input state checks (jump, fire, left, right, etc.)
-   - Call assembly functions for actual actions
-
-3. **Win/lose/quit logic**
-   - Handle `win_counter` in C
-   - Detect game over conditions
-   - Return appropriate exit code to assembly
-
-4. **Validation**
-   - Test with Tier 1 scenarios (pure logic, no side effects)
-   - Verify tick timing matches original
-   - Confirm input responsiveness identical
-
-### Phase 3: Rendering Subsystem
+### Phase 4: Rendering Subsystem
 
 **Goal**: Convert graphics rendering to C
 
@@ -158,7 +192,7 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
    - Verify pixel-perfect rendering
    - Confirm no graphical glitches
 
-### Phase 4: Physics and Collision
+### Phase 5: Physics and Collision
 
 **Goal**: Convert movement and collision detection to C
 
@@ -185,7 +219,7 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
    - Verify physics matches original (jump height, fall speed)
    - Confirm pixel-perfect movement
 
-### Phase 5: Actor Management
+### Phase 6: Actor Management
 
 **Goal**: Convert enemy AI and projectile handling to C
 
@@ -226,7 +260,7 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
    - Verify each behavior type works correctly
    - Confirm collision timing matches original
 
-### Phase 6: Game State Management
+### Phase 7: Game State Management
 
 **Goal**: Convert level loading, doors, teleportation to C
 
@@ -265,7 +299,7 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
    - Verify door connections work correctly
    - Confirm teleportation positioning exact
 
-### Phase 7: Sound and Input (Optional)
+### Phase 8: Sound and Input (Optional)
 
 **Goal**: Convert remaining subsystems (lower priority)
 
