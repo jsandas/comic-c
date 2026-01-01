@@ -177,3 +177,9 @@ See documentation:
 
 This is a preservation and educational project. Original game copyright © 1990 Michael A. Denio.
 
+
+### DOSBox Debugger
+Opt + F12 starts debugger
+
+C <segment>:<offset> - get disassembly code
+s <segment>:<offset> - get stack
