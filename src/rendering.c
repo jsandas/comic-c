@@ -23,7 +23,7 @@ extern void award_extra_life(void);
  * the ten-thousands digit) awards an extra life.
  *
  * Input:
- *   points = points to add (in base-100 format, 0-99)
+ *   points = points to add (regular decimal value in range 0–99, added to the base-100 digit array)
  */
 void award_points_c(uint8_t points)
 {
