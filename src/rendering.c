@@ -52,14 +52,15 @@ void award_points_c(uint8_t points)
         digit_index++;
     }
     
-    /* Check for extra life bonus (every 50000 points)
-     * This happens when we carry into the third digit (ten thousands place)
+    /* Check for extra life bonus (every 50000 points).
+     * We treat any addition that reaches the third digit (ten-thousands place)
+     * or beyond (digit_index >= 2) as a "carry" event for the bonus counter.
      */
-    if (digit_index == 3) {
-        /* We carried into the ten-thousands digit */
+    if (digit_index >= 2) {
+        /* The addition reached/processed the ten-thousands digit */
         score_10000_counter++;
         
-        /* Award extra life every 5 carries (50000 points) */
+        /* Award extra life every 5 such events (50000 points) */
         if (score_10000_counter >= 5) {
             score_10000_counter = 0;
             award_extra_life();
