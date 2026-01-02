@@ -15,14 +15,25 @@
 #pragma aux comic_hp "*"
 #pragma aux increment_comic_hp_c "*"
 #pragma aux decrement_comic_hp_c "*"
+#pragma aux fireball_meter "*"
+#pragma aux increment_fireball_meter_c "*"
+#pragma aux decrement_fireball_meter_c "*"
 #pragma aux blit_8x16 "*"
 
 /* External declarations for globals needed by award_points_c, increment_comic_hp_c, decrement_comic_hp_c */
 extern uint8_t score[3];
 extern uint8_t score_10000_counter;
 extern uint8_t comic_hp;
+extern uint8_t fireball_meter;
 extern void award_extra_life(void);
 extern void blit_8x16(void);  /* Assembly function to blit 8x16 graphics */
+
+/* External graphics symbols referenced by the meter functions.
+ * These are defined in assembly and point to graphic data in memory.
+ */
+extern uint8_t GRAPHIC_METER_FULL;
+extern uint8_t GRAPHIC_METER_HALF;
+extern uint8_t GRAPHIC_METER_EMPTY;
 
 /* Award points to the player. Points are added with carry propagation
  * through a base-100 digit system. Each carry into the ten-thousands digit
@@ -144,6 +155,66 @@ void decrement_comic_hp_c(void)
 void __near render_map_c(void)
 {
     /* This is never called - render_map in assembly calls render_map directly */
+}
+
+/* Add 1 unit to fireball_meter, unless already at MAX_FIREBALL_METER.
+ * Updates the UI by blitting the appropriate meter graphic.
+ *
+ * The fireball meter is conceptually made up of 6 cells, each of which
+ * may be empty, half-full, or full. A half-full cell represents 1 unit
+ * and a full cell represents 2. When the meter increments from even to
+ * odd, we advance a cell from empty to half-full. When the meter
+ * increments from odd to even, we advance a cell from half-full to full.
+ *
+ * Output:
+ *   fireball_meter = incremented by 1 unless already at MAX_FIREBALL_METER
+ *
+ * Note: Video display update (blit_8x16) is handled by the assembly wrapper.
+ * The assembly increment_fireball_meter function calls blit_8x16 with the
+ * appropriate meter graphic to update the fireball meter at position (240, 54).
+ */
+void increment_fireball_meter_c(void)
+{
+    /* Check if meter is already at maximum */
+    if (fireball_meter == MAX_FIREBALL_METER) {
+        return;  /* Already at maximum, do nothing */
+    }
+
+    /* Increment the meter */
+    fireball_meter++;
+
+    /* Note: The video display update is handled by the assembly wrapper.
+     * The assembly function calls blit_8x16 with either GRAPHIC_METER_HALF
+     * or GRAPHIC_METER_FULL depending on whether the meter is now odd or even.
+     * For a C-only implementation, video update logic would go here.
+     */
+}
+
+/* Subtract 1 unit from fireball_meter, unless already at 0.
+ * Updates the UI by blitting the appropriate meter graphic.
+ *
+ * Output:
+ *   fireball_meter = decremented by 1 unless already at 0
+ *
+ * Note: Video display update (blit_8x16) is handled by the assembly wrapper.
+ * The assembly decrement_fireball_meter function calls blit_8x16 with the
+ * appropriate meter graphic to update the fireball meter at position (240, 54).
+ */
+void decrement_fireball_meter_c(void)
+{
+    /* Check if meter is already at 0 */
+    if (fireball_meter == 0) {
+        return;  /* No meter remaining to take away */
+    }
+
+    /* Decrement the meter */
+    fireball_meter--;
+
+    /* Note: The video display update is handled by the assembly wrapper.
+     * The assembly function calls blit_8x16 with either GRAPHIC_METER_HALF
+     * or GRAPHIC_METER_EMPTY depending on whether the meter is now odd or even.
+     * For a C-only implementation, video update logic would go here.
+     */
 }
 
 
