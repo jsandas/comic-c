@@ -49,6 +49,8 @@
 #pragma aux key_state_left "*"
 #pragma aux key_state_right "*"
 #pragma aux key_state_fire "*"
+#pragma aux tileset_graphics "*"
+#pragma aux current_tiles_ptr "*"
 
 /* Type definitions for game constants */
 typedef unsigned char uint8;
@@ -73,6 +75,9 @@ typedef signed short int16;
 
 #define PLAYFIELD_WIDTH         24  /* in game units */
 #define PLAYFIELD_HEIGHT        MAP_HEIGHT
+
+/* Video memory buffer offset for rendered map */
+#define RENDERED_MAP_BUFFER     0x4000
 
 #define MAX_HP                  6
 #define MAX_FIREBALL_METER      12
@@ -149,5 +154,9 @@ extern uint8_t key_state_teleport;
 extern uint8_t key_state_left;
 extern uint8_t key_state_right;
 extern uint8_t key_state_fire;
+
+/* Graphics and map data */
+extern uint8_t tileset_graphics[];
+extern uint8_t *current_tiles_ptr;
 
 #endif /* GLOBALS_H */
