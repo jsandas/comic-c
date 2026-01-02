@@ -28,13 +28,6 @@ extern uint8_t fireball_meter;
 extern void award_extra_life(void);
 extern void blit_8x16(void);  /* Assembly function to blit 8x16 graphics */
 
-/* External graphics symbols referenced by the meter functions.
- * These are defined in assembly and point to graphic data in memory.
- */
-extern uint8_t GRAPHIC_METER_FULL;
-extern uint8_t GRAPHIC_METER_HALF;
-extern uint8_t GRAPHIC_METER_EMPTY;
-
 /* Award points to the player. Points are added with carry propagation
  * through a base-100 digit system. Each carry into the ten-thousands digit
  * (digit index 2) represents 10,000 points; every 5 such carries (50,000 total
