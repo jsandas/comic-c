@@ -12,11 +12,17 @@
 #pragma aux score_10000_counter "*"
 #pragma aux award_extra_life "*"
 #pragma aux award_points_c "*"
+#pragma aux comic_hp "*"
+#pragma aux increment_comic_hp_c "*"
+#pragma aux decrement_comic_hp_c "*"
+#pragma aux blit_8x16 "*"
 
-/* External declarations for globals needed by award_points */
+/* External declarations for globals needed by award_points_c, increment_comic_hp_c, decrement_comic_hp_c */
 extern uint8_t score[3];
 extern uint8_t score_10000_counter;
+extern uint8_t comic_hp;
 extern void award_extra_life(void);
+extern void blit_8x16(void);  /* Assembly function to blit 8x16 graphics */
 
 /* Award points to the player. Points are added with carry propagation
  * through a base-100 digit system. Each carry into the ten-thousands digit
@@ -74,6 +80,64 @@ void award_points_c(uint8_t points)
         /* Move to next digit */
         digit_index++;
     }
+}
+
+/* Add 1 unit to comic_hp, unless comic_hp is already at MAX_HP, in which case
+ * award 1800 points.
+ * 
+ * Output:
+ *   comic_hp = incremented by 1 unless already at MAX_HP
+ *   score = increased by 1800 points if comic_hp was already at MAX_HP
+ */
+void increment_comic_hp_c(void)
+{
+    /* Check if HP is already at maximum */
+    if (comic_hp == MAX_HP) {
+        /* HP is already full. Award overcharge bonus points.
+         * 1800 points = 18 * 100, so call award_points_c with 18 to award 1800 points.
+         */
+        award_points_c(18);
+        return;
+    }
+    
+    /* Increment HP */
+    comic_hp++;
+    
+    /* Note: Video display update (blit_8x16) is handled by the assembly wrapper.
+     * The assembly increment_comic_hp function calls blit_8x16 with GRAPHIC_METER_FULL
+     * to update the HP meter at position (240, 82).
+     */
+}
+
+/* Play SOUND_DAMAGE (if invoked by an external assembly wrapper) and subtract
+ * 1 unit from comic_hp, unless already at 0.
+ *
+ * Note: This C function does not itself trigger the damage sound; any sound
+ * effect must be handled by an external assembly wrapper or caller before
+ * or around the call to this function.
+ *
+ * Output:
+ *   comic_hp = decremented by 1 unless already at 0
+ */
+void decrement_comic_hp_c(void)
+{
+    /* Damage sound is not played in this C function; if desired, an external
+     * assembly wrapper should invoke the appropriate sound routine before
+     * calling decrement_comic_hp_c.
+     */
+    
+    /* Check if HP is already at 0 */
+    if (comic_hp == 0) {
+        return;  /* No HP remaining to take away */
+    }
+    
+    /* Decrement HP */
+    comic_hp--;
+    
+    /* Note: Video display update (blit_8x16) is handled by the assembly wrapper.
+     * The assembly decrement_comic_hp function calls blit_8x16 with GRAPHIC_METER_EMPTY
+     * to update the HP meter at position (240, 82).
+     */
 }
 
 /* For now, just a placeholder - the real work is done in assembly */

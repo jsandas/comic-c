@@ -165,6 +165,10 @@ TERMINAL_VELOCITY	equ	23	; in units of 1/8 game units per tick, as in comic_y_ve
 ; pixels in a row and 8 pixels per byte (in each EGA plane).
 %define pixel_coords(x, y)	(((y)*SCREEN_WIDTH+(x))/8)
 
+; External C functions
+extern award_points_c
+extern increment_comic_hp_c
+extern decrement_comic_hp_c
 
 ; The cs register normally points to this section.
 section code
