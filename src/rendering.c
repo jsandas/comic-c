@@ -12,11 +12,17 @@
 #pragma aux score_10000_counter "*"
 #pragma aux award_extra_life "*"
 #pragma aux award_points_c "*"
+#pragma aux comic_hp "*"
+#pragma aux increment_comic_hp_c "*"
+#pragma aux decrement_comic_hp_c "*"
+#pragma aux blit_8x16 "*"
 
-/* External declarations for globals needed by award_points */
+/* External declarations for globals needed by award_points, increment_comic_hp, decrement_comic_hp */
 extern uint8_t score[3];
 extern uint8_t score_10000_counter;
+extern uint8_t comic_hp;
 extern void award_extra_life(void);
+extern void blit_8x16(void);  /* Assembly function to blit 8x16 graphics */
 
 /* Award points to the player. Points are added with carry propagation
  * through a base-100 digit system. Each carry into the ten-thousands digit
@@ -74,6 +80,65 @@ void award_points_c(uint8_t points)
         /* Move to next digit */
         digit_index++;
     }
+}
+
+/* Add 1 unit to comic_hp, unless comic_hp is already at MAX_HP, in which case
+ * award 1800 points.
+ * 
+ * Output:
+ *   comic_hp = incremented by 1 unless already at MAX_HP
+ *   score = increased by 1800 points if comic_hp was already at MAX_HP
+ */
+void increment_comic_hp_c(void)
+{
+    /* Check if HP is already at maximum */
+    if (comic_hp >= 6) {  /* 6 is MAX_HP */
+        /* HP is already full. Award overcharge bonus points.
+         * 1800 points = 18 * 100, so call award_points_c 18 times with 100 points each
+         * or call award_points_c with value that will be interpreted as 18 increments.
+         * Actually, award_points expects the parameter to be 0-99 (represents hundreds).
+         * So we need to call it with 18 to award 1800 points.
+         */
+        award_points_c(18);
+        return;
+    }
+    
+    /* Increment HP */
+    comic_hp++;
+    
+    /* Add a unit to the HP meter in the UI.
+     * The UI meter is displayed as 8x16 graphics at position (240, 82).
+     * For each unit of HP (0-6), we display GRAPHIC_METER_FULL shifted by
+     * 8 pixels (1 cell width) for each unit.
+     * TODO: Call blit_8x16 to update the video display for this HP unit.
+     */
+    /* For now, just update the comic_hp variable. Assembly blit call would go here. */
+}
+
+/* Play SOUND_DAMAGE and subtract 1 unit from comic_hp, unless already at 0.
+ * 
+ * Output:
+ *   comic_hp = decremented by 1 unless already at 0
+ */
+void decrement_comic_hp_c(void)
+{
+    /* Play damage sound - this requires assembly call, handled in wrapper */
+    
+    /* Check if HP is already at 0 */
+    if (comic_hp == 0) {
+        return;  /* No HP remaining to take away */
+    }
+    
+    /* Decrement HP */
+    comic_hp--;
+    
+    /* Remove a unit from the HP meter in the UI.
+     * The UI meter is displayed as 8x16 graphics at position (240, 82).
+     * For each unit of HP (0-6), we display GRAPHIC_METER_EMPTY shifted by
+     * 8 pixels (1 cell width) for each unit.
+     * TODO: Call blit_8x16 to update the video display for this HP unit.
+     */
+    /* For now, just update the comic_hp variable. Assembly blit call would go here. */
 }
 
 /* For now, just a placeholder - the real work is done in assembly */

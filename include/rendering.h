@@ -27,6 +27,23 @@
  */
 void award_points_c(uint8_t points);
 
+/* Add 1 unit to comic_hp, unless comic_hp is already at MAX_HP, in which case
+ * award 1800 points.
+ * 
+ * Modifies:
+ *   comic_hp - incremented by 1 unless already at MAX_HP
+ *   score[] - increased by 1800 points if HP was already at MAX_HP
+ */
+void increment_comic_hp_c(void);
+
+/* Subtract 1 unit from comic_hp, unless already at 0.
+ * (Sound effect is played by assembly wrapper)
+ * 
+ * Modifies:
+ *   comic_hp - decremented by 1 unless already at 0
+ */
+void decrement_comic_hp_c(void);
+
 /*
  * Pre-render the entire map to the offscreen video buffer.
  * 
