@@ -112,14 +112,22 @@ void increment_comic_hp_c(void)
     /* For now, just update the comic_hp variable. Assembly blit call would go here. */
 }
 
-/* Play SOUND_DAMAGE and subtract 1 unit from comic_hp, unless already at 0.
- * 
+/* Play SOUND_DAMAGE (if invoked by an external assembly wrapper) and subtract
+ * 1 unit from comic_hp, unless already at 0.
+ *
+ * Note: This C function does not itself trigger the damage sound; any sound
+ * effect must be handled by an external assembly wrapper or caller before
+ * or around the call to this function.
+ *
  * Output:
  *   comic_hp = decremented by 1 unless already at 0
  */
 void decrement_comic_hp_c(void)
 {
-    /* Play damage sound - this requires assembly call, handled in wrapper */
+    /* Damage sound is not played in this C function; if desired, an external
+     * assembly wrapper should invoke the appropriate sound routine before
+     * calling decrement_comic_hp_c.
+     */
     
     /* Check if HP is already at 0 */
     if (comic_hp == 0) {
