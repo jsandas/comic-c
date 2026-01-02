@@ -103,13 +103,10 @@ void increment_comic_hp_c(void)
     /* Increment HP */
     comic_hp++;
     
-    /* Add a unit to the HP meter in the UI.
-     * The UI meter is displayed as 8x16 graphics at position (240, 82).
-     * For each unit of HP (0-MAX_HP), we display GRAPHIC_METER_FULL shifted by
-     * 8 pixels (1 cell width) for each unit.
-     * TODO: Call blit_8x16 to update the video display for this HP unit.
+    /* Note: Video display update (blit_8x16) is handled by the assembly wrapper.
+     * The assembly increment_comic_hp function calls blit_8x16 with GRAPHIC_METER_FULL
+     * to update the HP meter at position (240, 82).
      */
-    /* For now, just update the comic_hp variable. Assembly blit call would go here. */
 }
 
 /* Play SOUND_DAMAGE (if invoked by an external assembly wrapper) and subtract
@@ -137,13 +134,10 @@ void decrement_comic_hp_c(void)
     /* Decrement HP */
     comic_hp--;
     
-    /* Remove a unit from the HP meter in the UI.
-     * The UI meter is displayed as 8x16 graphics at position (240, 82).
-     * For each unit of HP (0-6), we display GRAPHIC_METER_EMPTY shifted by
-     * 8 pixels (1 cell width) for each unit.
-     * TODO: Call blit_8x16 to update the video display for this HP unit.
+    /* Note: Video display update (blit_8x16) is handled by the assembly wrapper.
+     * The assembly decrement_comic_hp function calls blit_8x16 with GRAPHIC_METER_EMPTY
+     * to update the HP meter at position (240, 82).
      */
-    /* For now, just update the comic_hp variable. Assembly blit call would go here. */
 }
 
 /* For now, just a placeholder - the real work is done in assembly */
