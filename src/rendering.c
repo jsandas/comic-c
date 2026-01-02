@@ -92,7 +92,7 @@ void award_points_c(uint8_t points)
 void increment_comic_hp_c(void)
 {
     /* Check if HP is already at maximum */
-    if (comic_hp >= MAX_HP) {
+    if (comic_hp == MAX_HP) {
         /* HP is already full. Award overcharge bonus points.
          * 1800 points = 18 * 100, so call award_points_c with 18 to award 1800 points.
          */
