@@ -20,7 +20,7 @@
 #pragma aux decrement_fireball_meter_c "*"
 #pragma aux blit_8x16 "*"
 
-/* External declarations for globals needed by award_points_c, increment_comic_hp_c, decrement_comic_hp_c */
+/* External declarations for globals needed by award_points_c, increment_comic_hp_c, decrement_comic_hp_c, increment_fireball_meter_c, decrement_fireball_meter_c */
 extern uint8_t score[3];
 extern uint8_t score_10000_counter;
 extern uint8_t comic_hp;
