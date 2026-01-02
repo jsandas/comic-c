@@ -17,7 +17,7 @@
 #pragma aux decrement_comic_hp_c "*"
 #pragma aux blit_8x16 "*"
 
-/* External declarations for globals needed by award_points, increment_comic_hp, decrement_comic_hp */
+/* External declarations for globals needed by award_points_c, increment_comic_hp_c, decrement_comic_hp_c */
 extern uint8_t score[3];
 extern uint8_t score_10000_counter;
 extern uint8_t comic_hp;
