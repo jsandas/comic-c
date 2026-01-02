@@ -18,7 +18,8 @@
  * (5 carries into the ten-thousands digit) awards an extra life.
  * 
  * Input:
- *   points = points to add (0-99)
+ *   points = points to add (0-255); values >= 100 are accumulated via
+ *            base-100 carry propagation and are supported but uncommon.
  * 
  * Modifies:
  *   score[] array - updates the digit values
