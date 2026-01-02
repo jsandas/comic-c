@@ -23,7 +23,11 @@ extern void award_extra_life(void);
  * the ten-thousands digit) awards an extra life.
  *
  * Input:
- *   points = points to add (regular decimal value in range 0–99, added to the base-100 digit array)
+ *   points = points to add (0–99; values >= 100 are not recommended as they may
+ *            produce unexpected results unless proper carry division is implemented)
+ * 
+ * The function uses carry propagation where each digit holds 0–99.
+ * If a digit exceeds 99 after addition, the excess carries to the next digit.
  */
 void award_points_c(uint8_t points)
 {
@@ -34,13 +38,14 @@ void award_points_c(uint8_t points)
     while (carry != 0 && digit_index < 3) {
         /* Add carry to current digit */
         uint8_t new_digit = score[digit_index] + carry;
-        carry = 0;
         
-        /* Check for overflow (>= 100) */
-        if (new_digit >= 100) {
-            carry = 1;           /* Carry to next digit */
-            new_digit -= 100;    /* Keep only the remainder (value modulo 100) */
-        }
+        /* Extract the carry and remainder using division/modulo.
+         * This handles cases where carry > 100 (e.g., if a caller passes points >= 100).
+         * new_digit % 100 gives the digit value (0–99)
+         * new_digit / 100 gives the carry for the next digit
+         */
+        carry = new_digit / 100;
+        new_digit = new_digit % 100;
         
         /* Store the updated digit */
         score[digit_index] = new_digit;
