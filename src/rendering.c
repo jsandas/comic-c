@@ -92,12 +92,9 @@ void award_points_c(uint8_t points)
 void increment_comic_hp_c(void)
 {
     /* Check if HP is already at maximum */
-    if (comic_hp >= 6) {  /* 6 is MAX_HP */
+    if (comic_hp >= MAX_HP) {
         /* HP is already full. Award overcharge bonus points.
-         * 1800 points = 18 * 100, so call award_points_c 18 times with 100 points each
-         * or call award_points_c with value that will be interpreted as 18 increments.
-         * Actually, award_points expects the parameter to be 0-99 (represents hundreds).
-         * So we need to call it with 18 to award 1800 points.
+         * 1800 points = 18 * 100, so call award_points_c with 18 to award 1800 points.
          */
         award_points_c(18);
         return;
@@ -108,7 +105,7 @@ void increment_comic_hp_c(void)
     
     /* Add a unit to the HP meter in the UI.
      * The UI meter is displayed as 8x16 graphics at position (240, 82).
-     * For each unit of HP (0-6), we display GRAPHIC_METER_FULL shifted by
+     * For each unit of HP (0-MAX_HP), we display GRAPHIC_METER_FULL shifted by
      * 8 pixels (1 cell width) for each unit.
      * TODO: Call blit_8x16 to update the video display for this HP unit.
      */
