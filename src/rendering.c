@@ -19,8 +19,9 @@ extern uint8_t score_10000_counter;
 extern void award_extra_life(void);
 
 /* Award points to the player. Points are added with carry propagation
- * through a base-100 digit system. Every 50000 points (5 carries into
- * the ten-thousands digit) awards an extra life.
+ * through a base-100 digit system. Each carry into the ten-thousands digit
+ * (digit index 2) represents 10,000 points; every 5 such carries (50,000 total
+ * points) awards an extra life via the score_10000_counter mechanism.
  *
  * Input:
  *   points = points to add (0–99; values >= 100 are not recommended as they may
@@ -28,6 +29,8 @@ extern void award_extra_life(void);
  * 
  * The function uses carry propagation where each digit holds 0–99.
  * If a digit exceeds 99 after addition, the excess carries to the next digit.
+ * score_10000_counter tracks individual 10,000-point carries; when it reaches 5,
+ * an extra life is awarded and the counter resets.
  */
 void award_points_c(uint8_t points)
 {
@@ -53,10 +56,11 @@ void award_points_c(uint8_t points)
         /* TODO: Update video display for this digit */
         /* For now, just update the score array */
         
-        /* Check for extra life bonus (every 50000 points).
-         * We count a "carry into the ten-thousands digit" whenever
-         * there is a carry out of digit index 1 (the thousands place)
-         * into digit index 2 (the ten-thousands place).
+        /* Check for extra life bonus. Each carry into the ten-thousands digit
+         * (digit index 2) represents 10,000 points. We increment score_10000_counter
+         * and award a bonus life when the counter reaches 5 (representing 50,000 points).
+         * This occurs when there is a carry out of digit index 1 (the thousands digit)
+         * into digit index 2 (the ten-thousands digit).
          */
         if (digit_index == 1 && carry > 0) {
             score_10000_counter++;
