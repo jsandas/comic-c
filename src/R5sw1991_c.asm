@@ -6940,7 +6940,7 @@ global comic_has_teleport_wand, comic_is_teleporting
 global camera_x
 global current_level_number, current_stage_number
 global tileset_last_passable
-global win_counter, score
+global win_counter, score, score_10000_counter
 global key_state_esc, key_state_f1, key_state_f2
 global key_state_open, key_state_jump, key_state_teleport
 global key_state_left, key_state_right, key_state_fire
@@ -6954,6 +6954,7 @@ global handle_enemies, handle_fireballs, handle_item
 global handle_fall_or_jump, handle_teleport
 global pause, game_over, game_end_sequence
 global render_map
+global award_extra_life
 
 VIDEO_MODE_ERROR_MESSAGE	db `This program requires an EGA adapter with 256K installed\n\r$`
 
