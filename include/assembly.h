@@ -9,6 +9,7 @@
 #define ASSEMBLY_H
 
 #include "globals.h"
+#include "rendering.h"
 
 /* Prevent Open Watcom from adding underscore prefix */
 #pragma aux load_new_level "*"
@@ -26,13 +27,13 @@
 #pragma aux pause "*"
 #pragma aux game_over "*"
 #pragma aux game_end_sequence "*"
-#pragma aux render_map "*"
+#pragma aux render_map_asm "*"
 
 /* Level and stage management */
 /* These are NEAR functions in assembly (use 'ret' not 'retf') */
 extern void __near load_new_level(void);
 extern void __near load_new_stage(void);
-extern void __near render_map(void);
+extern void __near render_map_asm(void);  /* Assembly version - to be replaced by C */
 
 /* Main game loop (assembly implementation) */
 extern void __near game_loop(void);
@@ -57,4 +58,11 @@ extern void game_end_sequence(void);
 /* Utility functions */
 extern void wait_n_ticks(uint16_t n);
 
+/* Inline wrapper for render_map - currently calls C implementation */
+static inline void render_map(void)
+{
+    render_map_c();
+}
+
 #endif /* ASSEMBLY_H */
+
