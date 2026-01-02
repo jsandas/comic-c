@@ -142,7 +142,8 @@ extern uint8_t current_level_number;
 extern uint8_t current_stage_number;
 extern uint8_t tileset_last_passable;
 extern uint16_t win_counter;
-extern uint32_t score;
+extern uint8_t score[3];          /* 3-digit base-100 score array */
+extern uint8_t score_10000_counter; /* Tracks 50k point milestones for extra lives */
 
 /* Input state (updated by interrupt handler) */
 extern uint8_t key_state_esc;
