@@ -39,7 +39,7 @@ void award_points_c(uint8_t points)
         /* Check for overflow (>= 100) */
         if (new_digit >= 100) {
             carry = 1;           /* Carry to next digit */
-            new_digit -= 100;    /* Keep only the fractional part */
+            new_digit -= 100;    /* Keep only the remainder (value modulo 100) */
         }
         
         /* Store the updated digit */
