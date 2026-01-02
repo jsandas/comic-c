@@ -44,6 +44,26 @@ void increment_comic_hp_c(void);
  */
 void decrement_comic_hp_c(void);
 
+/* Add 1 unit to fireball_meter, unless already at MAX_FIREBALL_METER.
+ * Updates the UI by blitting the appropriate meter graphic.
+ * 
+ * The fireball meter is displayed as up to 6 cells, where:
+ *   - A half-full cell represents 1 unit
+ *   - A full cell represents 2 units
+ * 
+ * Modifies:
+ *   fireball_meter - incremented by 1 unless already at MAX_FIREBALL_METER
+ */
+void increment_fireball_meter_c(void);
+
+/* Subtract 1 unit from fireball_meter, unless already at 0.
+ * Updates the UI by blitting the appropriate meter graphic.
+ * 
+ * Modifies:
+ *   fireball_meter - decremented by 1 unless already at 0
+ */
+void decrement_fireball_meter_c(void);
+
 /*
  * Pre-render the entire map to the offscreen video buffer.
  * 
