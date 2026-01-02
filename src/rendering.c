@@ -53,23 +53,23 @@ void award_points_c(uint8_t points)
         /* TODO: Update video display for this digit */
         /* For now, just update the score array */
         
+        /* Check for extra life bonus (every 50000 points).
+         * We count a "carry into the ten-thousands digit" whenever
+         * there is a carry out of digit index 1 (the thousands place)
+         * into digit index 2 (the ten-thousands place).
+         */
+        if (digit_index == 1 && carry > 0) {
+            score_10000_counter++;
+
+            /* Award extra life every 5 such events (50000 points) */
+            if (score_10000_counter >= 5) {
+                score_10000_counter = 0;
+                award_extra_life();
+            }
+        }
+        
         /* Move to next digit */
         digit_index++;
-    }
-    
-    /* Check for extra life bonus (every 50000 points).
-     * We treat any addition that reaches the third digit (ten-thousands place)
-     * or beyond (digit_index >= 2) as a "carry" event for the bonus counter.
-     */
-    if (digit_index >= 2) {
-        /* The addition reached/processed the ten-thousands digit */
-        score_10000_counter++;
-        
-        /* Award extra life every 5 such events (50000 points) */
-        if (score_10000_counter >= 5) {
-            score_10000_counter = 0;
-            award_extra_life();
-        }
     }
 }
 
