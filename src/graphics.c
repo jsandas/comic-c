@@ -225,7 +225,7 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
         regs.h.ah = 0x3e;  /* AH=3Eh: close file */
         regs.x.bx = file_handle;
         int86(0x21, &regs, &regs);
-        return -1;
+        return -2;  /* File read failed (per documentation) */
     }
 
     /* Save number of bytes actually read (AX) */
