@@ -42,7 +42,4 @@ uint16_t get_current_display_offset(void);
 void palette_darken(void);
 void palette_fade_in(void);
 
-/* External function from game_main.c for timing */
-extern void wait_n_ticks(uint16_t ticks);
-
 #endif /* GRAPHICS_H */

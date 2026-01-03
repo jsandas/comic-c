@@ -82,5 +82,8 @@ typedef int16_t  int16;
 /* extern uint8_t tileset_graphics[]; */
 /* extern uint8_t *current_tiles_ptr; */
 
+/* ===== Timing Utilities ===== */
+extern void wait_n_ticks(uint16_t ticks);
+
 #endif /* GLOBALS_H */
 
