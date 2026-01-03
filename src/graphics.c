@@ -260,7 +260,11 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
         
         /* Decode RLE data for this plane directly into video memory */
         /* Calculate remaining bytes in source buffer for this plane */
-        remaining_src_bytes = (bytes_read > src_offset) ? (bytes_read - src_offset) : 0;
+        if (bytes_read <= src_offset) {
+            /* File truncated before all planes could be decoded */
+            return -1;
+        }
+        remaining_src_bytes = bytes_read - src_offset;
         src_offset += rle_decode(&src_ptr[src_offset], remaining_src_bytes, dst_offset, plane_size);
     }
     
