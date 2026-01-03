@@ -1,21 +1,45 @@
 /*
  * game_main.c - Main game loop in C
  * 
- * This is the C entry point called from assembly after initialization.
- * Currently not used - assembly calls load_new_level directly.
- * Kept as placeholder for future C implementation of game loop.
+ * This is the C entry point called from assembly after initialization
+ * (entry point, DS init, interrupt handlers, hardware setup, title sequence).
+ * 
+ * Assembly calls game_entry_c() after the title sequence completes, then
+ * jumps to load_new_level when this function returns.
  */
 
 #include "globals.h"
 #include "assembly.h"
 
-/* 
- * DEPRECATED: This was intended as a C wrapper but calling convention issues
- * between 16-bit assembly and C made it problematic. For now, assembly calls
- * load_new_level directly.
+/* Tell the compiler this function is called from assembly with FAR calling convention */
+#pragma aux game_entry_c "*"
+
+/*
+ * game_entry_c - Main C entry point called from assembly
  * 
- * Future: Implement game loop in C instead of assembly
+ * Called from R5sw1991_c.asm after title sequence completes.
+ * Uses FAR calling convention (RETF) to match assembly's FAR call.
+ * Currently a stub that returns immediately, causing assembly to
+ * continue with load_new_level.
+ * 
+ * Future: This will contain the main game logic, calling assembly
+ * functions as needed for low-level operations.
  */
+void game_entry_c(void)
+{
+    /* TODO: Implement game logic here
+     * 
+     * Eventually this will:
+     * 1. Initialize game state
+     * 2. Call load_new_level() (assembly function)
+     * 3. Run main game loop
+     * 4. Handle level transitions
+     * 5. Return only on game exit
+     */
+    
+    /* For now, return immediately to let assembly continue */
+    return;
+}
 
 /*
  * Future: game_loop_iteration() - C implementation of one game tick

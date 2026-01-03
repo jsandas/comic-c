@@ -169,6 +169,7 @@ TERMINAL_VELOCITY	equ	23	; in units of 1/8 game units per tick, as in comic_y_ve
 extern award_points_c
 extern increment_comic_hp_c
 extern decrement_comic_hp_c
+extern game_entry_c
 
 ; The cs register normally points to this section.
 section code
@@ -994,6 +995,11 @@ initialize_lives_sequence:
 	; https://tcrf.net/The_Adventures_of_Captain_Comic_(DOS)#Unused_Instant-Win_Mode
 	mov byte [win_counter], 200
 .num_lives_ok:
+	; Call C entry point (game_entry_c in game_main.c)
+	; Assembly has completed: entry point, DS init, interrupts, hardware, title sequence
+	; C will take over game logic (currently just returns immediately)
+	call far game_entry_c
+	
 	jmp load_new_level	; Jump to load_new_level (never returns)
 
 ; Set the palette entries for colors 2, 10, and 12 (ordinarily green, bright
