@@ -157,7 +157,7 @@ void wait_n_ticks(uint16_t ticks)
 }
 
 /*
- * calibrate_joystick_timing - Measure CPU speed for joystick calibration
+ * calibrate_joystick - Measure CPU speed for joystick calibration
  * 
  * This function measures how many IN instructions can execute during one
  * game tick. This count is used to calibrate joystick polling timing.
@@ -179,7 +179,7 @@ void wait_n_ticks(uint16_t ticks)
  * Output:
  *   max_joystick_reads is set to the calibrated value
  */
-void calibrate_joystick_timing(void)
+void calibrate_joystick(void)
 {
     union REGS regs;
     uint32_t start_ticks, current_ticks;
@@ -244,7 +244,7 @@ void calibrate_joystick_timing(void)
 }
 
 /*
- * install_handler_sentinel - Install interrupt handler sentinel
+ * install_interrupt_handlers - Install interrupt handler sentinel
  * 
  * This is a simplified version that just sets a sentinel value.
  * In the real game, this would install custom interrupt handlers and have the
@@ -254,7 +254,7 @@ void calibrate_joystick_timing(void)
  * Note: Verification happens in check_interrupt_handler_install_sentinel().
  * This function always succeeds in the experimental version.
  */
-void install_handler_sentinel(void)
+void install_interrupt_handlers(void)
 {
     /* Set the sentinel value */
     interrupt_handler_install_sentinel = INTERRUPT_HANDLER_INSTALL_SENTINEL;
@@ -469,7 +469,7 @@ int load_keymap_file(void)
  * check_interrupt_handler_install_sentinel - Verify interrupt handlers were installed
  * 
  * Checks that the interrupt_handler_install_sentinel value was bit-flipped by the
- * int3_handler, which should have been called during install_handler_sentinel().
+ * int3_handler, which should have been called during install_interrupt_handlers().
  * 
  * Returns:
  *   0 if the sentinel check failed (handlers not installed)
@@ -477,7 +477,7 @@ int load_keymap_file(void)
  */
 int check_interrupt_handler_install_sentinel(void)
 {
-    /* Undo the bit-flip that install_handler_sentinel should have done */
+    /* Undo the bit-flip that install_interrupt_handlers should have done */
     interrupt_handler_install_sentinel ^= 0xFF;
     
     /* Check if the value matches the original sentinel */
@@ -745,10 +745,10 @@ int main(void)
     disable_pc_speaker();
     
     /* Install interrupt handler sentinel (simplified) */
-    install_handler_sentinel();
+    install_interrupt_handlers();
     
     /* Calibrate CPU speed for joystick timing */
-    calibrate_joystick_timing();
+    calibrate_joystick();
     
     /* Save the current video mode for later restoration */
     save_video_mode();
