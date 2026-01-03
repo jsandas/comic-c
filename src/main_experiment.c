@@ -21,6 +21,11 @@
  * extracts the 16-bit offset portion of a pointer for use in DS:DX addressing. */
 #define DOS_OFFSET(ptr) ((uint16_t)(uintptr_t)(ptr))
 
+/* Target value for joystick timing calibration weighted average.
+ * This represents a baseline for CPU-speed calibration, used in the weighted average
+ * formula: max_joystick_reads = 0.75 * (measured) + 0.25 * (target) */
+#define JOYSTICK_TARGET_VALUE 1280
+
 /* Global variables for interrupt handling */
 static uint8_t interrupt_handler_install_sentinel = 0;
 
@@ -227,12 +232,12 @@ void calibrate_joystick_timing(void)
     max_joystick_reads = adjusted;
     
     /* Apply weighted average: inflate by 25% of the interval between
-     * the calculated value and 1280, unless already greater than 1280.
+     * the calculated value and JOYSTICK_TARGET_VALUE, unless already greater.
      * 
-     * Formula: max_joystick_reads = max(count/28, 0.75*(count/28) + 0.25*1280)
+     * Formula: max_joystick_reads = max(adjusted, 0.75*adjusted + 0.25*JOYSTICK_TARGET_VALUE)
      */
-    if (adjusted < 1280) {
-        difference = 1280 - adjusted;
+    if (adjusted < JOYSTICK_TARGET_VALUE) {
+        difference = JOYSTICK_TARGET_VALUE - adjusted;
         difference >>= 2;  /* 0.25 * (1280 - adjusted) */
         max_joystick_reads = adjusted + difference;
     }
