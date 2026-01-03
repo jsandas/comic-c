@@ -28,6 +28,8 @@
 #pragma aux game_over "*"
 #pragma aux game_end_sequence "*"
 #pragma aux render_map_asm "*"
+#pragma aux restore_interrupt_handlers "*"
+#pragma aux terminate_program "*"
 
 /* Level and stage management */
 /* These are NEAR functions in assembly (use 'ret' not 'retf') */
@@ -37,6 +39,10 @@ extern void __near render_map_asm(void);  /* Assembly version - to be replaced b
 
 /* Main game loop (assembly implementation) */
 extern void __near game_loop(void);
+
+/* System functions */
+extern void __near restore_interrupt_handlers(void);
+extern void __near terminate_program(void);
 
 /* Video/rendering functions */
 extern void swap_video_buffers(void);

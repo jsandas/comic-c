@@ -38,6 +38,15 @@
 #pragma aux current_level_number "*"
 #pragma aux current_stage_number "*"
 #pragma aux tileset_last_passable "*"
+#pragma aux saved_video_mode "*"
+#pragma aux saved_int9_handler_offset "*"
+#pragma aux saved_int9_handler_segment "*"
+#pragma aux saved_int8_handler_offset "*"
+#pragma aux saved_int8_handler_segment "*"
+#pragma aux saved_int35_handler_offset "*"
+#pragma aux saved_int35_handler_segment "*"
+#pragma aux saved_int3_handler_offset "*"
+#pragma aux saved_int3_handler_segment "*"
 #pragma aux win_counter "*"
 #pragma aux score "*"
 #pragma aux key_state_esc "*"
@@ -141,6 +150,18 @@ extern uint16_t camera_x;
 extern uint8_t current_level_number;
 extern uint8_t current_stage_number;
 extern uint8_t tileset_last_passable;
+extern uint16_t saved_video_mode;
+
+/* Saved interrupt handler addresses */
+extern uint16_t saved_int9_handler_offset;
+extern uint16_t saved_int9_handler_segment;
+extern uint16_t saved_int8_handler_offset;
+extern uint16_t saved_int8_handler_segment;
+extern uint16_t saved_int35_handler_offset;
+extern uint16_t saved_int35_handler_segment;
+extern uint16_t saved_int3_handler_offset;
+extern uint16_t saved_int3_handler_segment;
+
 extern uint16_t win_counter;
 extern uint8_t score[3];          /* 3-digit base-100 score array */
 extern uint8_t score_10000_counter; /* Tracks 10k-point carries (increments on each carry into ten-thousands digit); awards extra life every 5 carries (50k total points) */

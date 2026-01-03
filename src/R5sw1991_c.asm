@@ -1125,7 +1125,9 @@ terminate_program:
 	mov ah, 0x4c	; ah=0x4c: terminate with return code
 	int 0x21
 
+global saved_int9_handler_offset
 saved_int9_handler_offset	dw	0
+global saved_int9_handler_segment
 saved_int9_handler_segment	dw	0
 ; INT 9 is called for keyboard events. Update the state of the key_state_*
 ; variables and updates recent_scancode in the case of a key press. Call the
@@ -1217,13 +1219,17 @@ int9_handler:
 	pop ax
 	iret
 
+global saved_int35_handler_offset
 saved_int35_handler_offset	dw	0
+global saved_int35_handler_segment
 saved_int35_handler_segment	dw	0
 ; INT 35 is called for Ctrl-Break. Jump to terminate_program.
 int35_handler:
 	jmp terminate_program
 
+global saved_int8_handler_offset
 saved_int8_handler_offset	dw	0
+global saved_int8_handler_segment
 saved_int8_handler_segment	dw	0
 ; INT 8 is called for every cycle of the programmable interval timer (IRQ 0).
 ; Poll the joystick and F1 and F2 keys (on odd interrupts only) and advance the
@@ -1452,7 +1458,9 @@ int8_handler:
 	pop ax
 	jmp far [cs:saved_int8_handler_offset]	; tail call into the original interrupt handler
 
+global saved_int3_handler_offset
 saved_int3_handler_offset	dw	0
+global saved_int3_handler_segment
 saved_int3_handler_segment	dw	0
 ; INT 3 controls the sound. It is called into explicitly by other parts of the
 ; code using the `int3` instruction. Each sound has an associated priority. A
@@ -1777,6 +1785,7 @@ install_interrupt_handlers:
 ;   saved_int9_handler_segment:saved_int9_handler_offset = address of original INT 9 handler
 ;   saved_int21_handler_segment:saved_int21_handler_offset = address of original INT 21 handler
 ;   saved_int35_handler_segment:saved_int35_handler_offset = address of original INT 35 handler
+global restore_interrupt_handlers
 restore_interrupt_handlers:
 	; The interrupt vector table starts at 0000:0000. Each entry is 4
 	; bytes: 2 bytes offset, 2 bytes segment.
@@ -6971,6 +6980,7 @@ VIDEO_MODE_ERROR_MESSAGE	db `This program requires an EGA adapter with 256K inst
 interrupt_handler_install_sentinel	db	0
 ; saved_video_mode's lower byte is the video mode and the upper byte is 0x00,
 ; so you can call `int 0x10` right after loading the value into ax.
+global saved_video_mode
 saved_video_mode	dw	0
 ; source_door_level_number and source_door_stage_number are set to the
 ; level/stage we just came from, if we are entering the current stage via a
