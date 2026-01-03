@@ -13,7 +13,7 @@ BUILD_DIR=$PWD/build
 ORIGINAL_DIR="$PWD/reference/original"
 
 EXE_NAME="COMIC-C.EXE"
-if [ $1 ]; then
+if [ -n "${1-}" ]; then
   EXE_NAME="$1"
 fi
 
