@@ -16,6 +16,11 @@
 /* Interrupt handler sentinel for verification */
 #define INTERRUPT_HANDLER_INSTALL_SENTINEL 0x25
 
+/* Helper macro to get the near offset of a pointer for DOS interrupts.
+ * In the large memory model with a single data segment (DGROUP), this
+ * extracts the 16-bit offset portion of a pointer for use in DS:DX addressing. */
+#define DOS_OFFSET(ptr) ((uint16_t)(uintptr_t)(ptr))
+
 /* Global variables for interrupt handling */
 static uint8_t interrupt_handler_install_sentinel = 0;
 
@@ -64,6 +69,27 @@ static const char REGISTRATION_NOTICE_TEXT[] =
 /* Error message for insufficient EGA support */
 static const char VIDEO_MODE_ERROR_MESSAGE[] = 
     "This program requires an EGA adapter with 256K installed\r\n$";
+
+/* KEYS.DEF filename */
+static const char FILENAME_KEYMAP[] = "KEYS.DEF$";
+
+/* Keyboard setup messages */
+static const char KEYBOARD_SETUP_MESSAGE[] = 
+    "Keyboard Setup\r\n"
+    "(Simplified - using defaults)\r\n"
+    "Press any key...\r\n$";
+
+/* Joystick calibration messages */
+static const char JOYSTICK_CALIB_MESSAGE[] = 
+    "Joystick Calibration\r\n"
+    "(Simplified - skipped)\r\n"
+    "Press any key...\r\n$";
+
+/* Title sequence message */
+static const char TITLE_SEQUENCE_MESSAGE[] = 
+    "Title Sequence\r\n"
+    "(Would display title, story, and start game)\r\n"
+    "Exiting...\r\n$";
 
 /*
  * disable_pc_speaker - Disable the PC speaker
@@ -306,7 +332,7 @@ void display_ega_error(void)
     
     /* Write error message to standard output */
     regs.h.ah = 0x09;  /* AH=0x09: write string to standard output */
-    regs.x.dx = (uint16_t)(uintptr_t)VIDEO_MODE_ERROR_MESSAGE;
+    regs.x.dx = DOS_OFFSET(VIDEO_MODE_ERROR_MESSAGE);
     int86(0x21, &regs, &regs);
 }
 
@@ -328,7 +354,7 @@ int load_keymap_file(void)
     /* Try to open KEYS.DEF */
     regs.h.ah = 0x3D;  /* AH=0x3D: open existing file */
     regs.h.al = 0x00;  /* AL=0x00: open for reading */
-    regs.x.dx = (uint16_t)(uintptr_t)"KEYS.DEF";
+    regs.x.dx = DOS_OFFSET(FILENAME_KEYMAP);
     int86(0x21, &regs, &regs);
     
     /* If file doesn't exist (carry flag set), return 0 */
@@ -342,7 +368,7 @@ int load_keymap_file(void)
     regs.h.ah = 0x3F;  /* AH=0x3F: read from file */
     regs.x.bx = file_handle;
     regs.x.cx = 6;     /* Read 6 bytes */
-    regs.x.dx = (uint16_t)(uintptr_t)keymap;
+    regs.x.dx = DOS_OFFSET(keymap);
     int86(0x21, &regs, &regs);
     
     /* Close the file */
@@ -457,7 +483,7 @@ int setup_keyboard_interactive(void)
     
     /* Display message */
     regs.h.ah = 0x09;  /* AH=0x09: write string to standard output */
-    regs.x.dx = (uint16_t)(uintptr_t)"Keyboard Setup\r\n(Simplified - using defaults)\r\nPress any key...\r\n$";
+    regs.x.dx = DOS_OFFSET(KEYBOARD_SETUP_MESSAGE);
     int86(0x21, &regs, &regs);
     
     /* Wait for keystroke */
@@ -491,7 +517,7 @@ int calibrate_joystick_interactive(void)
     
     /* Display message */
     regs.h.ah = 0x09;  /* AH=0x09: write string to standard output */
-    regs.x.dx = (uint16_t)(uintptr_t)"Joystick Calibration\r\n(Simplified - skipped)\r\nPress any key...\r\n$";
+    regs.x.dx = DOS_OFFSET(JOYSTICK_CALIB_MESSAGE);
     int86(0x21, &regs, &regs);
     
     /* Wait for keystroke */
@@ -519,7 +545,7 @@ void title_sequence(void)
     
     /* Display message */
     regs.h.ah = 0x09;
-    regs.x.dx = (uint16_t)(uintptr_t)"Title Sequence\r\n(Would display title, story, and start game)\r\nExiting...\r\n$";
+    regs.x.dx = DOS_OFFSET(TITLE_SEQUENCE_MESSAGE);
     int86(0x21, &regs, &regs);
 }
 
