@@ -124,7 +124,7 @@ void load_new_level_c(void)
  * NOTE: Uses single asm block to prevent compiler from generating epilogue code
  * after the DOS exit call (which never returns).
  */
-void __far terminate_program_c(void)
+void terminate_program_c(void)
 {
     __asm {
         ; Mute sound using INT 3
