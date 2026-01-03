@@ -183,3 +183,10 @@ Opt + F12 starts debugger
 
 C <segment>:<offset> - get disassembly code
 s <segment>:<offset> - get stack
+
+
+### Install Open Watcom2
+
+Download latest tarball `ow-snapshot.tar.xz` from https://github.com/open-watcom/open-watcom-v2/tags
+
+Extract into folder `watcom2` in project folder
