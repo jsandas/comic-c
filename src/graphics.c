@@ -203,7 +203,7 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
     /* Open the file (DOS INT 21h AH=3Dh) */
     regs.h.ah = 0x3d;  /* AH=3Dh: open existing file */
     regs.h.al = 0x00;  /* AL=00h: read-only */
-    regs.x.dx = (uint16_t)(uintptr_t)filename;
+    regs.x.dx = FP_OFF(filename);
     int86(0x21, &regs, &regs);
     
     if (regs.x.cflag) {
