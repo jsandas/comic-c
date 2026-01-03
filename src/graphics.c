@@ -249,8 +249,14 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
     /* Parse the loaded data */
     src_ptr = graphics_load_buffer;
     
-    /* First word is the plane size (should be 8000 decimal) */
+    /* First word is the plane size (must be 8000 decimal = 0x1F40 hex) */
     plane_size = (uint16_t)src_ptr[0] | ((uint16_t)src_ptr[1] << 8);
+    
+    /* Validate plane size matches EGA fullscreen format specification */
+    if (plane_size != 8000) {
+        return -2;  /* Invalid plane size - corrupted or wrong format */
+    }
+    
     src_offset = 2;  /* Skip past the plane size word */
     
     /* Decode and write each of the 4 EGA planes */
