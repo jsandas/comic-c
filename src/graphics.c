@@ -114,6 +114,7 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t dst_offset, uint16_t plane_size)
 {
     uint16_t bytes_decoded = 0;
     uint16_t bytes_consumed = 0;
+    uint16_t remaining_space;
     uint8_t __far *video_ptr = (uint8_t __far *)MK_FP(0xa000, dst_offset);
     uint8_t byte_value;
     uint8_t repeat_count;
@@ -131,6 +132,12 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t dst_offset, uint16_t plane_size)
             repeat_count = byte_value & 0x7f;  /* Extract repeat count (1-127) */
             byte_value = *src_ptr++;  /* Get the byte to repeat */
             bytes_consumed++;
+            
+            /* Validate that repeat won't exceed plane boundary */
+            remaining_space = plane_size - bytes_decoded;
+            if (repeat_count > remaining_space) {
+                repeat_count = remaining_space;  /* Clamp to available space */
+            }
             
             /* Output the repeated byte */
             for (; repeat_count > 0; repeat_count--) {
