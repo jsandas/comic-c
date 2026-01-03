@@ -63,7 +63,7 @@ static const char REGISTRATION_NOTICE_TEXT[] =
 
 /* Error message for insufficient EGA support */
 static const char VIDEO_MODE_ERROR_MESSAGE[] = 
-    "This program requires an EGA adapter with 256K installed\r\n";
+    "This program requires an EGA adapter with 256K installed\r\n$";
 
 /*
  * disable_pc_speaker - Disable the PC speaker
