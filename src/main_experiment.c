@@ -328,9 +328,56 @@ int check_ega_support(void)
 }
 
 /*
+ * terminate_program - Cleanup and exit the program
+ * 
+ * Performs cleanup operations before exiting:
+ * - Mutes the PC speaker
+ * - Restores the saved video mode
+ * - Restores original interrupt handlers
+ * - Exits to DOS
+ * 
+ * Based on the assembly terminate_program function.
+ * Note: In this experimental version, interrupt handlers were not actually
+ * installed, so the restore is a no-op. The video mode restoration and
+ * exit are functional.
+ */
+void terminate_program(void)
+{
+    union REGS regs;
+    
+    /* Mute the sound (simulate INT 3 sound control in assembly) */
+    /* In the real game, this would be: mov ax, SOUND_MUTE; int3 */
+    /* In this experimental version we just disable the speaker directly */
+    uint8_t port_value = inp(0x61);
+    port_value &= 0xFC;  /* Clear bits 0 and 1 */
+    outp(0x61, port_value);
+    
+    /* Restore the saved video mode via INT 10h */
+    /* saved_video_mode has AH=0x00 (set video mode), AL=video mode number */
+    regs.h.ah = (saved_video_mode >> 8) & 0xFF;  /* Extract upper byte (0x00) */
+    regs.h.al = saved_video_mode & 0xFF;         /* Extract lower byte (mode) */
+    int86(0x10, &regs, &regs);
+    
+    /* Restore original interrupt handlers */
+    /* In the real game, this would call restore_interrupt_handlers asm function */
+    /* In this experimental version, handlers were not installed, so this is a no-op */
+    /* (would call: restore_interrupt_handlers(); ) */
+    
+    /* Terminate the program via DOS INT 21h AH=0x4c */
+    regs.h.ah = 0x4c;  /* AH=0x4c: terminate with return code */
+    regs.h.al = 0x00;  /* Return code 0 (success) */
+    int86(0x21, &regs, &regs);
+    
+    /* This point should never be reached */
+    while (1) {
+        /* Infinite loop in case int86 returns (shouldn't happen) */
+    }
+}
+
+/*
  * display_ega_error - Display EGA error message and exit
  * 
- * Sets text mode, displays error message, and returns (caller should exit).
+ * Sets text mode, displays error message, and calls terminate_program to cleanup and exit.
  */
 void display_ega_error(void)
 {
@@ -345,6 +392,9 @@ void display_ega_error(void)
     regs.h.ah = 0x09;  /* AH=0x09: write string to standard output */
     regs.x.dx = DOS_OFFSET(VIDEO_MODE_ERROR_MESSAGE);
     int86(0x21, &regs, &regs);
+    
+    /* Cleanup and exit */
+    terminate_program();
 }
 
 /*
@@ -706,8 +756,8 @@ int main(void)
     /* Check for sufficient EGA support and set video mode */
     if (!check_ega_support()) {
         /* EGA support is insufficient */
-        display_ega_error();
-        return 1;  /* Exit with error */
+        display_ega_error();  /* displays error and terminates */
+        /* Never returns */
     }
     
     /* Load keyboard configuration from KEYS.DEF if it exists */
