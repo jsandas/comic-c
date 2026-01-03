@@ -37,10 +37,10 @@
 #define BUFFER_TITLE_TEMP2      0xa000  /* 0xa000:a000 - Title temp buffer 2 (8KB) */
 
 /* File names for title sequence graphics */
-static const char FILENAME_TITLE_GRAPHIC[] = "SYS000.EGA\0";
-static const char FILENAME_STORY_GRAPHIC[] = "SYS001.EGA\0";
-static const char FILENAME_UI_GRAPHIC[] = "SYS003.EGA\0";
-static const char FILENAME_ITEMS_GRAPHIC[] = "SYS004.EGA\0";
+static const char FILENAME_TITLE_GRAPHIC[] = "SYS000.EGA";
+static const char FILENAME_STORY_GRAPHIC[] = "SYS001.EGA";
+static const char FILENAME_UI_GRAPHIC[] = "SYS003.EGA";
+static const char FILENAME_ITEMS_GRAPHIC[] = "SYS004.EGA";
 
 /* Buffer for loading fullscreen graphics from disk (32KB max for uncompressed EGA data) */
 #define GRAPHICS_LOAD_BUFFER_SIZE 0x8000  /* 32KB */
