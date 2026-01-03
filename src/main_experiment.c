@@ -180,9 +180,8 @@ void calibrate_joystick_timing(void)
     uint32_t start_ticks, current_ticks;
     uint16_t iteration_count = 0;
     uint16_t inner_loop;
-    uint32_t count;        /* Use uint32_t to prevent overflow: iteration_count * 28 */
-    uint32_t adjusted;     /* Use uint32_t for intermediate calculation */
-    uint32_t difference;   /* Use uint32_t for intermediate calculation */
+    uint32_t adjusted;     /* Calibrated joystick read count */
+    uint32_t difference;   /* Used for weighted average calculation */
     
     /* Wait until the beginning of a tick interval */
     wait_n_ticks(1);
@@ -219,11 +218,8 @@ void calibrate_joystick_timing(void)
         }
     } while ((current_ticks - start_ticks) < 1);  /* Continue for one tick */
     
-    /* Calculate the actual count based on iterations and IN instructions per iteration */
-    count = iteration_count * 28;
-    
-    /* Calculate max_joystick_reads = count/28 = iteration_count */
-    adjusted = count / 28;
+    /* The number of iterations is our calibrated joystick read count */
+    adjusted = iteration_count;
     max_joystick_reads = adjusted;
     
     /* Apply weighted average: inflate by 25% of the interval between
