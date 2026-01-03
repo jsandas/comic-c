@@ -131,18 +131,29 @@ void wait_n_ticks(uint16_t ticks)
  * This function measures how many IN instructions can execute during one
  * game tick. This count is used to calibrate joystick polling timing.
  * 
+ * In the real implementation, an interrupt handler sets game_tick_flag = 1
+ * on each timer tick. For this experimental version without interrupt handlers,
+ * we use a pure C approach that simulates the timing: we loop performing IN
+ * instructions while periodically checking a BIOS timer. When one tick elapses,
+ * we calculate how many iterations completed.
+ * 
  * The calibration process:
  * 1. Wait until the start of a tick boundary (wait_n_ticks)
- * 2. Count IN instructions during one tick
- * 3. Calculate max_joystick_reads = count/28
- * 4. Apply weighted average toward 1280:
- *    max_joystick_reads = 0.75 * (count/28) + 0.25 * 1280
+ * 2. Get the starting BIOS tick count
+ * 3. Loop performing IN instructions and checking the timer every 256 iterations
+ * 4. When a tick elapses, stop and calculate the total iterations
+ * 5. Calculate max_joystick_reads = count/28
+ * 6. Apply weighted average toward 1280
  * 
  * Output:
  *   max_joystick_reads is set to the calibrated value
  */
 void calibrate_joystick_timing(void)
 {
+    union REGS regs;
+    uint32_t start_ticks, current_ticks;
+    uint16_t iteration_count = 0;
+    uint16_t inner_loop;
     uint16_t count;
     uint16_t adjusted;
     uint16_t difference;
@@ -150,44 +161,47 @@ void calibrate_joystick_timing(void)
     /* Wait until the beginning of a tick interval */
     wait_n_ticks(1);
     
-    /* Count how many IN instructions we can run during one game tick.
-     * We use inline assembly to match the original assembly implementation. */
-    __asm {
-        mov cx, 0xFFFF          ; Start counter at -1 (0xFFFF)
-        
-    cpu_speed_loop:
-        in al, dx               ; Dummy IN instruction
-        cmp game_tick_flag, 1   ; Has a game tick elapsed?
-        je finished             ; If so, break
-        loop cpu_speed_loop     ; Decrement CX and loop
-        
-        ; If no tick happened before cx cycled, use default
-        mov max_joystick_reads, 1280
-        jmp done
-        
-    finished:
-        neg cx                  ; Convert from negative to positive count
-        mov count, cx           ; Save the count
-        
-    done:
-    }
+    /* Get the starting tick count from BIOS */
+    regs.h.ah = 0x00;  /* AH=0x00: read system timer */
+    int86(0x1A, &regs, &regs);
+    start_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
     
-    /* If we got a count (didn't time out), calculate the calibrated value */
-    if (max_joystick_reads != 1280) {
-        /* Calculate max_joystick_reads = count/28 */
-        adjusted = count / 28;
-        max_joystick_reads = adjusted;
-        
-        /* Apply weighted average: inflate by 25% of the interval between
-         * the calculated value and 1280, unless already greater than 1280.
-         * 
-         * Formula: max_joystick_reads = max(count/28, 0.75*(count/28) + 0.25*1280)
-         */
-        if (adjusted < 1280) {
-            difference = 1280 - adjusted;
-            difference >>= 2;  /* 0.25 * (1280 - adjusted) */
-            max_joystick_reads = adjusted + difference;
+    /* Perform IN instructions in a tight loop, checking the timer periodically.
+     * We count how many "outer loop" iterations we can complete in one tick. */
+    do {
+        /* Inner loop: perform multiple IN instructions (simulating instruction counting) */
+        for (inner_loop = 0; inner_loop < 28; inner_loop++) {
+            __asm {
+                in al, dx       ; Dummy IN instruction
+            }
         }
+        
+        iteration_count++;
+        
+        /* Check timer every so often (for responsiveness) */
+        if ((iteration_count & 0x0F) == 0) {  /* Check every 16 iterations */
+            regs.h.ah = 0x00;
+            int86(0x1A, &regs, &regs);
+            current_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
+        }
+    } while ((current_ticks - start_ticks) < 1);  /* Continue for one tick */
+    
+    /* Calculate the actual count based on iterations and IN instructions per iteration */
+    count = iteration_count * 28;
+    
+    /* Calculate max_joystick_reads = count/28 = iteration_count */
+    adjusted = count / 28;
+    max_joystick_reads = adjusted;
+    
+    /* Apply weighted average: inflate by 25% of the interval between
+     * the calculated value and 1280, unless already greater than 1280.
+     * 
+     * Formula: max_joystick_reads = max(count/28, 0.75*(count/28) + 0.25*1280)
+     */
+    if (adjusted < 1280) {
+        difference = 1280 - adjusted;
+        difference >>= 2;  /* 0.25 * (1280 - adjusted) */
+        max_joystick_reads = adjusted + difference;
     }
 }
 
