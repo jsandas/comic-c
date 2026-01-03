@@ -218,6 +218,18 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
     regs.x.cx = GRAPHICS_LOAD_BUFFER_SIZE;  /* Max bytes to read */
     regs.x.dx = (uint16_t)graphics_load_buffer;  /* Offset of buffer (in data segment) */
     int86(0x21, &regs, &regs);
+
+    /* Check for read error (carry flag set) */
+    if (regs.x.cflag) {
+        /* Close the file before returning */
+        regs.h.ah = 0x3e;  /* AH=3Eh: close file */
+        regs.x.bx = file_handle;
+        int86(0x21, &regs, &regs);
+        return -1;
+    }
+
+    /* Save number of bytes actually read (AX) */
+    bytes_read = regs.x.ax;
     
     /* Close the file (DOS INT 21h AH=3Eh) */
     regs.h.ah = 0x3e;  /* AH=3Eh: close file */
