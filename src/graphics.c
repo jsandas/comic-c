@@ -138,7 +138,7 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
             bytes_decoded++;
         } else {
             /* Repeat sequence - bits 6-0 are the repeat count */
-            repeat_count = byte_value & 0x7f;  /* Extract repeat count (1-127) */
+            repeat_count = byte_value & 0x7f;  /* Extract repeat count (0-127) */
             
             /* Validate we have at least one byte available for the repeat value */
             if (bytes_consumed >= src_size) {
