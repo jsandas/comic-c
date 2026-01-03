@@ -256,22 +256,17 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
  */
 void switch_video_buffer(uint16_t buffer_offset)
 {
-    union REGS regs;
-    
-    /* Set the video memory start address using INT 10h AH=05h
-     * Actually, INT 10h AH=0Bh sets video memory offset
-     * We use CRTC registers directly for more control
+    /* Set the video memory start address by writing to CRTC registers.
+     * The display start address register controls which 8KB buffer is visible.
+     * High byte (register 0x0c) and low byte (register 0x0d) form a 16-bit offset
+     * into video memory (0xa000 segment) that points to the first byte displayed.
      */
     
-    /* Set Start Address High Register (CRTC register 0x0c) */
-    regs.h.ah = 0x00;  /* Not an INT 10h function, use CRTC directly */
-    
-    /* Use port I/O to set CRTC registers directly */
-    /* CRTC Start Address High (register 0x0c) = high byte of offset */
+    /* Write to CRTC Start Address High Register (0x0c) */
     outp(EGA_CRTC_INDEX_PORT, 0x0c);
     outp(EGA_CRTC_DATA_PORT, (buffer_offset >> 8) & 0xff);
     
-    /* CRTC Start Address Low (register 0x0d) = low byte of offset */
+    /* Write to CRTC Start Address Low Register (0x0d) */
     outp(EGA_CRTC_INDEX_PORT, 0x0d);
     outp(EGA_CRTC_DATA_PORT, buffer_offset & 0xff);
     
