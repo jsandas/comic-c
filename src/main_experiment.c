@@ -191,6 +191,10 @@ void calibrate_joystick_timing(void)
     int86(0x1A, &regs, &regs);
     start_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
     
+    /* Initialize current_ticks to start_ticks. This ensures the first iteration
+     * of the loop will continue, and the loop exits once a tick has elapsed. */
+    current_ticks = start_ticks;
+    
     /* Initialize DX to a safe port for IN operations.
      * Port 0x80 is a safe delay port that's commonly used for timing in DOS.
      * Reading from it has no side effects and is commonly used for CPU timing loops. */
