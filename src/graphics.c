@@ -29,7 +29,7 @@
 /* Video memory base address in segment 0xa000 */
 #define VIDEO_MEMORY_BASE       0xa000
 
-/* Buffer offsets within video memory (in paragraphs, not bytes) */
+/* Buffer offsets within video memory (byte offsets relative to segment 0xa000) */
 #define BUFFER_GAMEPLAY_A       0x0000  /* 0xa000:0000 - Double buffer page A (8KB) */
 #define BUFFER_GAMEPLAY_B       0x2000  /* 0xa000:2000 - Double buffer page B (8KB) */
 #define BUFFER_RENDERED_MAP     0x4000  /* 0xa000:4000 - Rendered map (40KB) */
