@@ -180,9 +180,9 @@ void calibrate_joystick_timing(void)
     uint32_t start_ticks, current_ticks;
     uint16_t iteration_count = 0;
     uint16_t inner_loop;
-    uint16_t count;
-    uint16_t adjusted;
-    uint16_t difference;
+    uint32_t count;        /* Use uint32_t to prevent overflow: iteration_count * 28 */
+    uint32_t adjusted;     /* Use uint32_t for intermediate calculation */
+    uint32_t difference;   /* Use uint32_t for intermediate calculation */
     
     /* Wait until the beginning of a tick interval */
     wait_n_ticks(1);
