@@ -42,7 +42,23 @@ static uint8_t keymap[6] = {
 static const char STARTUP_NOTICE_TEXT[] = 
     "Captain Comic - C Experiment\r\n"
     "\r\n"
-    "Press any key to exit...\r\n"
+    "Press K for Keyboard setup\r\n"
+    "Press J for Joystick calibration\r\n"
+    "Press R for Registration info\r\n"
+    "Press ESC to quit\r\n"
+    "Press any other key to continue...\r\n"
+    "\r\n";
+
+/* Registration notice text */
+static const char REGISTRATION_NOTICE_TEXT[] = 
+    "Captain Comic - Experimental C Version\r\n"
+    "\r\n"
+    "This is an experimental C implementation\r\n"
+    "of the Captain Comic initialization code.\r\n"
+    "\r\n"
+    "Original game by Michael A. Denio\r\n"
+    "\r\n"
+    "Press any key to return...\r\n"
     "\r\n";
 
 /* Error message for insufficient EGA support */
@@ -343,16 +359,174 @@ int check_interrupt_handler_install_sentinel(void)
 }
 
 /*
- * display_startup_notice - Display startup screen and wait for keypress
+ * clear_keyboard_buffer - Clear the BIOS keyboard buffer
  * 
- * Implements the assembly function display_startup_notice in C.
- * Sets text mode, displays XOR-encrypted text, and waits for a keypress.
+ * Sets the buffer tail equal to the head to effectively clear all pending keystrokes.
  */
-void display_startup_notice(void)
+void clear_keyboard_buffer(void)
+{
+    /* Access BIOS data area at segment 0x0000 */
+    uint8_t __far *bios_data = (uint8_t __far *)0x00000000L;
+    uint8_t head;
+    
+    /* Disable interrupts while manipulating the buffer */
+    _disable();
+    
+    /* Read head pointer and set tail equal to it */
+    head = bios_data[0x041A];  /* BIOS_KEYBOARD_BUFFER_HEAD */
+    bios_data[0x041C] = head;  /* BIOS_KEYBOARD_BUFFER_TAIL */
+    
+    /* Re-enable interrupts */
+    _enable();
+}
+
+/*
+ * display_registration_notice - Display registration information
+ * 
+ * Shows registration/about screen and waits for any key to return.
+ * 
+ * Returns:
+ *   0 to indicate should return to startup notice
+ */
+int display_registration_notice(void)
 {
     union REGS regs;
     const char *text_ptr;
     char ch;
+    
+    /* Set video mode to 80x25 text (mode 3) */
+    regs.h.ah = 0x00;  /* AH=0x00: set video mode */
+    regs.h.al = 0x03;  /* AL=0x03: 80x25 text */
+    int86(0x10, &regs, &regs);
+    
+    /* Display the registration text */
+    text_ptr = REGISTRATION_NOTICE_TEXT;
+    while ((ch = *text_ptr++) != 0) {
+        /* Output character using teletype mode */
+        regs.h.ah = 0x0E;  /* AH=0x0E: teletype output */
+        regs.h.al = ch;
+        regs.h.bh = 0;     /* Page 0 */
+        int86(0x10, &regs, &regs);
+    }
+    
+    /* Wait for any keystroke */
+    regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
+    int86(0x16, &regs, &regs);
+    
+    return 0;  /* Return to startup notice */
+}
+
+/*
+ * setup_keyboard_interactive - Interactive keyboard configuration
+ * 
+ * Simplified stub for keyboard setup. In the real implementation, this would:
+ * - Prompt for each key mapping (left, right, jump, fire, open, teleport)
+ * - Verify no conflicts
+ * - Optionally save to KEYS.DEF
+ * 
+ * Returns:
+ *   0 to return to startup notice
+ *   1 to continue to title sequence
+ */
+int setup_keyboard_interactive(void)
+{
+    union REGS regs;
+    
+    /* Set video mode to 80x25 text (mode 2) */
+    regs.h.ah = 0x00;  /* AH=0x00: set video mode */
+    regs.h.al = 0x02;  /* AL=0x02: 80x25 text */
+    int86(0x10, &regs, &regs);
+    
+    /* Display message */
+    regs.h.ah = 0x09;  /* AH=0x09: write string to standard output */
+    regs.x.dx = (uint16_t)(uintptr_t)"Keyboard Setup\r\n(Simplified - using defaults)\r\nPress any key...\r\n$";
+    int86(0x21, &regs, &regs);
+    
+    /* Wait for keystroke */
+    regs.h.ah = 0x00;
+    int86(0x16, &regs, &regs);
+    
+    /* For this experiment, return to continue to title (simulating completion) */
+    return 1;
+}
+
+/*
+ * calibrate_joystick_interactive - Interactive joystick calibration
+ * 
+ * Simplified stub for joystick calibration. In the real implementation, this would:
+ * - Prompt to center joystick and press button
+ * - Prompt to move left/right/up/down and press button for each
+ * - Calculate threshold values
+ * - Allow cancellation with keyboard
+ * 
+ * Returns:
+ *   0 to return to startup notice (cancelled or completed)
+ */
+int calibrate_joystick_interactive(void)
+{
+    union REGS regs;
+    
+    /* Set video mode to 80x25 text (mode 2) */
+    regs.h.ah = 0x00;  /* AH=0x00: set video mode */
+    regs.h.al = 0x02;  /* AL=0x02: 80x25 text */
+    int86(0x10, &regs, &regs);
+    
+    /* Display message */
+    regs.h.ah = 0x09;  /* AH=0x09: write string to standard output */
+    regs.x.dx = (uint16_t)(uintptr_t)"Joystick Calibration\r\n(Simplified - skipped)\r\nPress any key...\r\n$";
+    int86(0x21, &regs, &regs);
+    
+    /* Wait for keystroke */
+    regs.h.ah = 0x00;
+    int86(0x16, &regs, &regs);
+    
+    /* Return to startup notice */
+    return 0;
+}
+
+/*
+ * title_sequence - Stub for title sequence
+ * 
+ * In the real game, this would display the title screen, story screens, etc.
+ * For this experiment, just display a message and exit.
+ */
+void title_sequence(void)
+{
+    union REGS regs;
+    
+    /* Set video mode to text */
+    regs.h.ah = 0x00;
+    regs.h.al = 0x03;
+    int86(0x10, &regs, &regs);
+    
+    /* Display message */
+    regs.h.ah = 0x09;
+    regs.x.dx = (uint16_t)(uintptr_t)"Title Sequence\r\n(Would display title, story, and start game)\r\nExiting...\r\n$";
+    int86(0x21, &regs, &regs);
+}
+
+/*
+ * display_startup_notice - Display startup screen and wait for keypress
+ * 
+ * Implements the assembly function display_startup_notice in C.
+ * Sets text mode, displays text, and waits for a keypress.
+ * Based on the key pressed:
+ *   - 'k' or 'K': Keyboard setup
+ *   - 'j' or 'J': Joystick calibration
+ *   - 'r' or 'R': Registration/about information
+ *   - Escape (27): Exit program
+ *   - Any other key: Continue to title sequence
+ * 
+ * Returns:
+ *   0 to exit program
+ *   1 to continue to title sequence
+ */
+int display_startup_notice(void)
+{
+    union REGS regs;
+    const char *text_ptr;
+    char ch;
+    uint8_t key_ascii;
     
     /* Set video mode to 80x25 text (mode 3) */
     regs.h.ah = 0x00;  /* AH=0x00: set video mode */
@@ -369,12 +543,45 @@ void display_startup_notice(void)
         int86(0x10, &regs, &regs);
     }
     
+    /* Clear the BIOS keyboard buffer before waiting for input */
+    clear_keyboard_buffer();
+    
     /* Wait for a keystroke */
     regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
     int86(0x16, &regs, &regs);
+    key_ascii = regs.h.al;  /* AL contains ASCII code */
     
-    /* For this experiment, we just return after keypress */
-    /* In the real implementation, we would check which key and branch accordingly */
+    /* Check which key was pressed and take appropriate action */
+    if (key_ascii == 'k' || key_ascii == 'K') {
+        /* Keyboard setup */
+        if (setup_keyboard_interactive()) {
+            return 1;  /* Setup complete, continue to title */
+        }
+        /* Setup cancelled or returned, show startup notice again */
+        return display_startup_notice();
+    }
+    
+    if (key_ascii == 'j' || key_ascii == 'J') {
+        /* Joystick calibration */
+        calibrate_joystick_interactive();
+        /* Always return to startup notice after calibration */
+        return display_startup_notice();
+    }
+    
+    if (key_ascii == 'r' || key_ascii == 'R') {
+        /* Registration/about information */
+        display_registration_notice();
+        /* Always return to startup notice after viewing registration */
+        return display_startup_notice();
+    }
+    
+    if (key_ascii == 27) {
+        /* Escape key - exit program */
+        return 0;
+    }
+    
+    /* Any other key - continue to title sequence */
+    return 1;
 }
 
 /*
@@ -435,8 +642,14 @@ int main(void)
         return 1;  /* Exit with error */
     }
     
-    /* Display the startup notice */
-    display_startup_notice();
+    /* Display the startup notice and handle user input */
+    if (!display_startup_notice()) {
+        /* User pressed Escape to exit */
+        return 0;
+    }
+    
+    /* User chose to continue - show title sequence */
+    title_sequence();
     
     /* Exit normally */
     return 0;
