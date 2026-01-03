@@ -584,6 +584,9 @@ void title_sequence(void)
  * Returns:
  *   0 to exit program
  *   1 to continue to title sequence
+ * 
+ * Note: Uses a loop instead of recursion to prevent stack overflow
+ * from repeated menu entries.
  */
 int display_startup_notice(void)
 {
@@ -592,60 +595,63 @@ int display_startup_notice(void)
     char ch;
     uint8_t key_ascii;
     
-    /* Set video mode to 80x25 text (mode 3) */
-    regs.h.ah = 0x00;  /* AH=0x00: set video mode */
-    regs.h.al = 0x03;  /* AL=0x03: 80x25 text */
-    int86(0x10, &regs, &regs);
-    
-    /* Display the plain text */
-    text_ptr = STARTUP_NOTICE_TEXT;
-    while ((ch = *text_ptr++) != 0) {
-        /* Output character using teletype mode */
-        regs.h.ah = 0x0E;  /* AH=0x0E: teletype output */
-        regs.h.al = ch;
-        regs.h.bh = 0;     /* Page 0 */
+    /* Main menu loop - continues until user makes a final choice (ESC or other key) */
+    while (1) {
+        /* Set video mode to 80x25 text (mode 3) */
+        regs.h.ah = 0x00;  /* AH=0x00: set video mode */
+        regs.h.al = 0x03;  /* AL=0x03: 80x25 text */
         int86(0x10, &regs, &regs);
-    }
-    
-    /* Clear the BIOS keyboard buffer before waiting for input */
-    clear_keyboard_buffer();
-    
-    /* Wait for a keystroke */
-    regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
-    int86(0x16, &regs, &regs);
-    key_ascii = regs.h.al;  /* AL contains ASCII code */
-    
-    /* Check which key was pressed and take appropriate action */
-    if (key_ascii == 'k' || key_ascii == 'K') {
-        /* Keyboard setup */
-        if (setup_keyboard_interactive()) {
-            return 1;  /* Setup complete, continue to title */
+        
+        /* Display the plain text */
+        text_ptr = STARTUP_NOTICE_TEXT;
+        while ((ch = *text_ptr++) != 0) {
+            /* Output character using teletype mode */
+            regs.h.ah = 0x0E;  /* AH=0x0E: teletype output */
+            regs.h.al = ch;
+            regs.h.bh = 0;     /* Page 0 */
+            int86(0x10, &regs, &regs);
         }
-        /* Setup cancelled or returned, show startup notice again */
-        return display_startup_notice();
+        
+        /* Clear the BIOS keyboard buffer before waiting for input */
+        clear_keyboard_buffer();
+        
+        /* Wait for a keystroke */
+        regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
+        int86(0x16, &regs, &regs);
+        key_ascii = regs.h.al;  /* AL contains ASCII code */
+        
+        /* Check which key was pressed and take appropriate action */
+        if (key_ascii == 'k' || key_ascii == 'K') {
+            /* Keyboard setup */
+            if (setup_keyboard_interactive()) {
+                return 1;  /* Setup complete, continue to title */
+            }
+            /* Setup cancelled or returned, loop back to show startup notice again */
+            continue;
+        }
+        
+        if (key_ascii == 'j' || key_ascii == 'J') {
+            /* Joystick calibration */
+            calibrate_joystick_interactive();
+            /* Loop back to startup notice after calibration */
+            continue;
+        }
+        
+        if (key_ascii == 'r' || key_ascii == 'R') {
+            /* Registration/about information */
+            display_registration_notice();
+            /* Loop back to startup notice after viewing registration */
+            continue;
+        }
+        
+        if (key_ascii == 27) {
+            /* Escape key - exit program */
+            return 0;
+        }
+        
+        /* Any other key - continue to title sequence */
+        return 1;
     }
-    
-    if (key_ascii == 'j' || key_ascii == 'J') {
-        /* Joystick calibration */
-        calibrate_joystick_interactive();
-        /* Always return to startup notice after calibration */
-        return display_startup_notice();
-    }
-    
-    if (key_ascii == 'r' || key_ascii == 'R') {
-        /* Registration/about information */
-        display_registration_notice();
-        /* Always return to startup notice after viewing registration */
-        return display_startup_notice();
-    }
-    
-    if (key_ascii == 27) {
-        /* Escape key - exit program */
-        return 0;
-    }
-    
-    /* Any other key - continue to title sequence */
-    return 1;
 }
 
 /*
