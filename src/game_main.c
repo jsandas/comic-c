@@ -12,6 +12,7 @@
  */
 
 #include <stdint.h>
+#include <stddef.h>
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
@@ -238,18 +239,69 @@ void calibrate_joystick(void)
     }
 }
 
+/* Saved interrupt handler addresses */
+static void (__interrupt *saved_int8_handler)(void);   /* Timer tick handler */
+static void (__interrupt *saved_int9_handler)(void);   /* Keyboard handler */
+
 /*
- * install_interrupt_handlers - Install interrupt handler sentinel
+ * simple_int8_handler - Simple timer interrupt (INT 8) handler
  * 
- * This is a simplified version that just sets a sentinel value.
- * In the real game, this would install custom interrupt handlers.
+ * Sets the game tick flag to signal the main loop that a timer tick occurred.
+ * Uses inline assembly to define the interrupt handler.
+ */
+static void __interrupt simple_int8_handler(void)
+{
+    /* Set game tick flag to signal the main loop */
+    game_tick_flag = 1;
+    
+    /* Call the original timer interrupt handler to maintain system timing */
+    if (saved_int8_handler) {
+        _chain_intr((void (__interrupt *)())saved_int8_handler);
+    }
+}
+
+/*
+ * simple_int9_handler - Simple keyboard interrupt (INT 9) handler
+ * 
+ * Reads the keyboard scancode and calls the original handler.
+ * Uses inline assembly to define the interrupt handler.
+ */
+static void __interrupt simple_int9_handler(void)
+{
+    uint8_t scancode;
+    
+    /* Read keyboard scancode */
+    scancode = inp(0x60);
+    
+    /* Call the original keyboard interrupt handler */
+    if (saved_int9_handler) {
+        _chain_intr((void (__interrupt *)())saved_int9_handler);
+    }
+}
+
+/*
+ * install_interrupt_handlers - Install custom interrupt handlers
+ * 
+ * Installs custom handlers for:
+ *   INT 8: Timer tick - sets game_tick_flag
+ *   INT 9: Keyboard - reads scancode and chains to original
+ * 
+ * Saves the original handlers so they can be restored on exit.
  */
 void install_interrupt_handlers(void)
 {
-    /* Set the sentinel value */
+    /* Save original INT 8 (timer) handler and install custom handler */
+    saved_int8_handler = _dos_getvect(0x08);
+    _dos_setvect(0x08, (void (__interrupt *)())simple_int8_handler);
+    
+    /* Save original INT 9 (keyboard) handler and install custom handler */
+    saved_int9_handler = _dos_getvect(0x09);
+    _dos_setvect(0x09, (void (__interrupt *)())simple_int9_handler);
+    
+    /* Set the sentinel value to indicate handlers were installed */
     interrupt_handler_install_sentinel = INTERRUPT_HANDLER_INSTALL_SENTINEL;
     
-    /* Simulate handler bit-flip */
+    /* Simulate handler bit-flip for verification */
     interrupt_handler_install_sentinel ^= 0xFF;
 }
 
@@ -311,9 +363,29 @@ int check_ega_support(void)
 }
 
 /*
+ * restore_interrupt_handlers - Restore original interrupt handlers
+ * 
+ * Restores the original handlers for INT 8 and INT 9 that were saved
+ * when install_interrupt_handlers was called.
+ */
+void restore_interrupt_handlers(void)
+{
+    /* Restore original INT 8 (timer) handler */
+    if (saved_int8_handler) {
+        _dos_setvect(0x08, (void (__interrupt *)())saved_int8_handler);
+    }
+    
+    /* Restore original INT 9 (keyboard) handler */
+    if (saved_int9_handler) {
+        _dos_setvect(0x09, (void (__interrupt *)())saved_int9_handler);
+    }
+}
+
+/*
  * terminate_program - Cleanup and exit the program
  * 
  * Performs cleanup operations before exiting:
+ * - Restore original interrupt handlers
  * - Mutes the PC speaker
  * - Restores the saved video mode
  * - Exits to DOS
@@ -321,9 +393,13 @@ int check_ega_support(void)
 void terminate_program(void)
 {
     union REGS regs;
+    uint8_t port_value;
+    
+    /* Restore original interrupt handlers */
+    restore_interrupt_handlers();
     
     /* Mute the sound */
-    uint8_t port_value = inp(0x61);
+    port_value = inp(0x61);
     port_value &= 0xFC;  /* Clear bits 0 and 1 */
     outp(0x61, port_value);
     
