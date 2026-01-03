@@ -71,7 +71,8 @@ experiment: $(BUILD_DIR)/main_experiment.obj
 	@echo "name $(EXPERIMENT_EXE)" >> $(BUILD_DIR)/experiment.lnk
 	@echo "file $(BUILD_DIR)/main_experiment.obj" >> $(BUILD_DIR)/experiment.lnk
 	$(WLINK) @$(BUILD_DIR)/experiment.lnk
-	cp -f $(BUILD_DIR)/EXPERIMENT.EXE ./reference/original/EXPERIMENT.EXE
+	@mkdir -p ./reference/original 
+	@cp -f $(BUILD_DIR)/EXPERIMENT.EXE ./reference/original/EXPERIMENT.EXE
 	@echo "Experimental build complete: $(EXPERIMENT_EXE)"
 
 $(BUILD_DIR)/main_experiment.obj: $(SRC_DIR)/main_experiment.c
