@@ -398,6 +398,11 @@ int load_keymap_file(void)
     regs.x.bx = file_handle;
     int86(0x21, &regs, &regs);
     
+    /* Check for close errors (carry flag set) */
+    if (regs.x.cflag) {
+        return 0;  /* Close failed - treat as error, use default keymap */
+    }
+    
     return 1;
 }
 
