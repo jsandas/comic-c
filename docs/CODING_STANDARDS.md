@@ -187,6 +187,7 @@ threshold = (zero_value - extreme_value) / 2;  // Wrong but intentional!
 - Code and data in separate segments
 - Far pointers for code, far pointers for data
 - DS register always points to data segment (set by assembly at startup)
+- **Never modify DS** - assembly sets it once during initialization
 
 ### No Standard Library Assumptions
 

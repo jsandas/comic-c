@@ -17,12 +17,14 @@ This project refactors The Adventures of Captain Comic (1990 DOS game) from x86-
 - **Memory Model**: Large model (`-ml` flag) - separate code and data segments
 - **Assembler**: NASM for remaining assembly code
 - **Linker**: djlink (custom OMF format linker in `reference/disassembly/djlink/`)
-- **Platform**: Docker container on macOS (no native Open Watcom for macOS)
+- **Platform**: Local Open Watcom installation on macOS
+- **Setup**: Source `setvars.sh` to configure environment before building
 
 ### 3. Architecture Strategy
-- **Assembly stub initialization**: Entry point, interrupt handlers, video setup remain in assembly
-- **C main loop**: Game logic moved to C (`game_main()` function)
-- **Incremental conversion**: Keep assembly functions, call from C, convert one by one
+- **Assembly initialization**: Entry point, DS init, interrupt handlers, hardware setup, title sequence remain in assembly
+- **Single C entry point**: `game_entry_c()` in `game_main.c` is called after title sequence
+- **Clean boundary**: Assembly handles setup, then hands off to C for game logic
+- **No hybrid approach**: Assembly uses `jmp` instead of `call`/`ret`, making incremental migration impractical
 - **No crt0.obj**: Use minimal assembly stub, not Open Watcom runtime (saves overhead)
 
 ### 4. C/Assembly Integration
@@ -47,17 +49,23 @@ This project refactors The Adventures of Captain Comic (1990 DOS game) from x86-
 
 ### 5. Conversion Priority Order
 
-**Phase 1: Foundation** (CURRENT)
-1. ✅ Docker build environment
-2. ✅ Assembly stub calling C `game_main()`
-3. ✅ Minimal C wrapper calling assembly functions
+**Phase 1: Foundation** (COMPLETED)
+1. ✅ Local Open Watcom build environment (transitioned from Docker)
+2. ✅ Assembly initialization path (entry, DS, interrupts, hardware, title)
+3. ✅ `game_entry_c()` stub called from assembly (currently returns immediately)
 4. ✅ Global variable exports and header files
 5. 🔄 Data file loaders (`.PT` → `.TT2` → `.SHP` → `.EGA`)
 
-**Phase 2: Game Loop**
-1. Extract game loop tick logic to C
-2. Keep calling assembly for actors/rendering initially
+**Phase 2: C Entry Point** (CURRENT)
+1. Implement `game_entry_c()` with basic game loop
+2. Call assembly functions from C (e.g., `load_new_level()`)
 3. Handle input state in C (reading `key_state_*` globals)
+4. Gradually move logic from assembly into C
+
+**Phase 3: Game Logic**
+1. Implement game initialization in C
+2. Implement main game loop in C
+3. Call assembly functions for low-level operations
 
 **Phase 3: Subsystems**
 1. Rendering functions (blitting, video buffer management)
@@ -80,8 +88,8 @@ This project refactors The Adventures of Captain Comic (1990 DOS game) from x86-
 
 ```
 comic-c/
-├── Dockerfile              # Docker build environment
-├── Makefile                # Build targets (docker-build, compile, clean)
+├── setvars.sh              # Environment setup for Open Watcom
+├── Makefile                # Build targets (compile, clean)
 ├── README.md               # Project documentation
 ├── docs/                   # Documentation files
 │   ├── AGENT_INSTRUCTIONS.md   # This file

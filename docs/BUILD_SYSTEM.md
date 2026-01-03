@@ -4,17 +4,16 @@
 
 | Target | Description |
 |--------|-------------|
-| `make docker-build` | Build Docker image with Open Watcom 2, NASM, djlink (run once) |
-| `make compile` | Compile project inside Docker container (default target) |
+| `make compile` | Compile project using local Open Watcom (default target) |
 | `make clean` | Remove all build artifacts (`build/` directory) |
-| `make shell` | Open interactive shell inside Docker container for debugging |
+| `make shell` | Open interactive shell |
 | `make help` | Display help message with available targets |
 
 ## First-Time Setup
 
 ```bash
-# 1. Build Docker image (only needed once, or when Dockerfile changes)
-make docker-build
+# 1. Set up Open Watcom environment (required every session)
+source setvars.sh
 
 # 2. Compile the project
 make compile
@@ -25,22 +24,23 @@ make compile
 ## Development Workflow
 
 ```bash
+# Set up environment (once per terminal session)
+source setvars.sh
+
 # Edit source files
 vim src/game_main.c
 vim src/R5sw1991_c.asm
 
-# Recompile (fast - Docker image already built)
+# Recompile (fast)
 make compile
 
 # Test in DOSBox
 cd tests
 ./run-dosbox.sh
 
-# If compilation errors, open shell for debugging
-make shell
-# Inside container:
-#   wcc -ml -s -0 -i=include src/game_main.c
-#   nasm -f obj src/R5sw1991_c.asm
+# If compilation errors, compile manually for detailed output:
+wcc -ml -s -0 -i=include src/game_main.c -fo=build/obj/game_main.obj
+nasm -f obj -o build/obj/R5sw1991.obj src/R5sw1991_c.asm
 ```
 
 ## Build Process Details
@@ -76,64 +76,66 @@ make shell
 - **`-f obj`**: Output OMF object format (compatible with djlink)
 - **`-o <file>`**: Output file path
 
-## Docker Container Details
+## Local Build Environment
 
-### Image Contents
-- **Base**: Debian Bullseye slim
-- **Open Watcom 2**: C compiler for 16-bit DOS
-  - Location: `/opt/watcom/`
-  - Binary: `/opt/watcom/binl64/wcc` (16-bit compiler)
-- **NASM**: x86 assembler
-  - Installed via apt: `/usr/bin/nasm`
+### Installation
+- **Open Watcom 2**: Located in `watcom2/` directory
+  - Binary: `watcom2/bino64/wcc` (16-bit compiler)
+- **NASM**: x86 assembler (install via Homebrew: `brew install nasm`)
 - **djlink**: OMF linker
-  - Mounted from workspace: `reference/disassembly/djlink/djlink`
+  - Located in `reference/disassembly/djlink/djlink`
+  - Built for macOS using clang++
 
-### Volume Mount
-- **Host**: `$(PWD)` (current directory on macOS)
-- **Container**: `/workspace`
-- **Working Dir**: `/workspace`
+### Environment Setup
 
-All file paths in Makefile are relative to `/workspace` inside the container.
+The `setvars.sh` script configures the build environment:
 
-### Environment Variables (in container)
 ```bash
-WATCOM=/opt/watcom
-PATH=$WATCOM/binl64:$WATCOM/binl:$PATH
-INCLUDE=$WATCOM/h
+export WATCOM=$(pwd)/watcom2
+export PATH=$WATCOM/bino64:$PATH
+export EDPATH=$WATCOM/eddat
+export WIPFC=$WATCOM/wipfc
+export INCLUDE=$WATCOM/h
+export LIB=$WATCOM/lib286
 ```
+
+**Important**: Run `source setvars.sh` before compiling in each terminal session.
 
 ## Troubleshooting
 
-### "Docker image not found"
+### "wcc: command not found"
 ```bash
-# Solution: Build the image
-make docker-build
-```
+# Solution: Source the environment setup
+source setvars.sh
 
-### "wcc: command not found" (inside container)
-```bash
-# Check Open Watcom installation
-ls -la /opt/watcom/binl64/wcc
+# Verify environment
 echo $WATCOM
 echo $PATH
-
-# Rebuild Docker image if missing
-exit  # Exit container
-make docker-build
+which wcc
 ```
 
-### "djlink: Permission denied"
+### "djlink: cannot execute binary file"
+```bash
+# Solution: Rebuild djlink for macOS
+rm -f reference/disassembly/djlink/djlink
+make compile  # Makefile will rebuild djlink using clang++
+```
+
+### "nasm: command not found"
+```bash
+# Solution: Install NASM via Homebrew
+brew install nasm
+
+# Verify installation
+which nasm
+nasm -v
+```
+
+### "Permission denied" for djlink
 ```bash
 # djlink needs execute permissions
 chmod +x reference/disassembly/djlink/djlink
 make compile
-```
-
-### "nasm: No such file or directory"
-```bash
-# NASM should be installed in Docker image
-# Rebuild image if missing
-make docker-build
 ```
 
 ### Compilation errors in C code
@@ -171,28 +173,38 @@ djlink -o build/COMIC.EXE build/obj/R5sw1991.obj build/obj/game_main.obj
 make clean
 
 # Full rebuild
-make docker-build  # Only if Dockerfile changed
+source setvars.sh
 make compile
 ```
 
-## Manual Compilation (without Docker)
+## Manual Compilation
 
-If you have Open Watcom 2 installed natively (Linux only):
+If you need to compile individual files for debugging:
 
 ```bash
 # Set up environment
-export WATCOM=/path/to/watcom
-export PATH=$WATCOM/binl64:$PATH
+source setvars.sh
 
-# Compile
+# Create build directories
 mkdir -p build/obj
+
+# Assemble
 nasm -f obj -o build/obj/R5sw1991.obj src/R5sw1991_c.asm
+
+# Compile C files
 wcc -ml -s -0 -i=include src/game_main.c -fo=build/obj/game_main.obj
 wcc -ml -s -0 -i=include src/file_loaders.c -fo=build/obj/file_loaders.obj
-reference/disassembly/djlink/djlink -o build/COMIC.EXE build/obj/*.obj
-```
+wcc -ml -s -0 -i=include src/rendering.c -fo=build/obj/rendering.obj
+wcc -ml -s -0 -i=include src/runtime_stubs.c -fo=build/obj/runtime_stubs.obj
 
-**Note**: Open Watcom 2 is not available for macOS, hence the Docker approach.
+# Link
+reference/disassembly/djlink/djlink -o build/COMIC-C.EXE \
+  build/obj/R5sw1991.obj \
+  build/obj/file_loaders.obj \
+  build/obj/game_main.obj \
+  build/obj/rendering.obj \
+  build/obj/runtime_stubs.obj
+```
 
 ## File Sizes Reference
 
@@ -204,10 +216,10 @@ reference/disassembly/djlink/djlink -o build/COMIC.EXE build/obj/*.obj
 
 ## Performance Notes
 
-- **Docker overhead**: First `make compile` starts container (~1-2 seconds)
-- **Compilation speed**: Fast - seconds for full rebuild
+- **Compilation speed**: Very fast - seconds for full rebuild
 - **Incremental builds**: Only recompile changed files (Makefile handles dependencies)
-- **Docker caching**: Image is cached, `docker-build` only needed once
+- **Native performance**: No containerization overhead
+- **djlink compilation**: First build compiles djlink with clang++ (~1-2 seconds)
 
 ## Integration with IDE
 

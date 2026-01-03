@@ -19,7 +19,7 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
 - **Memory Model**: Large (`-ml`) - separate 64KB code and data segments
 - **Assembler**: NASM for remaining assembly code
 - **Linker**: djlink (custom OMF format linker)
-- **Build Platform**: Docker container (macOS host lacks Open Watcom)
+- **Build Platform**: Local Open Watcom installation on macOS (via `setvars.sh`)
 
 ### Compatibility Requirements
 - Must produce identical behavior to original `COMIC.EXE` (Revision 5)
@@ -46,48 +46,60 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
 
 ### Target State (C + Assembly Hybrid)
 ```
-┌──────────────────────┐   ┌──────────────────────┐
-│   R5sw1991_c.asm     │◄──│    game_main.c       │
-│                      │   │                      │
-│  • Entry point       │   │  • Main game loop    │
-│  • DS initialization │   │  • Input handling    │
-│  • Interrupt setup   │   │  • Game logic        │
-│  • Hardware init     │   └──────────────────────┘
-│  • Title sequence    │            │
-└──────────────────────┘            ▼
-         │              ┌──────────────────────┐
-         │              │   Subsystem modules  │
-         │              │                      │
-         │              │  • collision.c       │
-         │              │  • physics.c         │
-         │              │  • rendering.c       │
-         │              │  • ai.c              │
-         │              │  • file_loaders.c    │
-         │              └──────────────────────┘
-         │                       │
-         ▼                       ▼
-┌────────────────────────────────────┐
-│     Assembly Functions             │
-│  (gradually replaced by C)         │
-│                                    │
-│  • swap_video_buffers()            │
-│  • handle_enemies()                │
-│  • blit_map_playfield_offscreen()  │
-│  • etc.                            │
-└────────────────────────────────────┘
+┌──────────────────────┐   
+│   R5sw1991_c.asm     │   
+│                      │   
+│  • Entry point       │   
+│  • DS initialization │   
+│  • Interrupt setup   │   
+│  • Hardware init     │   
+│  • Title sequence    │───┐
+└──────────────────────┘   │
+                           │ calls game_entry_c()
+                           ▼
+         ┌──────────────────────────────┐
+         │      game_main.c             │
+         │                              │
+         │  • game_entry_c()            │
+         │    - Main game entry point   │
+         │    - Will contain game logic │
+         │    - Calls subsystems        │
+         └──────────────────────────────┘
+                      │
+                      ▼
+         ┌──────────────────────┐
+         │   Subsystem modules  │
+         │                      │
+         │  • collision.c       │
+         │  • physics.c         │
+         │  • rendering.c       │
+         │  • ai.c              │
+         │  • file_loaders.c    │
+         └──────────────────────┘
+                      │
+                      ▼
+         ┌────────────────────────────────────┐
+         │     Assembly Functions             │
+         │  (gradually replaced by C)         │
+         │                                    │
+         │  • load_new_level()                │
+         │  • swap_video_buffers()            │
+         │  • handle_enemies()                │
+         │  • blit_map_playfield_offscreen()  │
+         │  • etc.                            │
+         └────────────────────────────────────┘
 ```
 
-### Current State Note (As of 2025-12-31)
+### Current State Note (As of 2026-01-03)
 
-The **Target State** diagram above represents the *eventual* goal. However, the current implementation takes a pragmatic approach:
+The refactoring approach has been revised based on practical constraints:
 
-- **Assembly remains in control**: `R5sw1991_c.asm` orchestrates the entire program flow
-- **C acts as framework**: The C headers (`globals.h`, `assembly.h`) establish the interface for future porting
-- **No C/Assembly boundary crossing for game loop**: Instead of calling C functions with complex calling conventions, assembly calls `load_new_level()` directly
-- **Game loop entirely in assembly**: `load_new_level()` → `load_new_stage()` → `game_loop()` (all assembly)
-- **game_main.c is a placeholder**: Currently contains no active code, just commented-out pseudocode showing the intended game loop structure
+- **Assembly handles initialization**: `R5sw1991_c.asm` contains entry point, DS init, interrupt handlers, hardware setup, and title sequence
+- **Single C entry point**: After title sequence, assembly calls `game_entry_c()` in `game_main.c`
+- **Assembly fallback for now**: `game_entry_c()` currently returns immediately, and assembly jumps to `load_new_level()` to continue execution
+- **No hybrid game loop**: Unlike the original plan, we're not trying to refactor incrementally within the main game loop due to assembly's heavy use of jumps to labels instead of returns
 
-**Rationale**: Early attempts to call C functions from 16-bit assembly exposed calling convention incompatibilities with djlink. Rather than spend time on C/Assembly boundaries, we've prioritized getting the game running, with the C framework ready for incremental porting.
+**Rationale**: Attempting a hybrid approach where C and assembly interleave within the game loop is not feasible without significant refactoring of the assembly code. The assembly extensively uses `jmp` to labels rather than `call`/`ret`, making it difficult to extract individual functions while maintaining control flow. Instead, we'll establish a clean boundary: assembly does all initialization and setup, then hands off to C for the main game logic. This allows us to rewrite the game logic in C from scratch rather than translating it piece by piece.
 
 ## Refactoring Strategy
 
@@ -95,10 +107,12 @@ The **Target State** diagram above represents the *eventual* goal. However, the 
 
 **Goal**: Establish build infrastructure and minimal C integration
 
-1. ✅ Create Docker build environment
-   - Dockerfile with Open Watcom 2, NASM, djlink
-   - Makefile with `docker-build` and `compile` targets
-   - Volume mounting for workspace
+1. ✅ Create build environment
+   - Initial Docker-based setup with Open Watcom 2, NASM, djlink
+   - Transitioned to local Open Watcom installation on macOS
+   - `setvars.sh` for environment configuration
+   - Makefile with `compile` and `clean` targets
+   - djlink built for macOS using clang++
 
 2. ✅ Create C/Assembly bridge
    - Modified `R5sw1991_c.asm` with `global` exports for functions and variables
@@ -106,12 +120,11 @@ The **Target State** diagram above represents the *eventual* goal. However, the 
    - `assembly.h` for assembly function declarations with `__near` calling convention
    - Successfully resolved 16-bit calling convention issues (far vs. near calls)
 
-3. ✅ Establish direct assembly control
-   - `R5sw1991_c.asm` remains the primary control flow
-   - `game_main.c` is a placeholder for future C implementation
-   - Assembly directly calls `load_new_level()` which transitions to game
-   - Game loop runs entirely in assembly (`load_new_level` → `load_new_stage` → `game_loop`)
-   - This eliminates complex C/Assembly boundary crossing for now
+3. ✅ Establish assembly initialization path
+   - `R5sw1991_c.asm` handles entry point, DS init, interrupts, hardware, title sequence
+   - `game_main.c` with `game_entry_c()` stub that returns immediately
+   - Assembly calls `game_entry_c()` after title sequence
+   - Assembly jumps to `load_new_level()` when C returns (temporary)
 
 4. ✅ Data file loader infrastructure
    - `file_loaders.h` with file format definitions
@@ -119,52 +132,58 @@ The **Target State** diagram above represents the *eventual* goal. However, the 
    - Placeholder stubs for `.TT2`, `.SHP`, `.EGA` loaders
    - File I/O currently handled by assembly INT 21h calls
 
-### Phase 2: Incremental Function Migration (NEXT)
+### Phase 2: C Entry Point (IN PROGRESS)
 
-**Goal**: Start moving assembly functions to C one at a time
+**Goal**: Establish clean handoff from assembly to C
 
-**Strategy**: Rather than trying to move entire subsystems at once, migrate individual functions:
-1. Create C implementation of a function
-2. Declare it in `assembly.h` as `extern`
-3. Remove assembly implementation
-4. Assembly calls C function via same interface
-5. No calling convention issues since assembly and C are in same memory model
+1. **Create game_entry_c() function** (CURRENT STEP)
+   - Implement `void game_entry_c(void)` in `game_main.c`
+   - Currently returns immediately (no-op)
+   - Assembly calls this after title sequence
+   - Assembly jumps to `load_new_level` when C returns
+   
+2. **Validate the boundary**
+   - Confirm assembly→C→assembly flow works
+   - Verify all globals are accessible from C
+   - Test that returning to assembly maintains correct state
 
-**Suggested starting points** (simple, isolated):
-1. **render_map()** - Pre-render entire map to video buffer
-   - Takes no parameters, no return value
-   - Only modifies video memory
-   - Can validate by comparing rendered output
+3. **Next steps**
+   - Begin implementing game logic in `game_entry_c()`
+   - Call assembly functions as needed (e.g., `load_new_level()`)
+   - Gradually move logic from assembly into C
 
-2. **swap_video_buffers()** - Switch between 0x0000 and 0x2000 buffers
-   - One parameter (delay count)
-   - No side effects besides video
-   - Simplest possible function
+**Why this approach**: The assembly code's heavy use of `jmp` instead of `call`/`ret` makes incremental function-by-function migration impractical. Instead, we establish a single entry point where C takes over, allowing us to reimplement game logic in C while calling assembly functions for low-level operations.
 
-3. **wait_n_ticks()** - Wait for N game ticks
-   - One parameter (tick count)
-   - Reads `game_tick_flag` global
-   - Core timing mechanism
+### Phase 3: Game Logic Migration (FUTURE)
 
-**Migration checklist**:
-- [ ] Copy assembly logic to C function
-- [ ] Test with equivalent assembly code still present (side-by-side)
-- [ ] Compare behavior (timing, state changes)
-- [ ] Remove assembly version
-- [ ] Recompile and test with C version
-- [ ] Commit working state
+**Goal**: Move game initialization and main loop to C
+### Phase 3: Game Logic Migration (FUTURE)
 
-### Phase 3: Game Loop Migration (FUTURE)
+**Goal**: Move game initialization and main loop to C
 
-**Goal**: Move main game loop logic from assembly to C
+1. **Implement game initialization in C**
+   - Call `load_new_level()` from assembly
+   - Call `load_new_stage()` from assembly  
+   - Set up initial game state
 
-Once individual function migration is working, consider implementing `game_loop_iteration()` in C:
-1. Implement tick-waiting logic
-2. Input state checking
-3. Call assembly functions for complex subsystems
-4. Win/lose condition checking
+2. **Implement main game loop in C**
+   - Tick-waiting logic (`wait_n_ticks()`)
+   - Input state checking (read `key_state_*` globals)
+   - Call rendering functions
+   - Win/lose condition checking
+   
+3. **Strategy for calling assembly functions**
+   - Declare assembly functions in `assembly.h`
+   - Call them from C as needed
+   - Gradually reimplement in C when feasible
 
-### Phase 4: Rendering Subsystem
+### Phase 4: Subsystem Migration (FUTURE)
+
+**Goal**: Convert individual subsystems from assembly to C
+
+As `game_entry_c()` matures, start reimplementing assembly functions in C:
+
+#### Rendering Subsystem
 
 **Goal**: Convert graphics rendering to C
 
@@ -192,7 +211,7 @@ Once individual function migration is working, consider implementing `game_loop_
    - Verify pixel-perfect rendering
    - Confirm no graphical glitches
 
-### Phase 5: Physics and Collision
+#### Physics and Collision
 
 **Goal**: Convert movement and collision detection to C
 
@@ -219,7 +238,7 @@ Once individual function migration is working, consider implementing `game_loop_
    - Verify physics matches original (jump height, fall speed)
    - Confirm pixel-perfect movement
 
-### Phase 6: Actor Management
+#### Actor Management
 
 **Goal**: Convert enemy AI and projectile handling to C
 
@@ -260,7 +279,7 @@ Once individual function migration is working, consider implementing `game_loop_
    - Verify each behavior type works correctly
    - Confirm collision timing matches original
 
-### Phase 7: Game State Management
+#### Game State Management
 
 **Goal**: Convert level loading, doors, teleportation to C
 
@@ -299,7 +318,7 @@ Once individual function migration is working, consider implementing `game_loop_
    - Verify door connections work correctly
    - Confirm teleportation positioning exact
 
-### Phase 8: Sound and Input (Optional)
+### Phase 5: Sound and Input (Optional)
 
 **Goal**: Convert remaining subsystems (lower priority)
 
