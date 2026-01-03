@@ -100,6 +100,7 @@ void enable_ega_plane_read_write(uint8_t plane)
  * 
  * Input:
  *   src_ptr = pointer to RLE-encoded source data
+ *   src_size = total number of bytes available in source buffer
  *   dst_offset = offset in video memory where decoded data goes (0x0000, 0x2000, etc.)
  *   plane_size = number of bytes to decode (typically 8000)
  * 
@@ -109,8 +110,11 @@ void enable_ega_plane_read_write(uint8_t plane)
  * 
  * Output: Decoded plane data written to video memory segment 0xa000
  * Returns: Number of source bytes consumed to decode the plane
+ * 
+ * Safety: Validates source buffer bounds to prevent reading beyond truncated files.
+ * If source data ends prematurely, stops decoding and returns bytes consumed.
  */
-uint16_t rle_decode(uint8_t *src_ptr, uint16_t dst_offset, uint16_t plane_size)
+uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, uint16_t plane_size)
 {
     uint16_t bytes_decoded = 0;
     uint16_t bytes_consumed = 0;
@@ -120,6 +124,11 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t dst_offset, uint16_t plane_size)
     uint8_t repeat_count;
     
     while (bytes_decoded < plane_size) {
+        /* Validate we have at least one byte available for the control byte */
+        if (bytes_consumed >= src_size) {
+            break;  /* Source buffer exhausted, stop decoding */
+        }
+        
         byte_value = *src_ptr++;  /* Read next encoded byte */
         bytes_consumed++;
         
@@ -130,6 +139,12 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t dst_offset, uint16_t plane_size)
         } else {
             /* Repeat sequence - bits 6-0 are the repeat count */
             repeat_count = byte_value & 0x7f;  /* Extract repeat count (1-127) */
+            
+            /* Validate we have at least one byte available for the repeat value */
+            if (bytes_consumed >= src_size) {
+                break;  /* Source buffer exhausted, stop decoding */
+            }
+            
             byte_value = *src_ptr++;  /* Get the byte to repeat */
             bytes_consumed++;
             
@@ -183,6 +198,7 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
     uint16_t plane_size;
     uint8_t plane;
     uint16_t src_offset;
+    uint16_t remaining_src_bytes;
     
     /* Open the file (DOS INT 21h AH=3Dh) */
     regs.h.ah = 0x3d;  /* AH=3Dh: open existing file */
@@ -221,7 +237,9 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
         enable_ega_plane_read_write(plane);
         
         /* Decode RLE data for this plane directly into video memory */
-        src_offset += rle_decode(&src_ptr[src_offset], dst_offset, plane_size);
+        /* Calculate remaining bytes in source buffer for this plane */
+        remaining_src_bytes = (bytes_read > src_offset) ? (bytes_read - src_offset) : 0;
+        src_offset += rle_decode(&src_ptr[src_offset], remaining_src_bytes, dst_offset, plane_size);
     }
     
     return 0;  /* Success */

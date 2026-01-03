@@ -32,7 +32,7 @@ void enable_ega_plane_read(uint8_t plane);
 void enable_ega_plane_read_write(uint8_t plane);
 
 /* RLE decoding */
-uint16_t rle_decode(uint8_t *src_ptr, uint16_t dst_offset, uint16_t plane_size);
+uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, uint16_t plane_size);
 
 /* Video buffer operations */
 void switch_video_buffer(uint16_t buffer_offset);
