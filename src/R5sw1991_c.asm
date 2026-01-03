@@ -1,8 +1,6 @@
-; Modified disassembly of The Adventures of Captain Comic, Revision 5.
-; This version calls C code for the main game loop.
-;   nasm -f obj -o R5sw1991_c.obj R5sw1991_c.asm
-;   wcc -ml -s -0 -i=include src/*.c -fo=obj/*.obj
-;   djlink -o COMIC.EXE R5sw1991_c.obj obj/*.obj
+; Commented disassembly of The Adventures of Captain Comic, Revision 5.
+;   nasm -f obj -o R5sw1991.obj R5sw1991.asm
+;   djlink -o R5sw1991.exe R5sw1991.obj
 
 bits	16
 
@@ -165,11 +163,6 @@ TERMINAL_VELOCITY	equ	23	; in units of 1/8 game units per tick, as in comic_y_ve
 ; pixels in a row and 8 pixels per byte (in each EGA plane).
 %define pixel_coords(x, y)	(((y)*SCREEN_WIDTH+(x))/8)
 
-; External C functions
-extern award_points_c
-extern increment_comic_hp_c
-extern decrement_comic_hp_c
-extern game_entry_c
 
 ; The cs register normally points to this section.
 section code
@@ -995,12 +988,7 @@ initialize_lives_sequence:
 	; https://tcrf.net/The_Adventures_of_Captain_Comic_(DOS)#Unused_Instant-Win_Mode
 	mov byte [win_counter], 200
 .num_lives_ok:
-	; Call C entry point (game_entry_c in game_main.c)
-	; Assembly has completed: entry point, DS init, interrupts, hardware, title sequence
-	; C will take over game logic (currently just returns immediately)
-	call far game_entry_c
-	
-	jmp load_new_level	; Jump to load_new_level (never returns)
+	jmp load_new_level
 
 ; Set the palette entries for colors 2, 10, and 12 (ordinarily green, bright
 ; green, bright red) to black (rgbRGB 000000). The effect is instant, with no
@@ -1125,9 +1113,7 @@ terminate_program:
 	mov ah, 0x4c	; ah=0x4c: terminate with return code
 	int 0x21
 
-global saved_int9_handler_offset
 saved_int9_handler_offset	dw	0
-global saved_int9_handler_segment
 saved_int9_handler_segment	dw	0
 ; INT 9 is called for keyboard events. Update the state of the key_state_*
 ; variables and updates recent_scancode in the case of a key press. Call the
@@ -1219,17 +1205,13 @@ int9_handler:
 	pop ax
 	iret
 
-global saved_int35_handler_offset
 saved_int35_handler_offset	dw	0
-global saved_int35_handler_segment
 saved_int35_handler_segment	dw	0
 ; INT 35 is called for Ctrl-Break. Jump to terminate_program.
 int35_handler:
 	jmp terminate_program
 
-global saved_int8_handler_offset
 saved_int8_handler_offset	dw	0
-global saved_int8_handler_segment
 saved_int8_handler_segment	dw	0
 ; INT 8 is called for every cycle of the programmable interval timer (IRQ 0).
 ; Poll the joystick and F1 and F2 keys (on odd interrupts only) and advance the
@@ -1458,9 +1440,7 @@ int8_handler:
 	pop ax
 	jmp far [cs:saved_int8_handler_offset]	; tail call into the original interrupt handler
 
-global saved_int3_handler_offset
 saved_int3_handler_offset	dw	0
-global saved_int3_handler_segment
 saved_int3_handler_segment	dw	0
 ; INT 3 controls the sound. It is called into explicitly by other parts of the
 ; code using the `int3` instruction. Each sound has an associated priority. A
@@ -1785,7 +1765,6 @@ install_interrupt_handlers:
 ;   saved_int9_handler_segment:saved_int9_handler_offset = address of original INT 9 handler
 ;   saved_int21_handler_segment:saved_int21_handler_offset = address of original INT 21 handler
 ;   saved_int35_handler_segment:saved_int35_handler_offset = address of original INT 35 handler
-global restore_interrupt_handlers
 restore_interrupt_handlers:
 	; The interrupt vector table starts at 0000:0000. Each entry is 4
 	; bytes: 2 bytes offset, 2 bytes segment.
@@ -6943,44 +6922,11 @@ display_dollar_terminated_string:
 section data
 sectalign	16
 
-; Export global variables for C access
-global game_tick_flag
-global comic_x, comic_y
-global comic_x_checkpoint, comic_y_checkpoint
-global comic_facing, comic_animation
-global comic_is_falling_or_jumping
-global comic_x_momentum, comic_y_vel
-global comic_jump_counter
-global comic_hp, comic_num_lives
-global comic_firepower, fireball_meter
-global comic_has_corkscrew, comic_has_door_key
-global comic_has_boots, comic_has_lantern
-global comic_has_teleport_wand, comic_is_teleporting
-global camera_x
-global current_level_number, current_stage_number
-global tileset_last_passable
-global win_counter, score, score_10000_counter
-global key_state_esc, key_state_f1, key_state_f2
-global key_state_open, key_state_jump, key_state_teleport
-global key_state_left, key_state_right, key_state_fire
-
-; Export assembly functions for C to call
-global load_new_level, load_new_stage
-global game_loop
-global swap_video_buffers, wait_n_ticks
-global blit_map_playfield_offscreen, blit_comic_playfield_offscreen
-global handle_enemies, handle_fireballs, handle_item
-global handle_fall_or_jump, handle_teleport
-global pause, game_over, game_end_sequence
-global render_map
-global award_extra_life
-
 VIDEO_MODE_ERROR_MESSAGE	db `This program requires an EGA adapter with 256K installed\n\r$`
 
 interrupt_handler_install_sentinel	db	0
 ; saved_video_mode's lower byte is the video mode and the upper byte is 0x00,
 ; so you can call `int 0x10` right after loading the value into ax.
-global saved_video_mode
 saved_video_mode	dw	0
 ; source_door_level_number and source_door_stage_number are set to the
 ; level/stage we just came from, if we are entering the current stage via a
