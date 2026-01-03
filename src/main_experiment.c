@@ -259,12 +259,16 @@ int check_ega_support(void)
         return 0;  /* Video mode 0x0D was not set */
     }
     
-    /* Check for sufficient EGA memory (256K) */
+    /* Check for sufficient EGA memory (>=256K).
+     * According to EGA BIOS documentation, after INT 10h AH=12h BL=10h:
+     *   BL=0 -> 64K, BL=1 -> 128K, BL=2 -> 192K, BL=3 -> 256K.
+     * We treat BL>=3 as "at least 256K" in case larger values are used
+     * by some implementations to indicate more than 256K.
+     */
     regs.h.ah = 0x12;  /* AH=0x12: get EGA info */
     regs.h.bl = 0x10;  /* BL=0x10: return EGA info */
     int86(0x10, &regs, &regs);
     
-    /* BL=3 means 256K installed memory is available */
     if (regs.h.bl >= 3) {
         return 1;  /* Adequate EGA support */
     }
