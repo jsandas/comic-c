@@ -38,4 +38,11 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
 void switch_video_buffer(uint16_t buffer_offset);
 uint16_t get_current_display_offset(void);
 
+/* Palette manipulation for title sequence fade effects */
+void palette_darken(void);
+void palette_fade_in(void);
+
+/* External function from game_main.c for timing */
+extern void wait_n_ticks(uint16_t ticks);
+
 #endif /* GRAPHICS_H */

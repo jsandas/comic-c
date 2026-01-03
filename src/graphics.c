@@ -10,6 +10,7 @@
 #include <conio.h>
 #include <i86.h>
 #include "globals.h"
+#include "graphics.h"
 
 /* EGA Register Addresses */
 #define EGA_CRTC_INDEX_PORT     0x3d4
@@ -314,4 +315,88 @@ void switch_video_buffer(uint16_t buffer_offset)
 uint16_t get_current_display_offset(void)
 {
     return current_display_offset;
+}
+
+/*
+ * palette_darken - Set specific palette entries to dark gray for fade effect
+ * 
+ * Sets palette entries 2, 10, and 12 to dark gray (0x18) to prepare for
+ * fade-in animation. This is called before displaying a new title screen.
+ * 
+ * Uses BIOS INT 10h AH=10h AL=00h to set individual palette registers.
+ * BL = palette register index, BH = color value
+ */
+void palette_darken(void)
+{
+    union REGS regs;
+    
+    /* Set palette register 2 (background) to dark gray */
+    regs.h.ah = 0x10;  /* AH=10h: Palette functions */
+    regs.h.al = 0x00;  /* AL=00h: Set individual palette register */
+    regs.h.bl = 2;     /* BL = palette register index */
+    regs.h.bh = 0x18;  /* BH = dark gray color value */
+    int86(0x10, &regs, &regs);
+    
+    /* Set palette register 10 (items) to dark gray */
+    regs.h.bl = 10;
+    regs.h.bh = 0x18;
+    int86(0x10, &regs, &regs);
+    
+    /* Set palette register 12 (title) to dark gray */
+    regs.h.bl = 12;
+    regs.h.bh = 0x18;
+    int86(0x10, &regs, &regs);
+}
+
+/*
+ * palette_fade_in - Fade in from dark to final colors in 3 steps
+ * 
+ * Performs a 3-step fade animation for palette entries 2, 10, and 12:
+ *   Step 1: Dark gray (already set by palette_darken), wait 1 tick
+ *   Step 2: Light gray, wait 1 tick
+ *   Step 3: Final colors (bright), wait 1 tick
+ * 
+ * This creates a smooth fade-in effect for title sequence screens.
+ * Uses wait_n_ticks() from game_main.c for timing between steps.
+ */
+void palette_fade_in(void)
+{
+    union REGS regs;
+    
+    /* Step 1: Already dark gray from palette_darken() - just wait */
+    wait_n_ticks(1);
+    
+    /* Step 2: Set to light gray */
+    regs.h.ah = 0x10;
+    regs.h.al = 0x00;
+    regs.h.bl = 2;
+    regs.h.bh = 0x38;  /* Light gray */
+    int86(0x10, &regs, &regs);
+    
+    regs.h.bl = 10;
+    regs.h.bh = 0x38;
+    int86(0x10, &regs, &regs);
+    
+    regs.h.bl = 12;
+    regs.h.bh = 0x38;
+    int86(0x10, &regs, &regs);
+    
+    wait_n_ticks(1);
+    
+    /* Step 3: Set to final bright colors */
+    regs.h.ah = 0x10;
+    regs.h.al = 0x00;
+    regs.h.bl = 2;
+    regs.h.bh = 0x3f;  /* Bright white */
+    int86(0x10, &regs, &regs);
+    
+    regs.h.bl = 10;
+    regs.h.bh = 0x3f;
+    int86(0x10, &regs, &regs);
+    
+    regs.h.bl = 12;
+    regs.h.bh = 0x3f;
+    int86(0x10, &regs, &regs);
+    
+    wait_n_ticks(1);
 }
