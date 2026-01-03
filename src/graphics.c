@@ -269,7 +269,7 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
         /* Calculate remaining bytes in source buffer for this plane */
         if (bytes_read <= src_offset) {
             /* File truncated before all planes could be decoded */
-            return -1;
+            return -2;  /* File read failed - insufficient data */
         }
         remaining_src_bytes = bytes_read - src_offset;
         src_offset += rle_decode(&src_ptr[src_offset], remaining_src_bytes, dst_offset, plane_size);
