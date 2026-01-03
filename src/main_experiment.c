@@ -340,16 +340,17 @@ void display_ega_error(void)
  * load_keymap_file - Load keyboard configuration from KEYS.DEF if it exists
  * 
  * Attempts to open and read KEYS.DEF (6 bytes) into the keymap array.
- * If the file doesn't exist, the default keymap is used.
+ * If the file doesn't exist or read fails, the default keymap is used.
  * 
  * Returns:
- *   0 if file doesn't exist (default keymap is used)
- *   1 if file was successfully loaded
+ *   0 if file doesn't exist or read fails (default keymap is used)
+ *   1 if file was successfully read and loaded
  */
 int load_keymap_file(void)
 {
     union REGS regs;
     int file_handle;
+    uint16_t bytes_read;
     
     /* Try to open KEYS.DEF */
     regs.h.ah = 0x3D;  /* AH=0x3D: open existing file */
@@ -370,6 +371,25 @@ int load_keymap_file(void)
     regs.x.cx = 6;     /* Read 6 bytes */
     regs.x.dx = DOS_OFFSET(keymap);
     int86(0x21, &regs, &regs);
+    
+    /* Check for read errors (carry flag set) */
+    if (regs.x.cflag) {
+        /* Read failed, close the file and return error */
+        regs.h.ah = 0x3E;  /* AH=0x3E: close file */
+        regs.x.bx = file_handle;
+        int86(0x21, &regs, &regs);
+        return 0;  /* Return error - use default keymap */
+    }
+    
+    /* Check that we actually read 6 bytes (AX contains bytes read) */
+    bytes_read = regs.x.ax;
+    if (bytes_read != 6) {
+        /* Read incomplete or unexpected amount of data */
+        regs.h.ah = 0x3E;  /* AH=0x3E: close file */
+        regs.x.bx = file_handle;
+        int86(0x21, &regs, &regs);
+        return 0;  /* Return error - use default keymap */
+    }
     
     /* Close the file */
     regs.h.ah = 0x3E;  /* AH=0x3E: close file */
