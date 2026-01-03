@@ -41,7 +41,7 @@ if ! command -v dosbox-x >/dev/null 2>&1; then
   exit 1
 fi
 
-# Start DOSBox, mount the assets directory as C: and switch to C:ll
+# Start DOSBox, mount the assets directory as C: and switch to C:
 cd tests; exec dosbox-x -conf $PWD/dosbox_deterministic.conf \
   -savedir $PWD/savestates \
   -c "mount c \"$ORIGINAL_DIR\" -freesize 1024" -c "c:" -c "$EXE_NAME"
