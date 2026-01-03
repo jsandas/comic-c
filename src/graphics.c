@@ -27,6 +27,16 @@
 #define EGA_READ_PLANE_SELECT   0x04
 #define EGA_WRITE_PLANE_ENABLE  0x02
 
+/* Palette register indices for title sequence fade effects */
+#define PALETTE_REG_BACKGROUND  2   /* Background color register */
+#define PALETTE_REG_ITEMS       10  /* Items/inventory color register */
+#define PALETTE_REG_TITLE       12  /* Title text color register */
+
+/* Palette color values for fade effects */
+#define PALETTE_COLOR_DARK_GRAY   0x18  /* Dark gray for fade start */
+#define PALETTE_COLOR_LIGHT_GRAY  0x38  /* Light gray for fade middle */
+#define PALETTE_COLOR_BRIGHT_WHITE 0x3f /* Bright white for fade end */
+
 /* Video memory base address in segment 0xa000 */
 #define VIDEO_MEMORY_BASE       0xa000
 
@@ -330,21 +340,21 @@ void palette_darken(void)
 {
     union REGS regs;
     
-    /* Set palette register 2 (background) to dark gray */
+    /* Set palette register for background to dark gray */
     regs.h.ah = 0x10;  /* AH=10h: Palette functions */
     regs.h.al = 0x00;  /* AL=00h: Set individual palette register */
-    regs.h.bl = 2;     /* BL = palette register index */
-    regs.h.bh = 0x18;  /* BH = dark gray color value */
+    regs.h.bl = PALETTE_REG_BACKGROUND;
+    regs.h.bh = PALETTE_COLOR_DARK_GRAY;
     int86(0x10, &regs, &regs);
     
-    /* Set palette register 10 (items) to dark gray */
-    regs.h.bl = 10;
-    regs.h.bh = 0x18;
+    /* Set palette register for items to dark gray */
+    regs.h.bl = PALETTE_REG_ITEMS;
+    regs.h.bh = PALETTE_COLOR_DARK_GRAY;
     int86(0x10, &regs, &regs);
     
-    /* Set palette register 12 (title) to dark gray */
-    regs.h.bl = 12;
-    regs.h.bh = 0x18;
+    /* Set palette register for title to dark gray */
+    regs.h.bl = PALETTE_REG_TITLE;
+    regs.h.bh = PALETTE_COLOR_DARK_GRAY;
     int86(0x10, &regs, &regs);
 }
 
@@ -369,16 +379,16 @@ void palette_fade_in(void)
     /* Step 2: Set to light gray */
     regs.h.ah = 0x10;
     regs.h.al = 0x00;
-    regs.h.bl = 2;
-    regs.h.bh = 0x38;  /* Light gray */
+    regs.h.bl = PALETTE_REG_BACKGROUND;
+    regs.h.bh = PALETTE_COLOR_LIGHT_GRAY;
     int86(0x10, &regs, &regs);
     
-    regs.h.bl = 10;
-    regs.h.bh = 0x38;
+    regs.h.bl = PALETTE_REG_ITEMS;
+    regs.h.bh = PALETTE_COLOR_LIGHT_GRAY;
     int86(0x10, &regs, &regs);
     
-    regs.h.bl = 12;
-    regs.h.bh = 0x38;
+    regs.h.bl = PALETTE_REG_TITLE;
+    regs.h.bh = PALETTE_COLOR_LIGHT_GRAY;
     int86(0x10, &regs, &regs);
     
     wait_n_ticks(1);
@@ -386,16 +396,16 @@ void palette_fade_in(void)
     /* Step 3: Set to final bright colors */
     regs.h.ah = 0x10;
     regs.h.al = 0x00;
-    regs.h.bl = 2;
-    regs.h.bh = 0x3f;  /* Bright white */
+    regs.h.bl = PALETTE_REG_BACKGROUND;
+    regs.h.bh = PALETTE_COLOR_BRIGHT_WHITE;
     int86(0x10, &regs, &regs);
     
-    regs.h.bl = 10;
-    regs.h.bh = 0x3f;
+    regs.h.bl = PALETTE_REG_ITEMS;
+    regs.h.bh = PALETTE_COLOR_BRIGHT_WHITE;
     int86(0x10, &regs, &regs);
     
-    regs.h.bl = 12;
-    regs.h.bh = 0x3f;
+    regs.h.bl = PALETTE_REG_TITLE;
+    regs.h.bh = PALETTE_COLOR_BRIGHT_WHITE;
     int86(0x10, &regs, &regs);
     
     wait_n_ticks(1);
