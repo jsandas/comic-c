@@ -328,6 +328,26 @@ uint16_t get_current_display_offset(void)
 }
 
 /*
+ * set_palette_register - Set a single EGA palette register to a specific color
+ * 
+ * Input:
+ *   index = palette register index (0-15)
+ *   color = color value (0x00-0x3f)
+ * 
+ * Uses BIOS INT 10h AH=10h AL=00h to set an individual palette register.
+ */
+static void set_palette_register(uint8_t index, uint8_t color)
+{
+    union REGS regs;
+    
+    regs.h.ah = 0x10;  /* AH=10h: Palette functions */
+    regs.h.al = 0x00;  /* AL=00h: Set individual palette register */
+    regs.h.bl = index; /* BL = palette register index */
+    regs.h.bh = color; /* BH = color value */
+    int86(0x10, &regs, &regs);
+}
+
+/*
  * palette_darken - Set specific palette entries to dark gray for fade effect
  * 
  * Sets palette entries 2, 10, and 12 to dark gray (0x18) to prepare for
@@ -338,24 +358,9 @@ uint16_t get_current_display_offset(void)
  */
 void palette_darken(void)
 {
-    union REGS regs;
-    
-    /* Set palette register for background to dark gray */
-    regs.h.ah = 0x10;  /* AH=10h: Palette functions */
-    regs.h.al = 0x00;  /* AL=00h: Set individual palette register */
-    regs.h.bl = PALETTE_REG_BACKGROUND;
-    regs.h.bh = PALETTE_COLOR_DARK_GRAY;
-    int86(0x10, &regs, &regs);
-    
-    /* Set palette register for items to dark gray */
-    regs.h.bl = PALETTE_REG_ITEMS;
-    regs.h.bh = PALETTE_COLOR_DARK_GRAY;
-    int86(0x10, &regs, &regs);
-    
-    /* Set palette register for title to dark gray */
-    regs.h.bl = PALETTE_REG_TITLE;
-    regs.h.bh = PALETTE_COLOR_DARK_GRAY;
-    int86(0x10, &regs, &regs);
+    set_palette_register(PALETTE_REG_BACKGROUND, PALETTE_COLOR_DARK_GRAY);
+    set_palette_register(PALETTE_REG_ITEMS, PALETTE_COLOR_DARK_GRAY);
+    set_palette_register(PALETTE_REG_TITLE, PALETTE_COLOR_DARK_GRAY);
 }
 
 /*
@@ -371,42 +376,18 @@ void palette_darken(void)
  */
 void palette_fade_in(void)
 {
-    union REGS regs;
-    
     /* Step 1: Already dark gray from palette_darken() - just wait */
     wait_n_ticks(1);
     
     /* Step 2: Set to light gray */
-    regs.h.ah = 0x10;
-    regs.h.al = 0x00;
-    regs.h.bl = PALETTE_REG_BACKGROUND;
-    regs.h.bh = PALETTE_COLOR_LIGHT_GRAY;
-    int86(0x10, &regs, &regs);
-    
-    regs.h.bl = PALETTE_REG_ITEMS;
-    regs.h.bh = PALETTE_COLOR_LIGHT_GRAY;
-    int86(0x10, &regs, &regs);
-    
-    regs.h.bl = PALETTE_REG_TITLE;
-    regs.h.bh = PALETTE_COLOR_LIGHT_GRAY;
-    int86(0x10, &regs, &regs);
-    
+    set_palette_register(PALETTE_REG_BACKGROUND, PALETTE_COLOR_LIGHT_GRAY);
+    set_palette_register(PALETTE_REG_ITEMS, PALETTE_COLOR_LIGHT_GRAY);
+    set_palette_register(PALETTE_REG_TITLE, PALETTE_COLOR_LIGHT_GRAY);
     wait_n_ticks(1);
     
     /* Step 3: Set to final bright colors */
-    regs.h.ah = 0x10;
-    regs.h.al = 0x00;
-    regs.h.bl = PALETTE_REG_BACKGROUND;
-    regs.h.bh = PALETTE_COLOR_BRIGHT_WHITE;
-    int86(0x10, &regs, &regs);
-    
-    regs.h.bl = PALETTE_REG_ITEMS;
-    regs.h.bh = PALETTE_COLOR_BRIGHT_WHITE;
-    int86(0x10, &regs, &regs);
-    
-    regs.h.bl = PALETTE_REG_TITLE;
-    regs.h.bh = PALETTE_COLOR_BRIGHT_WHITE;
-    int86(0x10, &regs, &regs);
-    
+    set_palette_register(PALETTE_REG_BACKGROUND, PALETTE_COLOR_BRIGHT_WHITE);
+    set_palette_register(PALETTE_REG_ITEMS, PALETTE_COLOR_BRIGHT_WHITE);
+    set_palette_register(PALETTE_REG_TITLE, PALETTE_COLOR_BRIGHT_WHITE);
     wait_n_ticks(1);
 }
