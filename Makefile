@@ -1,14 +1,6 @@
 # Makefile for Captain Comic C refactor
-# Uses Docker to provide Open Watcom 2 build environment on macOS
-
-# Docker image name
-DOCKER_IMAGE = comic-c-build
-
-# Docker container name
-DOCKER_CONTAINER = comic-c-builder
-
-# Workspace mount point
-WORKSPACE = /workspace
+# Uses local Open Watcom 2 installation for building
+# Ensure setvars.sh has been sourced before running make
 
 # Source directories
 SRC_DIR = src
@@ -19,10 +11,10 @@ REFERENCE_DIR = reference/disassembly
 
 # Compiler and linker
 WCC = wcc
-WCFLAGS = -ml -s -0 -i=$(WORKSPACE)/$(INCLUDE_DIR)
+WCFLAGS = -ml -s -0 -i=$(INCLUDE_DIR)
 NASM = nasm
 NASMFLAGS = -f obj
-DJLINK = $(WORKSPACE)/$(REFERENCE_DIR)/djlink/djlink
+DJLINK = $(REFERENCE_DIR)/djlink/djlink
 DJLINKFLAGS =
 
 # Source files
@@ -34,29 +26,13 @@ ASM_OBJECT = $(OBJ_DIR)/R5sw1991.obj
 # Output executable
 EXECUTABLE = $(BUILD_DIR)/COMIC-C.EXE
 
-.PHONY: all docker-build compile clean shell help
+.PHONY: all compile clean shell help
 
 # Default target
 all: compile
 
-# Build Docker image
-docker-build:
-	@echo "Building Docker image: $(DOCKER_IMAGE)..."
-	docker build -t $(DOCKER_IMAGE) .
-	@echo "Docker image built successfully."
-
-# Compile inside Docker container
-compile:
-	@echo "Compiling Captain Comic in Docker container..."
-	@mkdir -p $(BUILD_DIR) $(OBJ_DIR)
-	docker run --rm \
-		-v "$(PWD):$(WORKSPACE)" \
-		-w $(WORKSPACE) \
-		$(DOCKER_IMAGE) \
-		bash -c "make docker-compile"
-
-# This target runs inside the Docker container
-docker-compile: $(EXECUTABLE)
+# Compile the project
+compile: $(EXECUTABLE)
 	@echo "Build complete: $(EXECUTABLE)"
 
 # Link executable
@@ -66,9 +42,9 @@ $(EXECUTABLE): $(C_OBJECTS) $(ASM_OBJECT) $(DJLINK)
 
 # Build djlink linker if needed
 $(DJLINK):
-	@echo "Building djlink linker..."
+	@echo "Building djlink linker for macOS..."
 	@cd $(REFERENCE_DIR)/djlink && \
-		g++ -O2 -Wall -std=c++98 -o djlink \
+		clang++ -O2 -Wall -std=c++98 -o djlink \
 		djlink.cc fixups.cc libs.cc list.cc map.cc objs.cc \
 		out.cc quark.cc segments.cc stricmp.cc symbols.cc \
 		2>&1 | grep -v "warning:" || true
@@ -92,28 +68,21 @@ clean:
 	rm -rf $(BUILD_DIR)
 	@echo "Clean complete."
 
-# Open shell in Docker container for debugging
-shell:
-	@echo "Opening shell in Docker container..."
-	docker run --rm -it \
-		-v "$(PWD):$(WORKSPACE)" \
-		-w $(WORKSPACE) \
-		$(DOCKER_IMAGE) \
-		bash
-
 # Show help
 help:
 	@echo "Captain Comic C Refactor - Makefile Targets"
 	@echo ""
-	@echo "  make docker-build  - Build Docker image with Open Watcom 2, NASM, djlink"
-	@echo "  make compile       - Compile the project inside Docker container"
-	@echo "  make clean         - Remove all build artifacts"
-	@echo "  make shell         - Open interactive shell in Docker container"
-	@echo "  make help          - Show this help message"
+	@echo "Usage: source setvars.sh && make [target]"
+	@echo ""
+	@echo "Targets:"
+	@echo "  make compile   - Compile the project using local Open Watcom 2"
+	@echo "  make clean     - Remove all build artifacts"
+	@echo "  make help      - Show this help message"
 	@echo ""
 	@echo "First-time setup:"
-	@echo "  1. make docker-build"
+	@echo "  1. source setvars.sh"
 	@echo "  2. make compile"
 	@echo ""
 	@echo "For development:"
-	@echo "  make compile       - Recompile after changes"
+	@echo "  source setvars.sh"
+	@echo "  make compile   - Recompile after changes"
