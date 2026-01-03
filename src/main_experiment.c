@@ -235,7 +235,7 @@ void save_video_mode(void)
 /*
  * check_ega_support - Check for sufficient EGA support and set video mode
  * 
- * Sets video mode 13 (320x200 16-color EGA) and verifies it was set.
+ * Sets video mode 0x0D (13 decimal, 320x200 16-color EGA) and verifies it was set.
  * Also checks that the EGA has at least 256K of memory.
  * 
  * Returns:
@@ -246,17 +246,17 @@ int check_ega_support(void)
 {
     union REGS regs;
     
-    /* Set video mode 13 (320x200 16-color EGA) */
+    /* Sets video mode 0x0D (13 decimal, 320x200 16-color EGA) */
     regs.h.ah = 0x00;  /* AH=0x00: set video mode */
     regs.h.al = 0x0D;  /* AL=0x0D: 320x200 16-color EGA */
     int86(0x10, &regs, &regs);
     
-    /* Verify that video mode 13 was actually set */
+    /* Verify that video mode 0x0D (13 decimal) was actually set */
     regs.h.ah = 0x0F;  /* AH=0x0F: get video mode */
     int86(0x10, &regs, &regs);
     
     if (regs.h.al != 0x0D) {
-        return 0;  /* Video mode 13 was not set */
+        return 0;  /* Video mode 0x0D was not set */
     }
     
     /* Check for sufficient EGA memory (256K) */
