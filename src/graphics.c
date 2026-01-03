@@ -241,6 +241,11 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
     regs.x.bx = file_handle;
     int86(0x21, &regs, &regs);
     
+    /* Validate file has at least the 2-byte header */
+    if (bytes_read < 2) {
+        return -2;  /* File too small - invalid format */
+    }
+    
     /* Parse the loaded data */
     src_ptr = graphics_load_buffer;
     
