@@ -6,7 +6,6 @@
 |--------|-------------|
 | `make compile` | Compile project using local Open Watcom (default target) |
 | `make clean` | Remove all build artifacts (`build/` directory) |
-| `make shell` | Open interactive shell |
 | `make help` | Display help message with available targets |
 
 ## First-Time Setup
@@ -27,9 +26,8 @@ make compile
 # Set up environment (once per terminal session)
 source setvars.sh
 
-# Edit source files
+# Edit C source files (main entry point)
 vim src/game_main.c
-vim src/R5sw1991_c.asm
 
 # Recompile (fast)
 make compile
@@ -40,7 +38,9 @@ cd tests
 
 # If compilation errors, compile manually for detailed output:
 wcc -ml -s -0 -i=include src/game_main.c -fo=build/obj/game_main.obj
+wcc -ml -s -0 -i=include src/file_loaders.c -fo=build/obj/file_loaders.obj
 nasm -f obj -o build/obj/R5sw1991.obj src/R5sw1991_c.asm
+djlink -o build/COMIC-C.EXE build/obj/*.obj
 ```
 
 ## Build Process Details

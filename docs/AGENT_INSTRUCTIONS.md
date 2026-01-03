@@ -20,12 +20,13 @@ This project refactors The Adventures of Captain Comic (1990 DOS game) from x86-
 - **Platform**: Local Open Watcom installation on macOS
 - **Setup**: Source `setvars.sh` to configure environment before building
 
-### 3. Architecture Strategy
-- **Assembly initialization**: Entry point, DS init, interrupt handlers, hardware setup, title sequence remain in assembly
-- **Single C entry point**: `game_entry_c()` in `game_main.c` is called after title sequence
-- **Clean boundary**: Assembly handles setup, then hands off to C for game logic
-- **No hybrid approach**: Assembly uses `jmp` instead of `call`/`ret`, making incremental migration impractical
-- **No crt0.obj**: Use minimal assembly stub, not Open Watcom runtime (saves overhead)
+### 3. Architecture Strategy (UPDATED 2026-01-03)
+- **C-only entry point**: `main()` in `game_main.c` is the true application entry point
+- **All initialization in C**: Startup, menus, video mode, interrupt handlers, joystick calibration
+- **No assembly initialization**: Assembly code remains for optional performance-critical operations
+- **Clean separation**: C handles all application logic, calls assembly functions only as needed
+- **Single consolidated file**: `game_main.c` combines initialization (from `main_experiment.c`) with game stubs (from original `game_main.c`)
+- **Standard C environment**: Uses `<dos.h>`, `<conio.h>`, `<i86.h>` from Open Watcom standard library
 
 ### 4. C/Assembly Integration
 
@@ -51,13 +52,19 @@ This project refactors The Adventures of Captain Comic (1990 DOS game) from x86-
 
 **Phase 1: Foundation** (COMPLETED)
 1. ✅ Local Open Watcom build environment (transitioned from Docker)
-2. ✅ Assembly initialization path (entry, DS, interrupts, hardware, title)
-3. ✅ `game_entry_c()` stub called from assembly (currently returns immediately)
-4. ✅ Global variable exports and header files
-5. 🔄 Data file loaders (`.PT` → `.TT2` → `.SHP` → `.EGA`)
+2. ✅ Assembly initialization path (legacy, no longer used)
+3. ✅ Global variable exports and header files
+4. ✅ Data file loaders (`.PT` → `.TT2` → `.SHP` → `.EGA`)
 
-**Phase 2: C Entry Point** (CURRENT)
-1. Implement `game_entry_c()` with basic game loop
+**Phase 2: C-Only Entry Point** (COMPLETED - 2026-01-03)
+1. ✅ Consolidated `main_experiment.c` and `game_main.c` into single `game_main.c`
+2. ✅ Established `main()` as C-only entry point
+3. ✅ Implemented all initialization functions in C
+4. ✅ Implemented all menu/UI functions in C
+5. ✅ Removed assembly from initialization path
+
+**Phase 3: Game Logic Implementation** (CURRENT)
+1. Implement `game_entry()` with actual game loop
 2. Call assembly functions from C (e.g., `load_new_level()`)
 3. Handle input state in C (reading `key_state_*` globals)
 4. Gradually move logic from assembly into C

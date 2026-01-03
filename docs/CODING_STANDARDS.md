@@ -2,7 +2,9 @@
 
 ## Overview
 
-This document defines the C coding conventions for the Captain Comic refactor project. The goal is readable, maintainable code that matches the original assembly behavior exactly.
+This document defines the C coding conventions for the Captain Comic refactor project. As of 2026-01-03, the project has shifted to a **C-only entry point architecture** where `main()` in `game_main.c` serves as the true application entry point. All code is written in C using Open Watcom's standard library, with assembly available only for optional performance-critical operations.
+
+The goal is readable, maintainable C code that matches the original assembly behavior exactly while being primarily implemented in C.
 
 ## General Principles
 
@@ -13,48 +15,59 @@ This document defines the C coding conventions for the Captain Comic refactor pr
 
 ## File Organization
 
+### Entry Point and Initialization
+
+As of 2026-01-03, `src/game_main.c` is the primary entry point containing:
+- `main()` - Application entry point (replaces assembly initialization)
+- Initialization functions: `disable_pc_speaker()`, `calibrate_joystick()`, `check_ega_support()`, etc.
+- Menu/UI functions: `display_startup_notice()`, `setup_keyboard_interactive()`, etc.
+- Cleanup functions: `terminate_program()`, `display_ega_error()`
+- Game stubs: `game_entry()`, `load_new_level_c()`, `game_loop_iteration()` skeleton
+
 ### Header Files
 
 - Use include guards: `#ifndef FILENAME_H` / `#define FILENAME_H` / `#endif`
 - Order: system includes → local includes → types → constants → declarations
-- All assembly globals/functions need `#pragma aux "*"` to prevent name mangling
+- **Note**: Assembly pragmas (`#pragma aux "*"`) only needed when interfacing with assembly code
+- Most new code will be pure C without assembly dependencies
 
-Example:
+Example (Pure C):
 ```c
-#ifndef GLOBALS_H
-#define GLOBALS_H
+#ifndef PHYSICS_H
+#define PHYSICS_H
 
-/* System includes */
 #include <stdint.h>
 
-/* Prevent name mangling */
-#pragma aux comic_x "*"
+int check_collision(uint8_t x, uint8_t y);
+void handle_player_physics(void);
 
-/* Global declarations */
-extern uint8_t comic_x;
-
-#endif /* GLOBALS_H */
+#endif /* PHYSICS_H */
 ```
 
 ### Source Files
 
 - Start with header comment explaining file purpose
-- Include own header first, then dependencies
+- Include system headers first (`<dos.h>`, `<conio.h>`, etc.)
+- Then include own header, then local dependencies
 - Group related functions together with section comments
+- Keep functions focused and cohesive
 
-Example:
+Example (Pure C):
 ```c
 /*
  * collision.c - Collision detection routines
  * 
- * Converted from R5sw1991.asm lines 5500-5800
+ * Implements tile-based collision detection for player and enemies.
+ * All logic in C, no assembly dependencies.
  */
 
+#include <stdint.h>
 #include "collision.h"
 #include "globals.h"
 
 /* Helper functions */
 static uint16_t calculate_tile_offset(uint8_t x, uint8_t y);
+static int is_tile_solid(uint16_t offset);
 
 /* Public functions */
 int check_collision(uint8_t x, uint8_t y);

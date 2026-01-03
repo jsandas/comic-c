@@ -44,60 +44,71 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
 └─────────────────────────────────────┘
 ```
 
-### Target State (C + Assembly Hybrid)
+### Target State (C-Only Entry Point)
 ```
-┌──────────────────────┐   
-│   R5sw1991_c.asm     │   
-│                      │   
-│  • Entry point       │   
-│  • DS initialization │   
-│  • Interrupt setup   │   
-│  • Hardware init     │   
-│  • Title sequence    │───┐
-└──────────────────────┘   │
-                           │ calls game_entry_c()
-                           ▼
+┌──────────────────────────────────┐
+│      game_main.c                 │
+│                                  │
+│  • main() - Entry point          │
+│  • disable_pc_speaker()          │
+│  • install_interrupt_handlers()  │
+│  • calibrate_joystick()          │
+│  • save_video_mode()             │
+│  • check_ega_support()           │
+│  • display_startup_notice()      │
+│  • setup_keyboard_interactive()  │
+│  • title_sequence()              │
+│  • terminate_program()           │
+└──────────────────────────────────┘
+              │
+              ▼
          ┌──────────────────────────────┐
-         │      game_main.c             │
+         │     Game Logic (C)           │
          │                              │
-         │  • game_entry_c()            │
-         │    - Main game entry point   │
-         │    - Will contain game logic │
-         │    - Calls subsystems        │
+         │  • game_entry()              │
+         │  • Main game loop            │
+         │  • Calls subsystems          │
          └──────────────────────────────┘
-                      │
-                      ▼
-         ┌──────────────────────┐
-         │   Subsystem modules  │
-         │                      │
-         │  • collision.c       │
-         │  • physics.c         │
-         │  • rendering.c       │
-         │  • ai.c              │
-         │  • file_loaders.c    │
-         └──────────────────────┘
-                      │
-                      ▼
-         ┌────────────────────────────────────┐
-         │     Assembly Functions             │
-         │  (gradually replaced by C)         │
-         │                                    │
-         │  • load_new_level()                │
-         │  • swap_video_buffers()            │
-         │  • handle_enemies()                │
-         │  • blit_map_playfield_offscreen()  │
-         │  • etc.                            │
-         └────────────────────────────────────┘
+              │
+              ▼
+    ┌─────────────────────────┐
+    │  Subsystem modules (C)  │
+    │                         │
+    │  • collision.c          │
+    │  • physics.c            │
+    │  • rendering.c          │
+    │  • ai.c                 │
+    │  • file_loaders.c       │
+    └─────────────────────────┘
+              │
+              ▼
+  ┌────────────────────────────────────┐
+  │   Assembly Functions (Optional)    │
+  │  For performance-critical code     │
+  │                                    │
+  │  • swap_video_buffers()            │
+  │  • blit_map_playfield_offscreen()  │
+  │  • blit_comic_playfield_offscreen()│
+  │  • etc. (can be ported to C)       │
+  └────────────────────────────────────┘
 ```
 
 ### Current State Note (As of 2026-01-03)
 
-The refactoring approach has been revised based on practical constraints:
+The refactoring approach has been revised to a **C-only entry point** model:
 
-- **Assembly handles initialization**: `R5sw1991_c.asm` contains entry point, DS init, interrupt handlers, hardware setup, and title sequence
-- **Single C entry point**: After title sequence, assembly calls `game_entry_c()` in `game_main.c`
-- **Assembly fallback for now**: `game_entry_c()` currently returns immediately, and assembly jumps to `load_new_level()` to continue execution
-- **No hybrid game loop**: Unlike the original plan, we're not trying to refactor incrementally within the main game loop due to assembly's heavy use of jumps to labels instead of returns
+- **Assembly exits**: `R5sw1991_c.asm` is no longer the primary entry point
+- **C handles initialization**: `main()` in `game_main.c` is now the true entry point
+- **All initialization in C**: Startup, menus, joystick calibration, video mode setup, interrupt handler setup
+- **Clean separation**: Assembly code remains available for performance-critical operations but is not called during initialization or menus
+- **Unified codebase**: `game_main.c` consolidates both `main_experiment.c` and original `game_main.c` functionality
+
+**Rationale**: Moving from assembly initialization to pure C initialization provides:
+1. **Simpler testing**: Can test initialization without DOS/assembly dependencies
+2. **Better maintainability**: All startup logic in one place (C)
+3. **Cleaner architecture**: C is the primary language, assembly is optional/helper
+4. **Easier to extend**: Add new menus and features without touching assembly
+5. **Future-ready**: Can eventually eliminate assembly entirely if desired
 
 **Rationale**: Attempting a hybrid approach where C and assembly interleave within the game loop is not feasible without significant refactoring of the assembly code. The assembly extensively uses `jmp` to labels rather than `call`/`ret`, making it difficult to extract individual functions while maintaining control flow. Instead, we'll establish a clean boundary: assembly does all initialization and setup, then hands off to C for the main game logic. This allows us to rewrite the game logic in C from scratch rather than translating it piece by piece.
 
@@ -122,8 +133,8 @@ The refactoring approach has been revised based on practical constraints:
 
 3. ✅ Establish assembly initialization path
    - `R5sw1991_c.asm` handles entry point, DS init, interrupts, hardware, title sequence
-   - `game_main.c` with `game_entry_c()` stub that returns immediately
-   - Assembly calls `game_entry_c()` after title sequence
+   - `game_main.c` with `game_entry()` stub that returns immediately
+   - Assembly calls `game_entry()` after title sequence
    - Assembly jumps to `load_new_level()` when C returns (temporary)
 
 4. ✅ Data file loader infrastructure
@@ -132,34 +143,46 @@ The refactoring approach has been revised based on practical constraints:
    - Placeholder stubs for `.TT2`, `.SHP`, `.EGA` loaders
    - File I/O currently handled by assembly INT 21h calls
 
-### Phase 2: C Entry Point (IN PROGRESS)
+### Phase 2: C-Only Entry Point (COMPLETED - 2026-01-03)
 
-**Goal**: Establish clean handoff from assembly to C
+**Goal**: Consolidate startup and menu logic into unified C entry point
 
-1. **Create game_entry_c() function** (CURRENT STEP)
-   - Implement `void game_entry_c(void)` in `game_main.c`
-   - Currently returns immediately (no-op)
-   - Assembly calls this after title sequence
-   - Assembly jumps to `load_new_level` when C returns
-   
-2. **Validate the boundary**
-   - Confirm assembly→C→assembly flow works
-   - Verify all globals are accessible from C
-   - Test that returning to assembly maintains correct state
+✅ **Completed**:
+1. **Consolidated main_experiment.c and game_main.c**
+   - Merged 789 lines + 289 lines → 867 lines in single `game_main.c`
+   - Preference for `main_experiment.c` functions (more complete initialization)
+   - Added game loop stubs and level loading from original `game_main.c`
 
-3. **Next steps**
-   - Begin implementing game logic in `game_entry_c()`
-   - Call assembly functions as needed (e.g., `load_new_level()`)
-   - Gradually move logic from assembly into C
+2. **Established C-only entry point**
+   - `main()` in `game_main.c` is now the true application entry point
+   - No more `game_entry_c()` being called from assembly
+   - No more assembly initialization of interrupts/video/speaker
 
-**Why this approach**: The assembly code's heavy use of `jmp` instead of `call`/`ret` makes incremental function-by-function migration impractical. Instead, we establish a single entry point where C takes over, allowing us to reimplement game logic in C while calling assembly functions for low-level operations.
+3. **Included all initialization functions**
+   - `disable_pc_speaker()`, `save_video_mode()`, `check_ega_support()`
+   - `install_interrupt_handlers()`, `calibrate_joystick()`
+   - `load_keymap_file()`, `check_interrupt_handler_install_sentinel()`
+   - `clear_keyboard_buffer()`, `display_ega_error()`
 
-### Phase 3: Game Logic Migration (FUTURE)
+4. **Included all menu/UI functions**
+   - `display_startup_notice()` - main menu with K/J/R/ESC options
+   - `setup_keyboard_interactive()` - keyboard configuration
+   - `calibrate_joystick_interactive()` - joystick setup
+   - `display_registration_notice()` - about screen
+   - `title_sequence()` - title/story sequence stub
 
-**Goal**: Move game initialization and main loop to C
-### Phase 3: Game Logic Migration (FUTURE)
+5. **Removed assembly pragmas**
+   - No more `#pragma aux game_entry_c`, `#pragma aux terminate_program_c`
+   - All code is self-contained in C with standard DOS/Watcom includes
 
-**Goal**: Move game initialization and main loop to C
+**Next steps**
+   - Implement `game_entry()` with actual game logic
+   - Call assembly functions as needed for rendering/physics
+   - Port remaining subsystems from assembly to C
+
+### Phase 3: Game Logic Implementation (IN PROGRESS)
+
+**Goal**: Implement main game loop and level management in C
 
 1. **Implement game initialization in C**
    - Call `load_new_level()` from assembly
@@ -181,7 +204,7 @@ The refactoring approach has been revised based on practical constraints:
 
 **Goal**: Convert individual subsystems from assembly to C
 
-As `game_entry_c()` matures, start reimplementing assembly functions in C:
+As `game_entry()` matures, start reimplementing assembly functions in C:
 
 #### Rendering Subsystem
 
