@@ -12,6 +12,11 @@ RESET='\033[0m'
 BUILD_DIR=$PWD/build
 ORIGINAL_DIR="$PWD/reference/original"
 
+EXE_NAME="COMIC-C.EXE"
+if [[ -n "${1-}" ]]; then
+  EXE_NAME="$1"
+fi
+
 if [[ ! -d "$ORIGINAL_DIR" ]]; then
   echo "Error: assets directory not found: $ORIGINAL_DIR" >&2
   exit 1
@@ -36,7 +41,7 @@ if ! command -v dosbox-x >/dev/null 2>&1; then
   exit 1
 fi
 
-# Start DOSBox, mount the assets directory as C: and switch to C:ll
+# Start DOSBox, mount the assets directory as C: and switch to C:
 cd tests; exec dosbox-x -conf $PWD/dosbox_deterministic.conf \
   -savedir $PWD/savestates \
-  -c "mount c \"$ORIGINAL_DIR\" -freesize 1024" -c "c:" -c "COMIC-C.EXE"
+  -c "mount c \"$ORIGINAL_DIR\" -freesize 1024" -c "c:" -c "$EXE_NAME"

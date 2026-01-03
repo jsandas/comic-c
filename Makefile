@@ -25,8 +25,9 @@ ASM_OBJECT = $(OBJ_DIR)/R5sw1991.obj
 
 # Output executable
 EXECUTABLE = $(BUILD_DIR)/COMIC-C.EXE
+EXPERIMENT_EXE = $(BUILD_DIR)/EXPERIMENT.EXE
 
-.PHONY: all compile clean shell help
+.PHONY: all compile clean shell help experiment
 
 # Default target
 all: compile
@@ -63,6 +64,22 @@ clean:
 	rm -rf $(BUILD_DIR)
 	@echo "Clean complete."
 
+# Experimental C-only build (links with Watcom C runtime)
+experiment: $(BUILD_DIR)/main_experiment.obj
+	@echo "Building experimental C-only executable..."
+	@echo "system dos" > $(BUILD_DIR)/experiment.lnk
+	@echo "name $(EXPERIMENT_EXE)" >> $(BUILD_DIR)/experiment.lnk
+	@echo "file $(BUILD_DIR)/main_experiment.obj" >> $(BUILD_DIR)/experiment.lnk
+	$(WLINK) @$(BUILD_DIR)/experiment.lnk
+	@mkdir -p ./reference/original 
+	@cp -f $(BUILD_DIR)/EXPERIMENT.EXE ./reference/original/EXPERIMENT.EXE
+	@echo "Experimental build complete: $(EXPERIMENT_EXE)"
+
+$(BUILD_DIR)/main_experiment.obj: $(SRC_DIR)/main_experiment.c
+	@echo "Compiling $<..."
+	@mkdir -p $(BUILD_DIR)
+	$(WCC) $(WCFLAGS) -fo=$@ $<
+
 # Show help
 help:
 	@echo "Captain Comic C Refactor - Makefile Targets"
@@ -71,6 +88,7 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  make compile   - Compile the project using local Open Watcom 2"
+	@echo "  make experiment - Build experimental C-only version (with C runtime)"
 	@echo "  make clean     - Remove all build artifacts"
 	@echo "  make help      - Show this help message"
 	@echo ""
