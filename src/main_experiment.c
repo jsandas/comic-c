@@ -232,15 +232,17 @@ void calibrate_joystick_timing(void)
 }
 
 /*
- * install_handler_sentinel - Install and verify interrupt handler sentinel
+ * install_handler_sentinel - Install interrupt handler sentinel
  * 
  * This is a simplified version that just sets a sentinel value.
- * In the real game, this would install custom interrupt handlers and verify
- * they were installed correctly by having the INT 3 handler bit-flip the value.
+ * In the real game, this would install custom interrupt handlers and have the
+ * INT 3 handler bit-flip the value. For this experiment, we just simulate the
+ * bit-flip directly.
  * 
- * For this experiment, we just simulate the bit-flip.
+ * Note: Verification happens in check_interrupt_handler_install_sentinel().
+ * This function always succeeds in the experimental version.
  */
-int install_handler_sentinel(void)
+void install_handler_sentinel(void)
 {
     /* Set the sentinel value */
     interrupt_handler_install_sentinel = INTERRUPT_HANDLER_INSTALL_SENTINEL;
@@ -249,9 +251,6 @@ int install_handler_sentinel(void)
      * and the handler would bit-flip the sentinel value. For this experiment,
      * we'll just simulate that by flipping it once. */
     interrupt_handler_install_sentinel ^= 0xFF;
-    
-    /* Don't verify here - the check happens later in check_interrupt_handler_install_sentinel() */
-    return 1;  /* Success */
 }
 
 /*
@@ -678,11 +677,8 @@ int main(void)
     /* Disable the PC speaker */
     disable_pc_speaker();
     
-    /* Install and verify interrupt handler sentinel (simplified) */
-    if (!install_handler_sentinel()) {
-        /* In the real game, this would terminate the program */
-        /* For this experiment, we'll just continue */
-    }
+    /* Install interrupt handler sentinel (simplified) */
+    install_handler_sentinel();
     
     /* Calibrate CPU speed for joystick timing */
     calibrate_joystick_timing();
