@@ -44,7 +44,7 @@ static const char FILENAME_ITEMS_GRAPHIC[] = "SYS004.EGA\0";
 
 /* Buffer for loading fullscreen graphics from disk (32KB max for uncompressed EGA data) */
 #define GRAPHICS_LOAD_BUFFER_SIZE 0x8000  /* 32KB */
-static uint8_t __far *graphics_load_buffer = (uint8_t __far *)0x20000000L;  /* Placeholder - will be set at runtime */
+static uint8_t graphics_load_buffer[GRAPHICS_LOAD_BUFFER_SIZE];  /* Statically allocated buffer in data segment */
 
 /* Current display buffer offset (0x0000, 0x2000, 0x8000, or 0xa000) */
 static uint16_t current_display_offset = BUFFER_GAMEPLAY_A;
@@ -216,7 +216,7 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
     regs.h.ah = 0x3f;  /* AH=3Fh: read from file */
     regs.x.bx = file_handle;
     regs.x.cx = GRAPHICS_LOAD_BUFFER_SIZE;  /* Max bytes to read */
-    regs.x.dx = (uint16_t)(uintptr_t)graphics_load_buffer;
+    regs.x.dx = (uint16_t)graphics_load_buffer;  /* Offset of buffer (in data segment) */
     int86(0x21, &regs, &regs);
     
     /* Close the file (DOS INT 21h AH=3Eh) */
