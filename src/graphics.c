@@ -391,3 +391,41 @@ void palette_fade_in(void)
     set_palette_register(PALETTE_REG_TITLE, PALETTE_COLOR_BRIGHT_WHITE);
     wait_n_ticks(1);
 }
+
+/*
+ * copy_ega_plane - Copy video memory from one buffer to another
+ * 
+ * Copies data within EGA video memory from source to destination offset.
+ * Handles all 4 EGA planes independently. Used primarily to duplicate the
+ * UI buffer from BUFFER_GAMEPLAY_A to BUFFER_GAMEPLAY_B.
+ * 
+ * Parameters:
+ *   src_offset - Source offset within video segment 0xa000
+ *   dst_offset - Destination offset within video segment 0xa000
+ *   num_bytes  - Number of bytes to copy per plane
+ * 
+ * Note: Must iterate through planes because EGA planar memory doesn't
+ *       allow simultaneous access to all planes.
+ */
+void copy_ega_plane(uint16_t src_offset, uint16_t dst_offset, uint16_t num_bytes)
+{
+    uint8_t plane;
+    uint16_t i;
+    uint8_t __far *src_ptr;
+    uint8_t __far *dst_ptr;
+    
+    /* Copy each of the 4 EGA planes independently */
+    for (plane = 0; plane < 4; plane++) {
+        /* Select plane for both reading and writing */
+        enable_ega_plane_read_write(plane);
+        
+        /* Set up far pointers to video memory */
+        src_ptr = (uint8_t __far *)((((uint32_t)VIDEO_MEMORY_BASE) << 16) | src_offset);
+        dst_ptr = (uint8_t __far *)((((uint32_t)VIDEO_MEMORY_BASE) << 16) | dst_offset);
+        
+        /* Copy bytes for this plane */
+        for (i = 0; i < num_bytes; i++) {
+            dst_ptr[i] = src_ptr[i];
+        }
+    }
+}

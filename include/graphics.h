@@ -37,6 +37,7 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
 /* Video buffer operations */
 void switch_video_buffer(uint16_t buffer_offset);
 uint16_t get_current_display_offset(void);
+void copy_ega_plane(uint16_t src_offset, uint16_t dst_offset, uint16_t num_bytes);
 
 /* Palette manipulation for title sequence fade effects */
 void palette_darken(void);

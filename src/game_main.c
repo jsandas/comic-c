@@ -16,6 +16,8 @@
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
+#include "globals.h"
+#include "graphics.h"
 
 /* Runtime library symbol for large model code */
 int _big_code_ = 1;
@@ -648,34 +650,65 @@ int calibrate_joystick_interactive(void)
 }
 
 /*
- * title_sequence - Stub for title sequence
+ * title_sequence - Display title sequence with graphics and transitions
  * 
- * In the real game, this would display the title screen, story screens, etc.
+ * Orchestrates the complete title sequence flow:
+ *   1. Title screen (SYS000.EGA) with fade-in, 14 tick delay
+ *   2. Story screen (SYS001.EGA) with fade-in, wait for keystroke
+ *   3. UI background (SYS003.EGA) loaded and duplicated
+ *   4. Items screen (SYS004.EGA), wait for keystroke
+ *   5. Switch to gameplay buffer
+ * 
+ * Uses graphics module for loading, buffer switching, and palette effects.
  */
 void title_sequence(void)
 {
     union REGS regs;
-    const char *text_ptr;
-    char ch;
     
-    /* Set video mode to 80x25 text (mode 3) */
-    regs.h.ah = 0x00;  /* AH=0x00: set video mode */
-    regs.h.al = 0x03;  /* AL=0x03: 80x25 text */
-    int86(0x10, &regs, &regs);
-    
-    /* Display the title sequence text character by character */
-    text_ptr = TITLE_SEQUENCE_MESSAGE;
-    while ((ch = *text_ptr++) != 0) {
-        /* Output character using teletype mode */
-        regs.h.ah = 0x0E;  /* AH=0x0E: teletype output */
-        regs.h.al = ch;
-        regs.h.bh = 0;     /* Page 0 */
-        int86(0x10, &regs, &regs);
+    /* Step 1: Load and display title screen (SYS000.EGA) */
+    if (load_fullscreen_graphic("SYS000.EGA", GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
+        /* Failed to load - skip title sequence */
+        return;
     }
+    switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
+    palette_darken();
+    palette_fade_in();
+    wait_n_ticks(14);  /* Display title for ~280ms */
     
-    /* Wait for a keystroke before returning */
+    /* Step 2: Load and display story screen (SYS001.EGA) */
+    if (load_fullscreen_graphic("SYS001.EGA", GRAPHICS_BUFFER_TITLE_TEMP2) != 0) {
+        /* Failed to load - continue with what we have */
+        return;
+    }
+    switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP2);
+    palette_darken();
+    palette_fade_in();
+    
+    /* Wait for keystroke */
     regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
     int86(0x16, &regs, &regs);
+    
+    /* Step 3: Load UI background (SYS003.EGA) into both gameplay buffers */
+    if (load_fullscreen_graphic("SYS003.EGA", GRAPHICS_BUFFER_GAMEPLAY_A) != 0) {
+        /* Failed to load - continue without UI */
+        return;
+    }
+    /* Copy UI from buffer A to buffer B for static background */
+    copy_ega_plane(GRAPHICS_BUFFER_GAMEPLAY_A, GRAPHICS_BUFFER_GAMEPLAY_B, 0x2000);
+    
+    /* Step 4: Load and display items screen (SYS004.EGA) */
+    if (load_fullscreen_graphic("SYS004.EGA", GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
+        /* Failed to load - skip items screen */
+        return;
+    }
+    switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
+    
+    /* Wait for keystroke */
+    regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
+    int86(0x16, &regs, &regs);
+    
+    /* Step 5: Switch to gameplay buffer B (with UI background) */
+    switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
 }
 
 /*
