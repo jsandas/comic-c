@@ -14,8 +14,8 @@ WCC = wcc
 WCFLAGS = -ml -s -0 -i=$(INCLUDE_DIR)
 NASM = nasm
 NASMFLAGS = -f obj
-DJLINK = $(REFERENCE_DIR)/djlink/djlink
-DJLINKFLAGS =
+WLINK = wlink
+WLINKFLAGS = system dos name $(EXECUTABLE) file
 
 # Source files
 C_SOURCES = $(wildcard $(SRC_DIR)/*.c)
@@ -36,19 +36,14 @@ compile: $(EXECUTABLE)
 	@echo "Build complete: $(EXECUTABLE)"
 
 # Link executable
-$(EXECUTABLE): $(C_OBJECTS) $(ASM_OBJECT) $(DJLINK)
+$(EXECUTABLE): $(C_OBJECTS) $(ASM_OBJECT)
 	@echo "Linking $(EXECUTABLE)..."
-	$(DJLINK) -o $@ $(ASM_OBJECT) $(C_OBJECTS) $(DJLINKFLAGS)
-
-# Build djlink linker if needed
-$(DJLINK):
-	@echo "Building djlink linker for macOS..."
-	@cd $(REFERENCE_DIR)/djlink && \
-		clang++ -O2 -Wall -std=c++98 -o djlink \
-		djlink.cc fixups.cc libs.cc list.cc map.cc objs.cc \
-		out.cc quark.cc segments.cc stricmp.cc symbols.cc \
-		2>&1 | grep -v "warning:" || true
-	@chmod +x $(DJLINK) 2>/dev/null || true
+	@echo "system dos" > $(BUILD_DIR)/comic.lnk
+	@echo "option nodefaultlibs" >> $(BUILD_DIR)/comic.lnk
+	@echo "name $(EXECUTABLE)" >> $(BUILD_DIR)/comic.lnk
+	@echo "file $(ASM_OBJECT)" >> $(BUILD_DIR)/comic.lnk
+	@for obj in $(C_OBJECTS); do echo "file $$obj" >> $(BUILD_DIR)/comic.lnk; done
+	$(WLINK) @$(BUILD_DIR)/comic.lnk
 
 # Compile C sources
 $(OBJ_DIR)/%.obj: $(SRC_DIR)/%.c
