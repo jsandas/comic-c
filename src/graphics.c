@@ -180,7 +180,7 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
  *   5. Write decoded planes to video memory at dst_offset
  * 
  * The .EGA format:
- *   - First 2 bytes: plane size (always 0x8000 = 8000 decimal)
+ *   - First 2 bytes: plane size (always 8000 = 0x1F40 hexadecimal)
  *   - Followed by RLE-encoded data for 4 planes (Blue, Green, Red, Intensity)
  *   - Each plane is 8000 bytes (320×200 / 8 = 8000 bytes per plane)
  * 
