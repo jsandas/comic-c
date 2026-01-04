@@ -35,8 +35,6 @@
 
 /* Palette color values for fade effects */
 #define PALETTE_COLOR_DARK_GRAY   0x18  /* Dark gray for fade start */
-#define PALETTE_COLOR_LIGHT_GRAY  0x38  /* Light gray for fade middle */
-#define PALETTE_COLOR_BRIGHT_WHITE 0x3f /* Bright white for fade end */
 
 /* Video memory base address in segment 0xa000 */
 #define VIDEO_MEMORY_BASE       0xa000
