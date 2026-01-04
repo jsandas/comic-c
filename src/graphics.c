@@ -77,13 +77,11 @@ void enable_ega_plane_write(uint8_t plane)
 {
     uint8_t mask;
     
-    /* Compute plane mask: bit N is set for plane N */
-    switch (plane) {
-        case 0: mask = 0x01; break;  /* Plane 0: bit 0 */
-        case 1: mask = 0x02; break;  /* Plane 1: bit 1 */
-        case 2: mask = 0x04; break;  /* Plane 2: bit 2 */
-        case 3: mask = 0x08; break;  /* Plane 3: bit 3 */
-        default: return;  /* Invalid plane */
+    /* Compute plane mask: set bit N for plane N (0-3) */
+    if (plane < 4) {
+        mask = 1 << plane;  /* bit shift: 1 << 0 = 0x01, 1 << 1 = 0x02, etc. */
+    } else {
+        return;  /* Invalid plane */
     }
     
     /* Output to Sequencer Registers at port 0x3c4/0x3c5 */
