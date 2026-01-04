@@ -513,31 +513,31 @@ void palette_darken(void)
  */
 void palette_fade_in(void)
 {
-    /* Step 0: Set all three to dark gray to start the fade from black */
+    /* Step 1: Set all three to dark gray to start the fade from black */
     set_palette_register(PALETTE_REG_BACKGROUND, 0x18);  /* dark gray */
     set_palette_register(PALETTE_REG_ITEMS, 0x18);       /* dark gray */
     set_palette_register(PALETTE_REG_TITLE, 0x18);       /* dark gray */
     wait_n_ticks(1);
     
-    /* Step 1: Set all three to light gray (6-bit color value 0x07) */
+    /* Step 2: Set all three to light gray (6-bit color value 0x07) */
     set_palette_register(PALETTE_REG_BACKGROUND, 0x07);  /* light gray */
     set_palette_register(PALETTE_REG_ITEMS, 0x07);       /* light gray */
     set_palette_register(PALETTE_REG_TITLE, 0x07);       /* light gray */
     wait_n_ticks(1);
     
-    /* Step 2: Set registers ITEMS and TITLE to white (0x1f), keep BACKGROUND at gray */
+    /* Step 3: Set registers ITEMS and TITLE to white (0x1f), keep BACKGROUND at gray */
     set_palette_register(PALETTE_REG_BACKGROUND, 0x07);  /* stay gray */
     set_palette_register(PALETTE_REG_ITEMS, 0x1f);       /* white */
     set_palette_register(PALETTE_REG_TITLE, 0x1f);       /* white */
     wait_n_ticks(1);
     
-    /* Step 3: Set BACKGROUND to green, ITEMS to bright green, keep TITLE at white */
+    /* Step 4: Set BACKGROUND to green, ITEMS to bright green, keep TITLE at white */
     set_palette_register(PALETTE_REG_BACKGROUND, 0x02);  /* green (6-bit: 000010) */
     set_palette_register(PALETTE_REG_ITEMS, 0x1a);       /* bright green (6-bit: 011010) */
     set_palette_register(PALETTE_REG_TITLE, 0x1f);       /* stay white */
     wait_n_ticks(1);
     
-    /* Step 4: Set TITLE to bright red (6-bit: 011100) */
+    /* Step 5: Set TITLE to bright red (6-bit: 011100) */
     set_palette_register(PALETTE_REG_TITLE, 0x1c);       /* bright red */
     wait_n_ticks(1);
 }
