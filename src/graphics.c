@@ -184,10 +184,10 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
                 bytes_decoded++;
             }
         } else {
-            /* Repeat mode: control byte minus 127 is the repeat count */
-            repeat_count = control_byte - 128;  /* Repeat count (1-128) */
+            /* Repeat mode: control byte minus 128 is the repeat count */
+            repeat_count = control_byte - 128;  /* Repeat count (0-127), 0 is a no-op */
             
-            /* A repeat count of 0 is invalid/no-op; skip without consuming a value byte */
+            /* A repeat count of 0 is treated as a no-op; skip without consuming a value byte */
             if (repeat_count == 0) {
                 continue;
             }
