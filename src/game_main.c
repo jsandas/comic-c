@@ -721,7 +721,8 @@ void title_sequence(void)
     
     /* Step 4: Load and display items screen (SYS004.EGA) */
     if (load_fullscreen_graphic(FILENAME_ITEMS_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
-        /* Failed to load - skip items screen */
+        /* Failed to load - stop music and skip items screen */
+        stop_music();
         return;
     }
     switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
