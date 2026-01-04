@@ -149,7 +149,7 @@ static const char TITLE_SEQUENCE_MESSAGE[] =
     "Exiting...\r\n$";
 
 /* Forward declarations */
-void load_new_level(void);
+int load_new_level(void);
 void load_new_stage(void);
 void game_loop(void);
 
@@ -795,9 +795,6 @@ void initialize_lives_sequence(void)
          * to trigger an instant win. We'll omit it for now. */
         /* win_counter = 200; */
     }
-    
-    /* Continue to load the first level */
-    load_new_level();
 }
 
 /*
@@ -887,7 +884,11 @@ void title_sequence(void)
     initialize_lives_sequence();
     
     /* After lives are initialized, load the level and run game loop */
-    load_new_level();
+    if (load_new_level() != 0) {
+        /* Failed to load level - cannot continue */
+        return;
+    }
+    
     load_new_stage();
     
     /* Run main game loop */
@@ -1000,8 +1001,12 @@ static void copy_string(char* dest, const char* src)
  *   current_level = filled with level data
  *   tileset_graphics = array of tile images from .TT2 file
  *   pt0, pt1, pt2 = stage maps from .PT files
+ * 
+ * Returns:
+ *   0 on success
+ *   -1 on error (invalid level number, file not found, read error)
  */
-void load_new_level(void)
+int load_new_level(void)
 {
     int file_handle;
     unsigned bytes_read;
@@ -1018,7 +1023,7 @@ void load_new_level(void)
     
     /* Validate level number */
     if (current_level_number >= 8) {
-        return;  /* Invalid level */
+        return -1;  /* Invalid level number */
     }
     
     /* Copy level data from static data to current_level */
@@ -1029,14 +1034,14 @@ void load_new_level(void)
     file_handle = _open(current_level.tt2_filename, O_RDONLY | O_BINARY);
     if (file_handle == -1) {
         /* Fatal error - can't continue without tileset */
-        return;
+        return -1;
     }
     
     /* Read TT2 file header (4 bytes) */
     bytes_read = _read(file_handle, &tt2_header, sizeof(tt2_header));
     if (bytes_read != sizeof(tt2_header)) {
         _close(file_handle);
-        return;
+        return -1;
     }
     
     /* Extract header fields */
@@ -1047,7 +1052,7 @@ void load_new_level(void)
     bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
     if (bytes_read != sizeof(tileset_graphics)) {
         _close(file_handle);
-        return;
+        return -1;
     }
     _close(file_handle);
     
@@ -1065,21 +1070,23 @@ void load_new_level(void)
     /* Load the three .PT files for this level */
     if (load_pt_file(current_level.pt0_filename, &pt0) != 0) {
         /* Fatal error - can't continue without stage 0 map */
-        return;
+        return -1;
     }
     
     if (load_pt_file(current_level.pt1_filename, &pt1) != 0) {
         /* Fatal error - can't continue without stage 1 map */
-        return;
+        return -1;
     }
     
     if (load_pt_file(current_level.pt2_filename, &pt2) != 0) {
         /* Fatal error - can't continue without stage 2 map */
-        return;
+        return -1;
     }
     
     /* TODO: Load .SHP files when load_shp_files() is implemented */
     /* load_shp_files(); */
+    
+    return 0;  /* Success */
 }
 
 /*
