@@ -246,7 +246,7 @@ static void (__interrupt *saved_int8_handler)(void);   /* Timer tick handler */
 static void (__interrupt *saved_int9_handler)(void);   /* Keyboard handler */
 
 /*
- * simple_int8_handler - Simple timer interrupt (INT 8) handler
+ * int8_handler - Timer interrupt (INT 8) handler
  * 
  * Advances music on every interrupt cycle (to match the assembly implementation).
  * Sets the game tick flag on every other interrupt to signal the main loop.
@@ -254,7 +254,7 @@ static void (__interrupt *saved_int9_handler)(void);   /* Keyboard handler */
  */
 static uint8_t irq0_parity = 0;
 
-static void __interrupt simple_int8_handler(void)
+static void __interrupt int8_handler(void)
 {
     /* Advance music on every interrupt cycle */
     sound_advance_tick();
@@ -272,12 +272,12 @@ static void __interrupt simple_int8_handler(void)
 }
 
 /*
- * simple_int9_handler - Simple keyboard interrupt (INT 9) handler
+ * int9_handler - Keyboard interrupt (INT 9) handler
  * 
  * Reads the keyboard scancode and calls the original handler.
  * Uses inline assembly to define the interrupt handler.
  */
-static void __interrupt simple_int9_handler(void)
+static void __interrupt int9_handler(void)
 {
     uint8_t scancode;
     
@@ -303,11 +303,11 @@ void install_interrupt_handlers(void)
 {
     /* Save original INT 8 (timer) handler and install custom handler */
     saved_int8_handler = _dos_getvect(0x08);
-    _dos_setvect(0x08, (void (__interrupt *)())simple_int8_handler);
+    _dos_setvect(0x08, (void (__interrupt *)())int8_handler);
     
     /* Save original INT 9 (keyboard) handler and install custom handler */
     saved_int9_handler = _dos_getvect(0x09);
-    _dos_setvect(0x09, (void (__interrupt *)())simple_int9_handler);
+    _dos_setvect(0x09, (void (__interrupt *)())int9_handler);
     
     /* Set the sentinel value to indicate handlers were installed */
     interrupt_handler_install_sentinel = INTERRUPT_HANDLER_INSTALL_SENTINEL;
