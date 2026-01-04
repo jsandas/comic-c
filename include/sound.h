@@ -31,7 +31,7 @@
 #define NOTE_D4         0x0fdf  /* 293.670 Hz */
 #define NOTE_E4         0x0e24  /* 329.608 Hz */
 #define NOTE_F4         0x0d59  /* 349.190 Hz */
-#define NOTE_Fsharp4    0x0c99  /* 369.979 Hz */
+#define NOTE_FS4        0x0c99  /* 369.979 Hz */
 #define NOTE_G4         0x0be4  /* 391.978 Hz */
 #define NOTE_A4         0x0a98  /* 439.964 Hz */
 #define NOTE_B4         0x0974  /* 493.050 Hz */
