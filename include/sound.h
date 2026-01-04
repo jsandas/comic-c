@@ -17,15 +17,6 @@
 #include <stdint.h>
 
 /**
- * Sound operation codes (legacy constants, not used with current implementation)
- */
-#define SOUND_UNMUTE    0  /* Enable sound output */
-#define SOUND_PLAY      1  /* Start playing a sound */
-#define SOUND_MUTE      2  /* Disable sound output */
-#define SOUND_STOP      3  /* Stop current sound */
-#define SOUND_QUERY     4  /* Query sound status */
-
-/**
  * Musical note frequencies (PIT divisors)
  * https://en.wikipedia.org/wiki/Piano_key_frequencies#List
  */

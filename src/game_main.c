@@ -41,9 +41,6 @@ int _big_code_ = 1;
  * formula: max_joystick_reads = 0.75 * (measured) + 0.25 * (target) */
 #define JOYSTICK_TARGET_VALUE 1280
 
-/* Sound operation codes */
-#define SOUND_MUTE 2
-
 /* Game level constants */
 #define LEVEL_NUMBER_LAKE       0
 #define LEVEL_NUMBER_FOREST     1
