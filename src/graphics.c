@@ -201,6 +201,11 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
             /* Repeat mode: control byte minus 127 is the repeat count */
             repeat_count = control_byte - 128;  /* Repeat count (1-128) */
             
+            /* A repeat count of 0 is invalid/no-op; skip without consuming a value byte */
+            if (repeat_count == 0) {
+                continue;
+            }
+            
             /* Validate we have at least one byte available for the repeat value */
             if (bytes_consumed >= src_size) {
                 break;  /* Source buffer exhausted, stop decoding */
