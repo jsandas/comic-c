@@ -1,5 +1,28 @@
 # Captain Comic C Refactor Plan
 
+## Project Status (As of 2026-01-04)
+
+**Overall Progress**: Phase 3 in progress - Game Logic Implementation  
+**Latest Milestone**: Level data migration and file loader infrastructure complete  
+**Current Focus**: Main game loop implementation, rendering system, physics and collision
+
+### Recent Accomplishments
+- ✅ Migrated LAKE and FOREST level data from assembly to C
+- ✅ Implemented complete `load_pt_file()` for tile map loading  
+- ✅ Implemented `load_new_level()` in pure C
+- ✅ Created comprehensive level data structures with type definitions
+- ✅ Established error handling for file I/O operations
+- ✅ Added stub functions for game loop and stage loading
+
+### Next Priority Items
+1. Complete remaining 6 level data definitions (SPACE, BASE, CAVE, SHED, CASTLE, COMP)
+2. Implement game loop tick handling and input processing
+3. Develop rendering subsystem (video buffer management, map/sprite rendering)
+4. Implement physics and collision detection
+5. Develop main game loop logic with win/lose conditions
+
+---
+
 ## Project Goal
 
 Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assembly to C while maintaining **exact behavioral compatibility** with the original game. The refactored code must still run in 16-bit DOS real-mode.
@@ -179,31 +202,65 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - Reimplement rendering and physics in C (consult assembly for guidance only)
    - Port remaining subsystems from assembly to C (avoid adding new assembly)
 
-### Phase 3: Game Logic Implementation (IN PROGRESS)
+### Phase 3: Game Logic Implementation (IN PROGRESS - 2026-01-04)
 
 **Goal**: Implement main game loop and level management in C
 
-1. **Implement game initialization in C**
-   - Prefer C equivalents for level and stage loading (e.g., `load_new_level()`)
-   - Only call legacy assembly entry points as a temporary migration step with explicit justification and tests
-   - Set up initial game state in C
+✅ **Completed**:
+1. **Level data migration** (LAKE, FOREST)
+   - ✅ Migrated LAKE level data from R3_levels.asm to C
+   - ✅ Migrated FOREST level data from R3_levels.asm to C
+   - ✅ Created `level_data.h` with all structs and type definitions
+   - ✅ Created `level_data.c` with level_data_lake and level_data_forest constants
+   - ✅ Defined enemy sprite file references for each level
+   - ✅ Defined door configurations and exit mappings
+   - ✅ Remaining 6 levels (SPACE, BASE, CAVE, SHED, CASTLE, COMP) stubbed
 
-2. **Implement main game loop in C**
-   - Tick-waiting logic (`wait_n_ticks()`)
-   - Input state checking (read `key_state_*` globals)
-   - Call rendering functions
-   - Win/lose condition checking
+2. **File loader implementation**
+   - ✅ `load_pt_file()` - Load .PT tile map files fully implemented
+   - ✅ Returns proper error codes on file not found or read failures
+   - ✅ `load_tt2_file()` - Placeholder (TT2 format complex; lower priority)
+   - ✅ `load_shp_file()` - Placeholder (sprite loader)
+   - ✅ `load_ega_file()` - Placeholder (EGA graphics loader)
+
+3. **Level loading in C**
+   - ✅ `load_new_level()` - C implementation loads all three .PT files for stage
+   - ✅ `load_new_stage()` - Stub function defined
+   - ✅ `game_loop()` - Stub function defined
+
+**In Progress / TODO**:
+1. **Implement main game loop in C**
+   - [ ] Tick-waiting logic (`wait_n_ticks()`)
+   - [ ] Input state checking (read `key_state_*` globals)
+   - [ ] Call rendering functions
+   - [ ] Win/lose condition checking
+   - [ ] Level transition logic
    
-3. **Strategy**
+2. **Implement rendering in C**
+   - [ ] Video buffer swap logic
+   - [ ] Map tile rendering
+   - [ ] Sprite rendering (Comic, enemies, items)
+   
+3. **Implement physics and collision in C**
+   - [ ] Player movement (left/right)
+   - [ ] Gravity and falling
+   - [ ] Jumping mechanics
+   - [ ] Collision detection for tiles, enemies, items
+   
+4. **Strategy**
    - Reimplement functions in C when feasible and preferred
    - Consult original assembly as implementation guidance
    - Only interface with original assembly when there is a clear, documented necessity and tests to justify it
+   - Complete remaining 6 level data definitions before full game loop implementation
 
-### Phase 4: Subsystem Migration (FUTURE)
+### Phase 4: Subsystem Migration (IN PROGRESS)
 
 **Goal**: Convert individual subsystems from assembly to C
 
-As `game_entry()` matures, start reimplementing assembly functions in C:
+**Current Focus Areas** (as of 2026-01-04):
+- **Rendering**: Video buffer management, map/sprite rendering
+- **Physics**: Collision detection, player movement, gravity
+- **Actors**: Enemy AI, fireball handling, item collection
 
 #### Rendering Subsystem
 
@@ -305,17 +362,18 @@ As `game_entry()` matures, start reimplementing assembly functions in C:
 
 **Goal**: Convert level loading, doors, teleportation to C
 
-1. **File loading** (PARTIALLY COMPLETE)
-   - ✅ `load_pt_file()` - load tile map
-   - `load_tt2_file()` - load tileset graphics
-   - `load_shp_file()` - load sprites
-   - `load_ega_file()` - load fullscreen graphics with RLE decompression
+1. **File loading** ✅ (PARTIALLY COMPLETE - 2026-01-04)
+   - ✅ `load_pt_file()` - load tile map - fully implemented
+   - [ ] `load_tt2_file()` - load tileset graphics
+   - [ ] `load_shp_file()` - load sprites
+   - [ ] `load_ega_file()` - load fullscreen graphics with RLE decompression
 
-2. **Level management**
-   - `load_new_level()` - set up level data
-   - `load_new_stage()` - initialize stage
-   - `render_map()` - pre-render entire map to video buffer
-   - Level transition logic
+2. **Level management** ✅ (PARTIALLY COMPLETE - 2026-01-04)
+   - ✅ `load_new_level()` - set up level data (LAKE, FOREST implemented)
+   - ✅ Level data constants defined in C (LAKE, FOREST complete; 6 more to go)
+   - [ ] `load_new_stage()` - initialize stage (stub defined)
+   - [ ] `render_map()` - pre-render entire map to video buffer
+   - [ ] Level transition logic
 
 3. **Door system**
    - `activate_door()` - door collision and key check
@@ -506,34 +564,42 @@ make clean
 - [x] C previously called assembly functions (legacy; minimized)
 - [x] Basic file loader converted
 
-### Milestone 2: Game Loop
+### Milestone 2: Level Data and File Loading ✅ (COMPLETED 2026-01-04)
+- [x] Level data structures defined in C
+- [x] LAKE and FOREST level data migrated from assembly
+- [x] Remaining 6 level stubs defined
+- [x] File loader infrastructure implemented
+- [x] `load_pt_file()` fully functional
+- [x] `load_new_level()` C implementation working
+
+### Milestone 3: Game Loop
 - [ ] C game loop replaces assembly loop
 - [ ] Input handling in C
 - [ ] Win/lose/quit detection in C
 - [ ] Tier 1 tests pass
 
-### Milestone 3: Rendering
+### Milestone 4: Rendering
 - [ ] Video buffer management in C
 - [ ] Map rendering in C
 - [ ] Sprite rendering in C
 - [ ] Tier 2 tests pass
 - [ ] Visual comparison matches original
 
-### Milestone 4: Physics
+### Milestone 5: Physics
 - [ ] Collision detection fully in C
 - [ ] Player movement in C
 - [ ] Gravity and jumping in C
 - [ ] Tier 1 tests pass
 - [ ] Movement feels identical to original
 
-### Milestone 5: Actors
+### Milestone 6: Actors
 - [ ] Enemy AI in C
 - [ ] Fireball handling in C
 - [ ] Item handling in C
 - [ ] Tier 4 tests pass
 - [ ] All behaviors work correctly
 
-### Milestone 6: Full Gameplay
+### Milestone 7: Full Gameplay
 - [ ] Level loading in C
 - [ ] Door system in C
 - [ ] Teleportation in C
