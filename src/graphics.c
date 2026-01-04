@@ -183,13 +183,8 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
             }
         } else {
             /* Repeat mode: control byte minus 128 is the repeat count */
-            repeat_count = control_byte - 128;  /* Repeat count (0-127), 0 is a no-op */
+            repeat_count = control_byte - 128;  /* Repeat count (0-127) */
             
-            /* A repeat count of 0 is treated as a no-op; skip without consuming a value byte */
-            if (repeat_count == 0) {
-                continue;
-            }
-
             /* Validate we have at least one byte available for the repeat value */
             if (bytes_consumed >= src_size) {
                 break;  /* Source buffer exhausted, stop decoding */
@@ -197,6 +192,13 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
             
             byte_value = *src_ptr++;  /* Get the byte to repeat */
             bytes_consumed++;
+            
+            /* A repeat count of 0 is a no-op, but we still consumed the value byte
+             * to maintain stream synchronization. This shouldn't occur in actual
+             * .EGA files as it wastes 2 bytes (0x80 control + value byte). */
+            if (repeat_count == 0) {
+                continue;
+            }
             
             /* Validate that repeat won't exceed plane boundary */
             remaining_space = plane_size - bytes_decoded;
