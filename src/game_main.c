@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
@@ -1005,8 +1006,6 @@ void load_new_level(void)
     int file_handle;
     unsigned bytes_read;
     const level_t* source_level;
-    uint8_t* dest;
-    const uint8_t* src;
     unsigned i;
     
     /* TT2 file header structure */
@@ -1024,11 +1023,7 @@ void load_new_level(void)
     
     /* Copy level data from static data to current_level */
     source_level = level_data_pointers[current_level_number];
-    dest = (uint8_t*)&current_level;
-    src = (const uint8_t*)source_level;
-    for (i = 0; i < sizeof(level_t); i++) {
-        dest[i] = src[i];
-    }
+    memcpy(&current_level, source_level, sizeof(level_t));
     
     /* Load the .TT2 file (tileset graphics) */
     file_handle = _open(current_level.tt2_filename, O_RDONLY | O_BINARY);
