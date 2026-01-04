@@ -193,9 +193,63 @@ const level_t level_data_space = {
         {SHP_UNUSED, 0, 0, ""}
     },
     .stages = {
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+        /* space0 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* space1 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* space2 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        }
     }
 };
 
@@ -212,9 +266,63 @@ const level_t level_data_base = {
         {SHP_UNUSED, 0, 0, ""}
     },
     .stages = {
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+        /* base0 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* base1 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* base2 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        }
     }
 };
 
@@ -231,9 +339,63 @@ const level_t level_data_cave = {
         {SHP_UNUSED, 0, 0, ""}
     },
     .stages = {
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+        /* cave0 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* cave1 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* cave2 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        }
     }
 };
 
@@ -250,9 +412,63 @@ const level_t level_data_shed = {
         {SHP_UNUSED, 0, 0, ""}
     },
     .stages = {
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+        /* shed0 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* shed1 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* shed2 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        }
     }
 };
 
@@ -269,9 +485,63 @@ const level_t level_data_castle = {
         {SHP_UNUSED, 0, 0, ""}
     },
     .stages = {
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+        /* castle0 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* castle1 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* castle2 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        }
     }
 };
 
@@ -288,9 +558,63 @@ const level_t level_data_comp = {
         {SHP_UNUSED, 0, 0, ""}
     },
     .stages = {
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
-        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+        /* comp0 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* comp1 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        },
+        /* comp2 - stub */
+        {
+            .item_type = 0,
+            .item_y = 0,
+            .item_x = 0,
+            .exit_l = 0,
+            .exit_r = 0,
+            .doors = {
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+            },
+            .enemies = {
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_UNUSED}
+            }
+        }
     }
 };
 
