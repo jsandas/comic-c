@@ -199,7 +199,7 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
             }
         } else {
             /* Repeat mode: control byte minus 127 is the repeat count */
-            repeat_count = control_byte - 127;  /* Repeat count (1-128) */
+            repeat_count = control_byte - 128;  /* Repeat count (1-128) */
             
             /* Validate we have at least one byte available for the repeat value */
             if (bytes_consumed >= src_size) {
