@@ -34,11 +34,15 @@ compile: $(EXECUTABLE)
 	@echo "Build complete: $(EXECUTABLE)"
 
 # Link executable
+# Note: The linker warning "W1027: file clibl.lib(fclose.c): redefinition of fclose_ ignored"
+# is a known issue with Open Watcom's C runtime library for DOS and is harmless.
+# The executable builds successfully and functions correctly despite this warning.
 $(EXECUTABLE): $(C_OBJECTS)
 	@echo "Linking $(EXECUTABLE)..."
 	@echo "system dos" > $(BUILD_DIR)/comic.lnk
 	@echo "name $(EXECUTABLE)" >> $(BUILD_DIR)/comic.lnk
 	@for obj in $(C_OBJECTS); do echo "file $$obj" >> $(BUILD_DIR)/comic.lnk; done
+	@echo "option quiet" >> $(BUILD_DIR)/comic.lnk
 	$(WLINK) @$(BUILD_DIR)/comic.lnk
 
 # Compile C sources

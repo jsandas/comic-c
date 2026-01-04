@@ -10,8 +10,8 @@
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
-#include "globals.h"
 #include "graphics.h"
+#include "timing.h"
 
 /* EGA Register Addresses */
 #define EGA_CRTC_INDEX_PORT     0x3d4

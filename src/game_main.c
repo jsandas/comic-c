@@ -18,6 +18,7 @@
 #include <i86.h>
 #include "globals.h"
 #include "graphics.h"
+#include "timing.h"
 
 /* Runtime library symbol for large model code */
 int _big_code_ = 1;
