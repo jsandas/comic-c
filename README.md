@@ -7,17 +7,19 @@ This project converts the assembly codebase to C while maintaining exact behavio
 ## Project Status
 
 **Phase 1: Foundation** ✅ COMPLETE
-- Docker build environment with Open Watcom 2
-- C/Assembly integration infrastructure (legacy)
-- Minimal C game loop with minimized legacy assembly usage
-- First data file loader converted (`.PT` file format)
+- Local Open Watcom 2 build environment setup
+- C language entry point and initialization
+- Data file loader converted (`.PT` file format)
+- Level data migration (LAKE, FOREST complete)
 
-**Next Phase**: Game loop migration from assembly to C
+**Phase 2: Game Logic** 🔄 IN PROGRESS
+- Level data migration and file loading infrastructure
+- Next: Game loop implementation, rendering system, physics
 
 ## Quick Start
 
 ### Prerequisites
-- Docker (for macOS/Linux - provides Open Watcom 2 build environment)
+- Open Watcom 2 (installed locally in `watcom2/` directory)
 - Make
 - Game assets from: https://github.com/jsandas/comic
   - Place `.SHP`, `.TT2`, `.PT`, `.EGA` files in `reference/original/`
@@ -25,11 +27,11 @@ This project converts the assembly codebase to C while maintaining exact behavio
 ### Build Instructions
 
 ```bash
-# First time setup
-make docker-build    # Build Docker image with Open Watcom 2 + NASM
+# Setup environment (one time)
+source setvars.sh    # Configure Open Watcom paths
 
 # Compile the project
-make compile         # Runs compilation inside Docker container
+make compile         # Compiles using local Open Watcom 2
 
 # Run the game (in DOSBox)
 cd tests
@@ -39,6 +41,9 @@ cd tests
 ### Development Workflow
 
 ```bash
+# Ensure environment is configured (if needed)
+source setvars.sh
+
 # Edit C source files
 vim src/game_main.c
 
@@ -54,15 +59,18 @@ make clean
 
 ## Project Structure
 
-- **`Dockerfile`** - Docker image with Open Watcom 2, NASM, djlink
-- **`Makefile`** - Build targets (`docker-build`, `compile`, `clean`, `shell`)
+- **`setvars.sh`** - Environment setup script for Open Watcom 2
+- **`Makefile`** - Build targets (`compile`, `clean`)
 - **`include/`** - C header files
-  - `globals.h` - Assembly global variable declarations
-  - `assembly.h` - Assembly function declarations
+  - `globals.h` - Game state variables and data structures
   - `file_loaders.h` - Data file format definitions
+  - `graphics.h` - Graphics and rendering functions
+  - `level_data.h` - Level data structures
 - **`src/`** - C source files
-  - `game_main.c` - C game loop entry point
+  - `game_main.c` - Main entry point and game initialization
   - `file_loaders.c` - Data file loaders
+  - `graphics.c` - Graphics and rendering
+  - `level_data.c` - Level definitions
 - **`build/`** - Build artifacts (generated)
   - `obj/` - Object files
   - `COMIC.EXE` - Final DOS executable
@@ -81,62 +89,32 @@ make clean
 
 ## Architecture
 
-### Original Assembly (R5sw1991.asm)
-- 7,842 lines of x86-16 assembly
-- Pure DOS real-mode, 16-bit
-- Custom interrupt handlers (INT 3, 8, 9)
-- Direct hardware access (EGA video, PC speaker, keyboard)
+### C Language Implementation
+- Pure C implementation for all game logic
+- Open Watcom 16-bit compiler targeting DOS real-mode
+- Entry point: `main()` in `src/game_main.c`
+- Modular subsystems:
+  - Game initialization and menus
+  - Level loading and management
+  - Rendering (video buffer, sprites, tiles)
+  - Physics and collision detection
+  - Game loop and input handling
 
-### Refactored C + Assembly Hybrid
-```
-Assembly Stub (R5sw1991_c.asm)          C Code (src/*.c)
-┌─────────────────────────┐            ┌────────────────────┐
-│ • Entry point (main:)   │            │ • game_main()      │
-│ • DS initialization     │───calls───►│ • Game loop        │
-│ • Interrupt handlers    │            │ • Input handling   │
-│ • Hardware init         │            │ • Game logic       │
-│ • Title sequence        │◄──calls────│ • File loading     │
-└─────────────────────────┘            └────────────────────┘
-         │                                      │
-         └──────────────┬───────────────────────┘
-                        │
-                        ▼
-           ┌────────────────────────────────┐
-           │ Assembly Reference (legacy)    │
-           │ (preserved for inspection only)│
-           │                                │
-           │ • load_new_level() (legacy)     │
-           │ • handle_enemies() (legacy)     │
-           │ • swap_video_buffers() (legacy) │
-           │ • etc.                           │
-           └────────────────────────────────┘
-```
-
-### Why Not Use Open Watcom crt0.obj?
-- **Size overhead**: Adds 2-4 KB to 33 KB original executable
-- **Conflicts**: Assembly already has complete initialization
-- **Control**: Custom interrupt handlers need precise setup
-- **Solution**: Minimal assembly stub, full control over environment
+### Original Assembly (Reference Only)
+- `reference/disassembly/R5sw1991.asm` - 7,842 lines for historical reference
+- Not compiled or used in the refactored version
+- Preserved for inspection and understanding original behavior
 
 ## Technical Details
 
 ### Compiler and Linker
 - **Compiler**: Open Watcom C 16-bit v2.0 (`wcc`)
 - **Flags**: `-ml` (large memory model), `-s` (no stack checks), `-0` (8086 target)
-- **Assembler**: NASM (OMF object format output)
-- **Linker**: djlink (custom DOS OMF linker)
+- **Linker**: wlink (Open Watcom OMF format linker)
 
 ### Memory Model
 - **Large model**: Separate 64 KB code and data segments
-- **DS register**: Points to data segment (ensure DS is correct; legacy assembly previously set it)
-- **Calling convention**: cdecl (caller cleans stack)
-
-### C/Assembly Integration (legacy)
-- Legacy assembly may export globals: `global comic_x` (reference only)
-- C may declare corresponding externs: `#pragma aux comic_x "*"` + `extern uint8_t comic_x;` (prefer migrating globals to C)
-- Legacy assembly exports functions (for reference): `global load_new_level`
-- Historically C called assembly entrypoints; prefer C equivalents instead of adding new assembly
-- C functions called from legacy assembly: `call _game_main` (historical detail) 
+- **Calling convention**: cdecl (caller cleans stack) 
 
 ## Testing
 
