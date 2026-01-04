@@ -15,38 +15,35 @@ This project refactors The Adventures of Captain Comic (1990 DOS game) from x86-
 ### 2. Build Environment
 - **Compiler**: Open Watcom C 16-bit v2.0 (beta)
 - **Memory Model**: Large model (`-ml` flag) - separate code and data segments
-- **Assembler**: NASM for remaining assembly code
-- **Linker**: djlink (custom OMF format linker in `reference/disassembly/djlink/`)
+- **Assembler**: NASM (used for assembling the reference disassembly and tooling). New development should be implemented in C; assembly is maintained only as a static reference.
+- **Linker**: djlink (custom OMF format linker in `reference/disassembly/djlink/`) 
 - **Platform**: Local Open Watcom installation on macOS
 - **Setup**: Source `setvars.sh` to configure environment before building
 
 ### 3. Architecture Strategy (UPDATED 2026-01-03)
 - **C-only entry point**: `main()` in `game_main.c` is the true application entry point
 - **All initialization in C**: Startup, menus, video mode, interrupt handlers, joystick calibration
-- **No assembly initialization**: Assembly code remains for optional performance-critical operations
-- **Clean separation**: C handles all application logic, calls assembly functions only as needed
+- **No assembly initialization**: Assembly files are retained as reference for implementation details; new functionality should be implemented in C.
+- **Clean separation**: C handles all application logic; assembly is a reference for implementation details and should not be used as the project's coding style.
 - **Single consolidated file**: `game_main.c` combines initialization (from `main_experiment.c`) with game stubs (from original `game_main.c`)
 - **Standard C environment**: Uses `<dos.h>`, `<conio.h>`, `<i86.h>` from Open Watcom standard library
 
-### 4. C/Assembly Integration
+### 4. C / Legacy Assembly Interop (for reference only)
 
-#### Global Variables
-- Assembly exports globals with `global` directive (e.g., `global comic_x`)
-- C declares with `extern` and `#pragma aux "*"` to prevent name mangling:
-  ```c
-  #pragma aux comic_x "*"
-  extern uint8_t comic_x;
-  ```
+These notes describe the legacy interop scenarios you may encounter while migrating or comparing behavior to the original assembly. **Prefer pure C implementations**; only use these conventions when interfacing with the original assembly is strictly required and documented.
 
-#### Function Calls
-- Assembly functions called from C: export with `global`, declare in C with `#pragma aux "*"`
-- C functions called from assembly: use underscore prefix `_game_main`
-- Calling convention: cdecl (caller cleans stack)
+#### Global Variables (legacy)
+- Legacy assembly may export globals with `global` directive (e.g., `global comic_x`)
+- C may declare corresponding externs; prefer to migrate global state to C-managed variables and avoid reliance on assembly-managed globals
+
+#### Function Calls (legacy)
+- If interfacing with original assembly, assembly functions may be exported and declared from C; minimize such interfaces
+- C functions called from legacy assembly historically use underscore prefix `_game_main` — treat as historical detail
+- Calling convention: cdecl (caller cleans stack) — apply only when necessary
 
 #### Data Segment (DS)
-- Assembly sets DS once at startup to point to data segment
-- C code assumes DS is correct (large model)
-- **Never change DS in C without restoring it immediately**
+- The original assembly set DS at startup to point to the data segment; verify DS when reasoning about low-level code
+- Avoid changing DS in C unless absolutely necessary and document any such cases carefully
 
 ### 5. Conversion Priority Order
 
@@ -65,14 +62,14 @@ This project refactors The Adventures of Captain Comic (1990 DOS game) from x86-
 
 **Phase 3: Game Logic Implementation** (CURRENT)
 1. Implement `game_entry()` with actual game loop
-2. Call assembly functions from C (e.g., `load_new_level()`)
+2. Consult the original assembly for guidance; implement functionality in C (e.g., `load_new_level()` instead of adding new assembly)
 3. Handle input state in C (reading `key_state_*` globals)
-4. Gradually move logic from assembly into C
+4. Gradually move logic from assembly into C (reimplement, do not create new assembly)
 
 **Phase 3: Game Logic**
 1. Implement game initialization in C
 2. Implement main game loop in C
-3. Call assembly functions for low-level operations
+3. Prefer C implementations for low-level operations; only interface with assembly when there is a clear, documented necessity and justification.
 
 **Phase 3: Subsystems**
 1. Rendering functions (blitting, video buffer management)
@@ -108,7 +105,6 @@ comic-c/
 │   ├── assembly.h         # Assembly function declarations
 │   └── file_loaders.h     # Data file format definitions
 ├── src/                    # C source files
-│   ├── R5sw1991_c.asm     # Modified assembly (exports + calls C)
 │   ├── game_main.c        # C game loop entry point
 │   ├── file_loaders.c     # Data file loading functions
 │   └── runtime_stubs.c    # Runtime stub functions
@@ -156,11 +152,11 @@ comic-c/
 
 ### 9. When Stuck or Uncertain
 
-1. **Check the original assembly** in `reference/disassembly/R5sw1991.asm`
+1. **Check the original assembly** in `reference/disassembly/R5sw1991.asm` and `reference/disassembly/R3_levels.asm` for implementation details and to understand original behavior
 2. **Look for similar patterns** already converted (collision detection functions)
 3. **Test incrementally** - make smallest possible changes, test immediately
 4. **Document uncertainties** - add comments about unclear behavior
-5. **Preserve assembly version** - keep original in comments for reference
+5. **Preserve assembly version** - keep original in comments for reference (do not use it as the primary implementation language)
 
 ### 10. Code Style and Standards
 

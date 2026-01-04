@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document defines the C coding conventions for the Captain Comic refactor project. As of 2026-01-03, the project has shifted to a **C-only entry point architecture** where `main()` in `game_main.c` serves as the true application entry point. All code is written in C using Open Watcom's standard library, with assembly available only for optional performance-critical operations.
+This document defines the C coding conventions for the Captain Comic refactor project. As of 2026-01-03, the project has shifted to a **C-only entry point architecture** where `main()` in `game_main.c` serves as the true application entry point. All new code must be written in C using Open Watcom's standard library; assembly files are retained only as a reference for implementation details and should not be used as the project's coding style.
 
 The goal is readable, maintainable C code that matches the original assembly behavior exactly while being primarily implemented in C.
 
@@ -28,8 +28,8 @@ As of 2026-01-03, `src/game_main.c` is the primary entry point containing:
 
 - Use include guards: `#ifndef FILENAME_H` / `#define FILENAME_H` / `#endif`
 - Order: system includes → local includes → types → constants → declarations
-- **Note**: Assembly pragmas (`#pragma aux "*"`) only needed when interfacing with assembly code
-- Most new code will be pure C without assembly dependencies
+- **Note**: Assembly-specific pragmas (e.g., `#pragma aux`) are legacy and should be avoided unless absolutely necessary to interface with the original assembly; prefer pure C solutions
+- Most new code will be implemented in C without assembly dependencies
 
 Example (Pure C):
 ```c
@@ -84,7 +84,7 @@ int check_collision(uint8_t x, uint8_t y);
 
 ### Functions
 
-- **Assembly functions**: Match assembly labels (e.g., `load_new_level`, `swap_video_buffers`)
+- **Legacy assembly labels** are documented in the reference disassembly (e.g., `load_new_level`); prefer descriptive C function names and implement behavior in C (e.g., `load_new_level`)
 - **C functions**: Descriptive snake_case (e.g., `calculate_tile_offset`, `is_tile_solid`)
 - **Static helpers**: Prefix with `static` keyword
 
@@ -199,45 +199,36 @@ threshold = (zero_value - extreme_value) / 2;  // Wrong but intentional!
 - We use **large model** (`-ml` flag)
 - Code and data in separate segments
 - Far pointers for code, far pointers for data
-- DS register always points to data segment (set by assembly at startup)
-- **Never modify DS** - assembly sets it once during initialization
+- DS register should point to the data segment as required by the large model; verify this when working with low-level code
+- Avoid modifying DS unless absolutely necessary and document any changes carefully
 
 ### No Standard Library Assumptions
 
-- **Avoid `malloc`/`free`** - use static allocation or assembly-managed memory
-- **Avoid `printf`** - use direct video memory manipulation or assembly functions
+- **Avoid `malloc`/`free`** - prefer static allocation or other deterministic storage strategies (do not rely on assembly-managed memory)
+- **Avoid `printf`** - use direct video memory manipulation or C wrappers; avoid using assembly functions for I/O
 - **File I/O** - can use `fopen`/`fread`/`fclose` (Open Watcom provides DOS versions)
 - **String functions** - can use `strcmp`, `strcpy`, etc. (they work in DOS)
 
 ### Video Memory Access
 
 - Video memory at segment `0xa000`
-- Use inline assembly or assembly functions for direct video access
+- Prefer pure C implementations for direct video access; inline assembly is permitted only when absolutely necessary and must be reviewed
 - Never cache video memory pointers across function calls
 
 Example:
 ```c
-/* Write directly to video memory */
+/* Write directly to video memory using C helper */
 void write_pixel(uint16_t x, uint16_t y, uint8_t color)
 {
     uint16_t offset = (y * 320 + x) / 8;
-    /* Use assembly function or inline asm */
-    write_video_byte(offset, color);  // Calls assembly
+    /* Implemented in C: prefer C-based helpers over assembly */
+    write_video_byte(offset, color);  // Implemented in C
 }
 ```
 
-### Inline Assembly
+### Inline Assembly (rare)
 
-- Use Open Watcom inline assembly syntax when needed:
-```c
-void set_video_segment(uint16_t segment)
-{
-    __asm {
-        mov ax, segment
-        mov es, ax
-    }
-}
-```
+- Inline assembly is strongly discouraged; prefer pure C implementations. Inline assembly is permitted only when absolutely necessary and must be carefully reviewed and documented.
 
 ## Type Definitions
 
@@ -290,48 +281,9 @@ int load_file(const char* filename, void* buffer)
 }
 ```
 
-## Assembly Integration
+## Assembly Reference
 
-### Declaring Assembly Functions
-
-```c
-/* In header file */
-#pragma aux assembly_function "*"
-extern void assembly_function(uint8_t param);
-
-/* In C code */
-void call_assembly(void)
-{
-    assembly_function(42);  // Calls assembly directly
-}
-```
-
-### Accessing Assembly Globals
-
-```c
-/* In header file */
-#pragma aux comic_x "*"
-extern uint8_t comic_x;
-
-/* In C code */
-void move_player(void)
-{
-    comic_x += 1;  // Modifies assembly global
-}
-```
-
-### Calling C from Assembly
-
-```asm
-; In assembly file
-extern _c_function
-
-; Call C function
-push ax          ; Parameter (right to left)
-call _c_function
-add sp, 2        ; Clean up stack (cdecl convention)
-```
-
+The original assembly is preserved in `reference/disassembly/` as an implementation reference only. The preferred approach is to reimplement behavior in C. If interfacing with the original assembly is unavoidable, document the justification, follow calling conventions, and write thorough tests; avoid adding new assembly where possible.
 ## Testing Requirements
 
 ### Function Testing

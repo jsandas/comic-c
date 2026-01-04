@@ -8,8 +8,8 @@ This project converts the assembly codebase to C while maintaining exact behavio
 
 **Phase 1: Foundation** ✅ COMPLETE
 - Docker build environment with Open Watcom 2
-- C/Assembly integration infrastructure
-- Minimal C game loop calling assembly functions
+- C/Assembly integration infrastructure (legacy)
+- Minimal C game loop with minimized legacy assembly usage
 - First data file loader converted (`.PT` file format)
 
 **Next Phase**: Game loop migration from assembly to C
@@ -102,15 +102,15 @@ Assembly Stub (R5sw1991_c.asm)          C Code (src/*.c)
          └──────────────┬───────────────────────┘
                         │
                         ▼
-           ┌─────────────────────────┐
-           │ Assembly Functions      │
-           │ (gradually replaced)    │
-           │                         │
-           │ • load_new_level()      │
-           │ • handle_enemies()      │
-           │ • swap_video_buffers()  │
-           │ • etc.                  │
-           └─────────────────────────┘
+           ┌────────────────────────────────┐
+           │ Assembly Reference (legacy)    │
+           │ (preserved for inspection only)│
+           │                                │
+           │ • load_new_level() (legacy)     │
+           │ • handle_enemies() (legacy)     │
+           │ • swap_video_buffers() (legacy) │
+           │ • etc.                           │
+           └────────────────────────────────┘
 ```
 
 ### Why Not Use Open Watcom crt0.obj?
@@ -129,15 +129,15 @@ Assembly Stub (R5sw1991_c.asm)          C Code (src/*.c)
 
 ### Memory Model
 - **Large model**: Separate 64 KB code and data segments
-- **DS register**: Points to data segment (set by assembly, used by C)
+- **DS register**: Points to data segment (ensure DS is correct; legacy assembly previously set it)
 - **Calling convention**: cdecl (caller cleans stack)
 
-### C/Assembly Integration
-- Assembly exports globals: `global comic_x`
-- C declares with pragma: `#pragma aux comic_x "*"` + `extern uint8_t comic_x;`
-- Assembly exports functions: `global load_new_level`
-- C calls directly: `load_new_level();`
-- C functions called from assembly: `call _game_main`
+### C/Assembly Integration (legacy)
+- Legacy assembly may export globals: `global comic_x` (reference only)
+- C may declare corresponding externs: `#pragma aux comic_x "*"` + `extern uint8_t comic_x;` (prefer migrating globals to C)
+- Legacy assembly exports functions (for reference): `global load_new_level`
+- Historically C called assembly entrypoints; prefer C equivalents instead of adding new assembly
+- C functions called from legacy assembly: `call _game_main` (historical detail) 
 
 ## Testing
 

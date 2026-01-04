@@ -17,7 +17,7 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
 - **Target**: 16-bit DOS real-mode (Intel 8086/8088 compatible)
 - **Compiler**: Open Watcom C 16-bit v2.0
 - **Memory Model**: Large (`-ml`) - separate 64KB code and data segments
-- **Assembler**: NASM for remaining assembly code
+- **Assembler**: NASM (used for assembling the reference disassembly and tooling); new development should be implemented in C
 - **Linker**: djlink (custom OMF format linker)
 - **Build Platform**: Local Open Watcom installation on macOS (via `setvars.sh`)
 
@@ -83,13 +83,12 @@ Refactor The Adventures of Captain Comic (1990 DOS platformer) from x86-16 assem
               │
               ▼
   ┌────────────────────────────────────┐
-  │   Assembly Functions (Optional)    │
-  │  For performance-critical code     │
-  │                                    │
-  │  • swap_video_buffers()            │
-  │  • blit_map_playfield_offscreen()  │
-  │  • blit_comic_playfield_offscreen()│
-  │  • etc. (can be ported to C)       │
+  │      Assembly Reference (Inspect)  │
+  │  Original assembly preserved for    │
+  │  inspection and implementation      │
+  │  guidance; prefer reimplementing    │
+  │  behavior in C rather than adding   │
+  │  new assembly.                      │
   └────────────────────────────────────┘
 ```
 
@@ -100,7 +99,7 @@ The refactoring approach has been revised to a **C-only entry point** model:
 - **Assembly exits**: `R5sw1991_c.asm` is no longer the primary entry point
 - **C handles initialization**: `main()` in `game_main.c` is now the true entry point
 - **All initialization in C**: Startup, menus, joystick calibration, video mode setup, interrupt handler setup
-- **Clean separation**: Assembly code remains available for performance-critical operations but is not called during initialization or menus
+- **Clean separation**: Assembly code is retained as a reference; any remaining assembly must have clear justification and tests and should not be the default implementation choice
 - **Unified codebase**: `game_main.c` consolidates both `main_experiment.c` and original `game_main.c` functionality
 
 **Rationale**: Moving from assembly initialization to pure C initialization provides:
@@ -177,17 +176,17 @@ The refactoring approach has been revised to a **C-only entry point** model:
 
 **Next steps**
    - Implement `game_entry()` with actual game logic
-   - Call assembly functions as needed for rendering/physics
-   - Port remaining subsystems from assembly to C
+   - Reimplement rendering and physics in C (consult assembly for guidance only)
+   - Port remaining subsystems from assembly to C (avoid adding new assembly)
 
 ### Phase 3: Game Logic Implementation (IN PROGRESS)
 
 **Goal**: Implement main game loop and level management in C
 
 1. **Implement game initialization in C**
-   - Call `load_new_level()` from assembly
-   - Call `load_new_stage()` from assembly  
-   - Set up initial game state
+   - Prefer C equivalents for level and stage loading (e.g., `load_new_level_c()`)
+   - Only call legacy assembly entry points as a temporary migration step with explicit justification and tests
+   - Set up initial game state in C
 
 2. **Implement main game loop in C**
    - Tick-waiting logic (`wait_n_ticks()`)
@@ -195,10 +194,10 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - Call rendering functions
    - Win/lose condition checking
    
-3. **Strategy for calling assembly functions**
-   - Declare assembly functions in `assembly.h`
-   - Call them from C as needed
-   - Gradually reimplement in C when feasible
+3. **Strategy**
+   - Reimplement functions in C when feasible and preferred
+   - Consult original assembly as implementation guidance
+   - Only interface with original assembly when there is a clear, documented necessity and tests to justify it
 
 ### Phase 4: Subsystem Migration (FUTURE)
 
@@ -350,19 +349,19 @@ As `game_entry()` matures, start reimplementing assembly functions in C:
    - Sound playback state machine
    - Priority system
    - PC speaker control via INT 3 handler
-   - *May keep in assembly* (direct hardware, low value to convert)
+   - *Keep in assembly only with strong justification and tests* (direct hardware, low value to convert)
 
 2. **Joystick handling**
    - Calibration routines
    - Axis reading
    - Threshold detection
-   - *May keep in assembly* (INT 15h, low value to convert)
+   - *Keep in assembly only with strong justification and tests* (INT 15h, low value to convert)
 
 3. **Interrupt handlers**
    - INT 3 (sound)
    - INT 8 (timer - sets `game_tick_flag`)
    - INT 9 (keyboard - sets `key_state_*`)
-   - *Likely keep in assembly* (direct hardware, real-mode quirks)
+   - *Keep in assembly only with strong justification and tests* (direct hardware, real-mode quirks)
 
 ## Testing Strategy
 
@@ -433,7 +432,6 @@ comic-c/
 │   ├── rendering.h                 # Graphics rendering (future)
 │   └── ai.h                        # Enemy AI (future)
 ├── src/                            # C source files
-│   ├── R5sw1991_c.asm              # Modified assembly (exports + calls C)
 │   ├── game_main.c                 # C game loop entry point
 │   ├── file_loaders.c              # Data file loading
 │   ├── collision.c                 # Collision detection (future)
@@ -470,13 +468,10 @@ comic-c/
 ### First-Time Setup
 
 ```bash
-# 1. Build Docker image
-make docker-build
-
-# 2. Compile project
+# 1. Compile project
 make compile
 
-# 3. Test executable
+# 2. Test executable
 cd tests
 ./run-dosbox.sh
 ```
@@ -508,7 +503,7 @@ make clean
 - [x] C code compiles without errors
 - [x] Executable links successfully
 - [x] Assembly stub calls C `game_main()`
-- [x] C calls assembly functions
+- [x] C previously called assembly functions (legacy; minimized)
 - [x] Basic file loader converted
 
 ### Milestone 2: Game Loop
