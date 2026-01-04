@@ -514,25 +514,25 @@ void palette_darken(void)
 void palette_fade_in(void)
 {
     /* Step 1: Set all three to light gray (6-bit color value 0x07) */
-    set_palette_register(2, 0x07);   /* Palette register 2 - light gray */
-    set_palette_register(10, 0x07);  /* Palette register 10 - light gray */
-    set_palette_register(12, 0x07);  /* Palette register 12 - light gray */
+    set_palette_register(PALETTE_REG_BACKGROUND, 0x07);  /* light gray */
+    set_palette_register(PALETTE_REG_ITEMS, 0x07);       /* light gray */
+    set_palette_register(PALETTE_REG_TITLE, 0x07);       /* light gray */
     wait_n_ticks(1);
     
-    /* Step 2: Set registers 10 and 12 to white (0x1f), keep 2 at gray */
-    set_palette_register(2, 0x07);   /* Palette register 2 - stay gray */
-    set_palette_register(10, 0x1f);  /* Palette register 10 - white */
-    set_palette_register(12, 0x1f);  /* Palette register 12 - white */
+    /* Step 2: Set registers ITEMS and TITLE to white (0x1f), keep BACKGROUND at gray */
+    set_palette_register(PALETTE_REG_BACKGROUND, 0x07);  /* stay gray */
+    set_palette_register(PALETTE_REG_ITEMS, 0x1f);       /* white */
+    set_palette_register(PALETTE_REG_TITLE, 0x1f);       /* white */
     wait_n_ticks(1);
     
-    /* Step 3: Set register 2 to green, 10 to bright green, keep 12 at white */
-    set_palette_register(2, 0x02);   /* Palette register 2 - green (6-bit: 000010) */
-    set_palette_register(10, 0x1a);  /* Palette register 10 - bright green (6-bit: 011010) */
-    set_palette_register(12, 0x1f);  /* Palette register 12 - stay white */
+    /* Step 3: Set BACKGROUND to green, ITEMS to bright green, keep TITLE at white */
+    set_palette_register(PALETTE_REG_BACKGROUND, 0x02);  /* green (6-bit: 000010) */
+    set_palette_register(PALETTE_REG_ITEMS, 0x1a);       /* bright green (6-bit: 011010) */
+    set_palette_register(PALETTE_REG_TITLE, 0x1f);       /* stay white */
     wait_n_ticks(1);
     
-    /* Step 4: Set register 12 to bright red (6-bit: 011100) */
-    set_palette_register(12, 0x1c);  /* Palette register 12 - bright red */
+    /* Step 4: Set TITLE to bright red (6-bit: 011100) */
+    set_palette_register(PALETTE_REG_TITLE, 0x1c);       /* bright red */
     wait_n_ticks(1);
 }
 
