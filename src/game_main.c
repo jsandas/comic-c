@@ -700,7 +700,8 @@ void title_sequence(void)
     
     /* Step 2: Load and display story screen (SYS001.EGA) */
     if (load_fullscreen_graphic(FILENAME_STORY_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP2) != 0) {
-        /* Failed to load - skip remaining sequence */
+        /* Failed to load - stop music and skip remaining sequence */
+        stop_music();
         return;
     }
     switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP2);
@@ -713,7 +714,8 @@ void title_sequence(void)
     
     /* Step 3: Load UI background (SYS003.EGA) into both gameplay buffers */
     if (load_fullscreen_graphic(FILENAME_UI_GRAPHIC, GRAPHICS_BUFFER_GAMEPLAY_A) != 0) {
-        /* Failed to load - skip remaining sequence */
+        /* Failed to load - stop music and skip remaining sequence */
+        stop_music();
         return;
     }
     /* Copy UI from buffer A to buffer B for static background (8000 bytes per plane) */

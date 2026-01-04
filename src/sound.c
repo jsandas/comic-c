@@ -86,7 +86,7 @@ static void speaker_disable(void)
  * @param sound_data - pointer to sound data array (frequency/duration pairs)
  * @param priority - sound priority (higher priority sounds can interrupt lower ones)
  */
-void play_sound(uint16_t *sound_data, uint8_t priority)
+void play_sound(const uint16_t *sound_data, uint8_t priority)
 {
 	/* Check if new sound has higher or equal priority */
 	if (sound_state.is_playing && priority < sound_state.priority) {

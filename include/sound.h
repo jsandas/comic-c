@@ -56,7 +56,7 @@
  * @param sound_data - pointer to sound data array (frequency/duration pairs)
  * @param priority - sound priority (higher priority sounds can interrupt lower ones)
  */
-void play_sound(uint16_t *sound_data, uint8_t priority);
+void play_sound(const uint16_t *sound_data, uint8_t priority);
 
 /**
  * Stop the current sound
