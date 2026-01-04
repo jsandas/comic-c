@@ -359,8 +359,8 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
         uint8_t *palette_ptr = &src_ptr[src_offset];
         uint8_t color_index;
         
-        /* Set all 16 palette registers from file data */
-        /*for (color_index = 0; color_index < 16; color_index++) {
+        // Set all 16 palette registers from file data
+        for (color_index = 0; color_index < 16; color_index++) {
             set_palette_register(color_index, palette_ptr[color_index]);
         }
     }
