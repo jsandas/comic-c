@@ -3,7 +3,7 @@
  * 
  * Provides PC speaker sound playback through direct hardware access.
  * Uses PIT (Programmable Interval Timer) channel 2 connected to the PC speaker.
- * Sound is synchronized with game ticks via the INT 8 timer interrupt handler.
+ * Sound playback advances via sound_advance_tick() called from game loop at tick rate.
  * 
  * Note frequencies are calculated as:
  *   Frequency = 1193182 Hz (PIT base clock) / divisor
@@ -17,7 +17,7 @@
 #include <stdint.h>
 
 /**
- * Sound operation codes - used with INT 3 handler
+ * Sound operation codes (legacy constants, not used with current implementation)
  */
 #define SOUND_UNMUTE    0  /* Enable sound output */
 #define SOUND_PLAY      1  /* Start playing a sound */
