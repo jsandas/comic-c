@@ -145,7 +145,7 @@ void enable_ega_plane_read_write(uint8_t plane)
  *     * Control byte value = number of literal bytes to follow
  *     * Followed by that many literal bytes to copy as-is
  *   - If control byte >= 0x80 (128-255): Repeat mode
- *     * Repeat count = (control byte - 128)
+ *     * Repeat count = (control byte - 127), giving range 1-128
  *     * Followed by 1 byte that is repeated that many times
  * 
  * Output: Decoded plane data written to video memory segment 0xa000
@@ -198,8 +198,8 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
                 bytes_decoded++;
             }
         } else {
-            /* Repeat mode: control byte minus 128 is the repeat count */
-            repeat_count = control_byte - 128;  /* Repeat count (1-128) */
+            /* Repeat mode: control byte minus 127 is the repeat count */
+            repeat_count = control_byte - 127;  /* Repeat count (1-128) */
             
             /* Validate we have at least one byte available for the repeat value */
             if (bytes_consumed >= src_size) {
