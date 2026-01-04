@@ -705,8 +705,8 @@ void title_sequence(void)
         /* Failed to load - continue without UI */
         return;
     }
-    /* Copy UI from buffer A to buffer B for static background */
-    copy_ega_plane(GRAPHICS_BUFFER_GAMEPLAY_A, GRAPHICS_BUFFER_GAMEPLAY_B, 0x2000);
+    /* Copy UI from buffer A to buffer B for static background (8000 bytes per plane) */
+    copy_ega_plane(GRAPHICS_BUFFER_GAMEPLAY_A, GRAPHICS_BUFFER_GAMEPLAY_B, 8000);
     
     /* Step 4: Load and display items screen (SYS004.EGA) */
     if (load_fullscreen_graphic(FILENAME_ITEMS_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
