@@ -421,19 +421,26 @@ uint16_t get_current_display_offset(void)
 /*
  * init_default_palette - Initialize EGA palette registers to default EGA values
  * 
- * Initializes the DAC palette registers with the standard EGA 16-color palette values.
- * Uses INT 10h AH=10h AL=12h (set block of palette registers) to initialize all
- * 16 registers in one call, matching the standard EGA palette.
+ * Initializes all 16 palette registers (0-15) with their standard EGA colors.
+ * Uses INT 10h AH=10h AL=00h to set individual palette registers.
+ * Each palette register maps to a BIOS color index (0-63), which in turn maps
+ * to actual RGB values in the DAC (Digital-to-Analog Converter).
  * 
- * Standard EGA palette mapping:
- * 0: Black (0,0,0)        8: Dark Gray (2,2,2)
- * 1: Blue (0,0,2)         9: Light Blue (2,2,3)
- * 2: Green (0,2,0)        10: Light Green (2,3,2)
- * 3: Cyan (0,2,2)         11: Light Cyan (2,3,3)
- * 4: Red (2,0,0)          12: Light Red (3,2,2)
- * 5: Magenta (2,0,2)      13: Light Magenta (3,2,3)
- * 6: Brown (2,2,0)        14: Yellow (3,3,2)
- * 7: Light Gray (2,2,2)   15: White (3,3,3)
+ * Palette register initialization (BIOS color indices):
+ * 
+ * Low-intensity colors (indices 0-7) map directly to themselves:
+ *   0: Black (index 0)           8: Dark Gray (index 0x38)
+ *   1: Blue (index 1)            9: Light Blue (index 0x39)
+ *   2: Green (index 2)           10: Light Green (index 0x3a)
+ *   3: Cyan (index 3)            11: Light Cyan (index 0x3b)
+ *   4: Red (index 4)             12: Light Red (index 0x3c)
+ *   5: Magenta (index 5)         13: Light Magenta (index 0x3d)
+ *   6: Brown (index 6)           14: Yellow (index 0x3e)
+ *   7: Light Gray (index 7)      15: White (index 0x3f)
+ * 
+ * The actual RGB values are determined by the BIOS default DAC palette:
+ *   Low-intensity (0x00-0x07): RGB with 0-2 intensity per channel
+ *   High-intensity (0x38-0x3f): RGB with 2-3 intensity per channel
  */
 void init_default_palette(void)
 {
