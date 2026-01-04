@@ -502,9 +502,9 @@ void palette_darken(void)
 }
 
 /*
- * palette_fade_in - Fade in from dark to final colors in 4 steps
+ * palette_fade_in - Fade in from dark to final colors in 5 steps
  * 
- * Performs a 4-step fade animation for palette registers 2, 10, and 12.
+ * Performs a 5-step fade animation for palette registers 2, 10, and 12.
  * Uses 6-bit color values (0x00-0x3f) to smoothly transition from dark gray
  * to the final display colors. Based on the original assembly implementation.
  * 
