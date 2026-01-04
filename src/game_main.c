@@ -1009,6 +1009,14 @@ void load_new_level(void)
     const uint8_t* src;
     unsigned i;
     
+    /* TT2 file header structure */
+    struct {
+        uint8_t last_passable;
+        uint8_t unused1;
+        uint8_t unused2;
+        uint8_t flags;
+    } tt2_header;
+    
     /* Validate level number */
     if (current_level_number >= 8) {
         return;  /* Invalid level */
@@ -1029,31 +1037,18 @@ void load_new_level(void)
         return;
     }
     
-    /* Read tileset header (4 bytes) and graphics */
-    bytes_read = _read(file_handle, &tileset_last_passable, 1);
-    if (bytes_read != 1) {
+    /* Read TT2 file header (4 bytes) */
+    bytes_read = _read(file_handle, &tt2_header, sizeof(tt2_header));
+    if (bytes_read != sizeof(tt2_header)) {
         _close(file_handle);
         return;
     }
     
-    bytes_read = _read(file_handle, &tileset_last_passable + 1, 1);  /* unused byte */
-    if (bytes_read != 1) {
-        _close(file_handle);
-        return;
-    }
+    /* Extract header fields */
+    tileset_last_passable = tt2_header.last_passable;
+    tileset_flags = tt2_header.flags;
     
-    bytes_read = _read(file_handle, &tileset_last_passable + 2, 1);  /* unused byte */
-    if (bytes_read != 1) {
-        _close(file_handle);
-        return;
-    }
-    
-    bytes_read = _read(file_handle, &tileset_flags, 1);
-    if (bytes_read != 1) {
-        _close(file_handle);
-        return;
-    }
-    
+    /* Read tileset graphics data */
     bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
     if (bytes_read != sizeof(tileset_graphics)) {
         _close(file_handle);
