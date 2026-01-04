@@ -685,7 +685,7 @@ void title_sequence(void)
     switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
     palette_darken();
     palette_fade_in();
-    wait_n_ticks(14);  /* Display title for ~280ms */
+    wait_n_ticks(14);  /* Display title for ~770ms (14 ticks at ~55ms each) */
     
     /* Step 2: Load and display story screen (SYS001.EGA) */
     if (load_fullscreen_graphic(FILENAME_STORY_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP2) != 0) {
