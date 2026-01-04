@@ -13,15 +13,20 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
+#include <fcntl.h>
+#include <io.h>
 #include "globals.h"
 #include "graphics.h"
 #include "timing.h"
 #include "music.h"
 #include "sound.h"
 #include "sprite_data.h"
+#include "level_data.h"
+#include "file_loaders.h"
 
 /* Runtime library symbol for large model code */
 int _big_code_ = 1;
@@ -60,7 +65,19 @@ static uint8_t interrupt_handler_install_sentinel = 0;
 static volatile uint8_t game_tick_flag = 0;
 static uint16_t max_joystick_reads = 0;
 static uint16_t saved_video_mode = 0;
-static uint8_t current_level_number = LEVEL_NUMBER_LAKE;
+static uint8_t current_level_number = LEVEL_NUMBER_FOREST;
+static uint8_t current_stage_number = 0;
+static level_t current_level;
+
+/* Tileset buffer - holds data from .TT2 file */
+static uint8_t tileset_last_passable;
+static uint8_t tileset_flags;
+static uint8_t tileset_graphics[128 * 128];  /* Up to 128 16x16 tiles */
+
+/* Stage data - three .PT files per level */
+static pt_file_t pt0;
+static pt_file_t pt1;
+static pt_file_t pt2;
 static uint8_t comic_num_lives = 0;
 
 /* Default keymap for keyboard configuration */
@@ -132,7 +149,9 @@ static const char TITLE_SEQUENCE_MESSAGE[] =
     "Exiting...\r\n$";
 
 /* Forward declarations */
-void load_new_level(void);
+int load_new_level(void);
+void load_new_stage(void);
+void game_loop(void);
 
 /*
  * disable_pc_speaker - Disable the PC speaker
@@ -776,9 +795,6 @@ void initialize_lives_sequence(void)
          * to trigger an instant win. We'll omit it for now. */
         /* win_counter = 200; */
     }
-    
-    /* Continue to load the first level */
-    load_new_level();
 }
 
 /*
@@ -866,6 +882,17 @@ void title_sequence(void)
     /* Initialize lives and start the game */
     /* In the original assembly, this jumps to initialize_lives_sequence */
     initialize_lives_sequence();
+    
+    /* After lives are initialized, load the level and run game loop */
+    if (load_new_level() != 0) {
+        /* Failed to load level - cannot continue */
+        return;
+    }
+    
+    load_new_stage();
+    
+    /* Run main game loop */
+    game_loop();
 }
 
 /*
@@ -960,124 +987,152 @@ static void copy_string(char* dest, const char* src)
 /*
  * load_new_level - Load a new level
  * 
- * Attempts to open the TT2 file for the current level using DOS interrupt.
- * Outputs a simple message to indicate success or failure.
+ * Loads the level specified by current_level_number:
+ * 1. Copies level data from static level_data_pointers array to current_level
+ * 2. Opens and reads the .TT2 file (tileset graphics with 16x16 tile images)
+ * 3. Loads the three .PT files (stage maps) into pt0, pt1, pt2 structures
+ * 4. Performs lantern check for castle level (TODO: implement lantern blackout)
+ * 5. TODO: Load .SHP files for enemy sprites
  * 
- * This is a stub that demonstrates the C-only approach to level loading,
- * without depending on assembly functions.
+ * Input:
+ *   current_level_number = level to load (0-7)
+ * 
+ * Output:
+ *   current_level = filled with level data
+ *   tileset_graphics = array of tile images from .TT2 file
+ *   pt0, pt1, pt2 = stage maps from .PT files
+ * 
+ * Returns:
+ *   0 on success
+ *   -1 on error (invalid level number, file not found, read error)
  */
-void load_new_level(void)
+int load_new_level(void)
 {
-    char filename[16];
-    uint16_t file_handle;
-    uint16_t result;
-    const char* message;
+    int file_handle;
+    unsigned bytes_read;
+    const level_t* source_level;
+    unsigned i;
     
-    /* Build the filename: LEVELNAME.TT2 */
-    if (current_level_number < 8) {
-        const char* level_name = level_names[current_level_number];
-        char* p = filename;
-        
-        /* Copy level name */
-        copy_string(p, level_name);
-        p += 4; /* LAKE, BASE, CAVE, SHED, COMP are 4 chars */
-        if (current_level_number == LEVEL_NUMBER_FOREST || 
-            current_level_number == LEVEL_NUMBER_CASTLE) {
-            p += 2; /* FOREST and CASTLE are 6 chars */
-        } else if (current_level_number == LEVEL_NUMBER_SPACE) {
-            p += 1; /* SPACE is 5 chars */
-        }
-        
-        /* Append .TT2 extension */
-        copy_string(p, ".TT2");
-        
-        /* Try to open the file using DOS INT 21h, AH=3Dh */
-        __asm {
-            push ds
-            lea dx, filename
-            mov ax, 0x3d00      ; AH=3Dh: open file, AL=00: read-only
-            int 0x21
-            pop ds
-            jc open_failed
-            mov file_handle, ax
-            mov result, 0       ; success
-            jmp done
-        open_failed:
-            mov result, 1       ; failure
-        done:
-        }
-        
-        /* Close the file if opened successfully */
-        if (result == 0) {
-            __asm {
-                mov bx, file_handle
-                mov ah, 0x3e        ; AH=3Eh: close file
-                int 0x21
-            }
-            message = "TT2 file opened successfully\r\n$";
-        } else {
-            message = "TT2 file open failed\r\n$";
-        }
-        
-        /* Output message using DOS INT 21h, AH=09h */
-        __asm {
-            push ds
-            lea dx, message
-            mov ah, 0x09        ; AH=09h: write string to stdout
-            int 0x21
-            pop ds
-        }
+    /* TT2 file header structure */
+    struct {
+        uint8_t last_passable;
+        uint8_t unused1;
+        uint8_t unused2;
+        uint8_t flags;
+    } tt2_header;
+    
+    /* Validate level number */
+    if (current_level_number >= 8) {
+        return -1;  /* Invalid level number */
     }
+    
+    /* Copy level data from static data to current_level */
+    source_level = level_data_pointers[current_level_number];
+    memcpy(&current_level, source_level, sizeof(level_t));
+    
+    /* Load the .TT2 file (tileset graphics) */
+    file_handle = _open(current_level.tt2_filename, O_RDONLY | O_BINARY);
+    if (file_handle == -1) {
+        /* Fatal error - can't continue without tileset */
+        return -1;
+    }
+    
+    /* Read TT2 file header (4 bytes) */
+    bytes_read = _read(file_handle, &tt2_header, sizeof(tt2_header));
+    if (bytes_read != sizeof(tt2_header)) {
+        _close(file_handle);
+        return -1;
+    }
+    
+    /* Extract header fields */
+    tileset_last_passable = tt2_header.last_passable;
+    tileset_flags = tt2_header.flags;
+    
+    /* Read tileset graphics data */
+    bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
+    if (bytes_read != sizeof(tileset_graphics)) {
+        _close(file_handle);
+        return -1;
+    }
+    _close(file_handle);
+    
+    /* Lantern check: If in castle without lantern, black out tiles */
+    if (current_level_number == LEVEL_NUMBER_CASTLE) {
+        /* TODO: Check comic_has_lantern when that variable is available */
+        /* For now, skip the blackout */
+        /* if (comic_has_lantern != 1) { */
+        /*     for (i = 0; i < sizeof(tileset_graphics); i++) { */
+        /*         tileset_graphics[i] = 0; */
+        /*     } */
+        /* } */
+    }
+    
+    /* Load the three .PT files for this level */
+    if (load_pt_file(current_level.pt0_filename, &pt0) != 0) {
+        /* Fatal error - can't continue without stage 0 map */
+        return -1;
+    }
+    
+    if (load_pt_file(current_level.pt1_filename, &pt1) != 0) {
+        /* Fatal error - can't continue without stage 1 map */
+        return -1;
+    }
+    
+    if (load_pt_file(current_level.pt2_filename, &pt2) != 0) {
+        /* Fatal error - can't continue without stage 2 map */
+        return -1;
+    }
+    
+    /* TODO: Load .SHP files when load_shp_files() is implemented */
+    /* load_shp_files(); */
+    
+    return 0;  /* Success */
 }
 
 /*
- * game_loop_iteration - C skeleton for one game loop iteration
+ * load_new_stage - Initialize stage data and render the map
  * 
- * This is a placeholder structure showing the intended organization of
- * the main game loop when ported to C. Currently not used, but documents
- * the intended flow.
- * 
- * The actual game loop would:
- * - Wait for game ticks
- * - Check win conditions
- * - Update player state
- * - Handle input
- * - Update enemies and other actors
- * - Render and swap buffers
+ * Sets up the current stage based on current_stage_number.
+ * Initializes player position, camera position, and enemies.
+ * This is a stub implementation that prepares the game state.
  */
-#if 0
-int game_loop_iteration(void)
+void load_new_stage(void)
 {
-    /* Wait for game tick */
-    while (!game_tick_flag) {
-        /* Idle */
-    }
-    game_tick_flag = 0;
-    
-    /* Check win condition */
-    if (win_counter > 0) {
-        win_counter--;
-        if (win_counter == 1) {
-            /* Signal game won */
-            return 1;
-        }
-    }
-    
-    /* Handle player state */
-    /* ... update player position, animation, etc ... */
-    
-    /* Handle input */
-    /* ... process keyboard input ... */
-    
-    /* Update enemies and other actors */
-    /* ... */
-    
-    /* Render */
-    /* ... render map and sprites ... */
-    
-    return 0;  /* Continue game loop */
+    /* TODO: Implement full stage loading with:
+     * - Set current_tiles_ptr and current_stage_ptr
+     * - Render the map
+     * - Handle door entry vs new stage entry
+     * - Position Comic based on entry point
+     * - Initialize enemies
+     * For now, this is a no-op that allows the game to continue
+     */
 }
-#endif
+
+/*
+ * game_loop - Main game loop iteration
+ * 
+ * This is a stub implementation that prevents the program from exiting
+ * immediately. The actual game loop will be implemented incrementally
+ * to handle:
+ * - Waiting for game ticks
+ * - Processing input
+ * - Updating actors
+ * - Rendering
+ * - Checking win/lose conditions
+ */
+void game_loop(void)
+{
+    /* TODO: Implement the actual game loop
+     * For now, just prevent immediate exit by waiting for a keypress
+     */
+    union REGS regs;
+    
+    /* Wait for a keystroke to exit the stub game loop */
+    regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
+    int86(0x16, &regs, &regs);
+    
+    /* TODO: Replace with actual game loop that runs until win/lose condition */
+}
 
 /*
  * main - C entry point

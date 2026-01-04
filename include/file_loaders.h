@@ -55,7 +55,6 @@ int load_shp_file(const char* filename, void* buffer);
 /* Returns 0 on success, non-zero on error */
 int load_ega_file(const char* filename, void* video_buffer);
 
-/* Assembly versions (to be replaced) */
-extern void load_fullscreen_graphic(void);  /* Assembly: load .EGA file */
+/* load_fullscreen_graphic is defined in graphics.h */
 
 #endif /* FILE_LOADERS_H */

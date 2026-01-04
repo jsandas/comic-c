@@ -1,25 +1,14 @@
 /*
  * file_loaders.c - Data file format loaders
  * 
- * DOS file I/O using INT 21h or Open Watcom C library
+ * DOS file I/O using Open Watcom C library (fcntl.h)
  */
 
 #include "file_loaders.h"
 #include "globals.h"
-
-/* DOS file I/O helper - using Open Watcom C library for simplicity */
-#include <stdio.h>
+#include <fcntl.h>
+#include <io.h>
 #include <string.h>
-
-/* STUB: C standard library functions (will be replaced with actual I/O) */
-#pragma aux fopen_ "*"
-FILE *fopen_(const char *name, const char *mode) { return (FILE *)0; }
-
-#pragma aux fread_ "*"
-size_t fread_(void *ptr, size_t size, size_t n, FILE *f) { return 0; }
-
-#pragma aux fclose_ "*"
-int fclose_(FILE *fp) { return 0; }
 
 /*
  * Load PT file (tile map) - 128x10 tiles
@@ -33,46 +22,47 @@ int fclose_(FILE *fp) { return 0; }
  */
 int load_pt_file(const char* filename, pt_file_t* pt)
 {
-    FILE* fp;
-    size_t bytes_read;
+    int file_handle;
+    unsigned bytes_read;
     
     if (!filename || !pt) {
         return -1;
     }
     
-    /* Open file in binary mode */
-    fp = fopen(filename, "rb");
-    if (!fp) {
+    /* Open file in binary read-only mode */
+    file_handle = _open(filename, O_RDONLY | O_BINARY);
+    if (file_handle == -1) {
         return -1;
     }
     
-    /* Read width and height */
-    bytes_read = fread(&pt->width, sizeof(uint16_t), 1, fp);
-    if (bytes_read != 1) {
-        fclose(fp);
+    /* Read width */
+    bytes_read = _read(file_handle, &pt->width, sizeof(uint16_t));
+    if (bytes_read != sizeof(uint16_t)) {
+        _close(file_handle);
         return -1;
     }
     
-    bytes_read = fread(&pt->height, sizeof(uint16_t), 1, fp);
-    if (bytes_read != 1) {
-        fclose(fp);
+    /* Read height */
+    bytes_read = _read(file_handle, &pt->height, sizeof(uint16_t));
+    if (bytes_read != sizeof(uint16_t)) {
+        _close(file_handle);
         return -1;
     }
     
     /* Validate dimensions */
     if (pt->width != MAP_WIDTH_TILES || pt->height != MAP_HEIGHT_TILES) {
-        fclose(fp);
+        _close(file_handle);
         return -1;
     }
     
     /* Read tile data */
-    bytes_read = fread(pt->tiles, 1, MAP_WIDTH_TILES * MAP_HEIGHT_TILES, fp);
+    bytes_read = _read(file_handle, pt->tiles, MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
     if (bytes_read != MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
-        fclose(fp);
+        _close(file_handle);
         return -1;
     }
     
-    fclose(fp);
+    _close(file_handle);
     return 0;
 }
 
