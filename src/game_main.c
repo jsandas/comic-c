@@ -155,30 +155,22 @@ void disable_pc_speaker(void)
  *   game_tick_flag is set to 0
  * 
  * Uses DOS INT 1Ah to read the system timer for timing.
- * Advances sound playback with each tick.
  */
 void wait_n_ticks(uint16_t ticks)
 {
     union REGS regs;
-    uint32_t start_ticks, current_ticks, last_ticks;
+    uint32_t start_ticks, current_ticks;
     
     /* Get starting tick count from BIOS */
     regs.h.ah = 0x00;  /* AH=0x00: read system timer */
     int86(0x1A, &regs, &regs);
     start_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
-    last_ticks = start_ticks;
     
     /* Wait for the requested number of ticks to elapse */
     do {
         regs.h.ah = 0x00;
         int86(0x1A, &regs, &regs);
         current_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
-        
-        /* Advance sound playback only when tick counter changes */
-        if (current_ticks != last_ticks) {
-            sound_advance_tick();
-            last_ticks = current_ticks;
-        }
     } while ((current_ticks - start_ticks) < ticks);
     
     game_tick_flag = 0;
@@ -256,13 +248,22 @@ static void (__interrupt *saved_int9_handler)(void);   /* Keyboard handler */
 /*
  * simple_int8_handler - Simple timer interrupt (INT 8) handler
  * 
- * Sets the game tick flag to signal the main loop that a timer tick occurred.
+ * Advances music on every interrupt cycle (to match the assembly implementation).
+ * Sets the game tick flag on every other interrupt to signal the main loop.
  * Uses inline assembly to define the interrupt handler.
  */
+static uint8_t irq0_parity = 0;
+
 static void __interrupt simple_int8_handler(void)
 {
-    /* Set game tick flag to signal the main loop */
-    game_tick_flag = 1;
+    /* Advance music on every interrupt cycle */
+    sound_advance_tick();
+    
+    /* Toggle parity and set game tick flag only on odd interrupts */
+    irq0_parity = (irq0_parity + 1) % 2;
+    if (irq0_parity == 1) {
+        game_tick_flag = 1;
+    }
     
     /* Call the original timer interrupt handler to maintain system timing */
     if (saved_int8_handler) {
