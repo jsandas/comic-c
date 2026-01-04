@@ -1,10 +1,10 @@
 /**
  * Sound Data Header
  * 
- * Declares the SOUND_TITLE melody for external linkage.
- * Format: pairs of (frequency_divisor, duration_ticks) terminated by 0x0000
+ * Declares all game sound effects and music for external linkage.
+ * Format: pairs of (frequency_divisor, duration_ticks) terminated by SOUND_TERMINATOR
  * 
- * Actual definition is in sound_data.c to avoid duplicate copies in each
+ * Actual definitions are in sound_data.c to avoid duplicate copies in each
  * translation unit that includes this header.
  */
 
@@ -14,7 +14,22 @@
 #include <stdint.h>
 #include "sound.h"
 
-/* Title sequence music - melody from the original game */
+/* Title sequence music */
 extern const uint16_t SOUND_TITLE[];
+
+/* Sound effects */
+extern const uint16_t SOUND_DOOR[];
+extern const uint16_t SOUND_DEATH[];
+extern const uint16_t SOUND_TELEPORT[];
+extern const uint16_t SOUND_SCORE_TALLY[];
+extern const uint16_t SOUND_MATERIALIZE[];
+extern const uint16_t SOUND_GAME_OVER[];
+extern const uint16_t SOUND_STAGE_EDGE_TRANSITION[];
+extern const uint16_t SOUND_TOO_BAD[];
+extern const uint16_t SOUND_FIRE[];
+extern const uint16_t SOUND_HIT_ENEMY[];
+extern const uint16_t SOUND_DAMAGE[];
+extern const uint16_t SOUND_COLLECT_ITEM[];
+extern const uint16_t SOUND_EXTRA_LIFE[];
 
 #endif /* SOUND_DATA_H */
