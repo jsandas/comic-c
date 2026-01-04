@@ -2,8 +2,8 @@
  * Title Sequence Music Module
  * 
  * Provides music playback for the title sequence through the PC speaker.
- * Implementation: Uses PC speaker sound driver (sound.c/sound.h)
- * Sound is played through INT 3 and INT 8 interrupt handlers (defined in assembly)
+ * Implementation: Uses PC speaker sound driver (sound.c/sound.h) with direct
+ * hardware access. Sound advances via sound_advance_tick() called from game loop.
  */
 
 #include "music.h"
@@ -15,7 +15,7 @@
  * 
  * Plays the SOUND_TITLE melody through the PC speaker.
  * The sound data contains (frequency, duration) pairs which are
- * played by the INT 8 timer interrupt handler at game tick rate.
+ * advanced each game tick by sound_advance_tick() in the game loop.
  * 
  * Priority: 4 (same as assembly implementation)
  */
