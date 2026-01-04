@@ -21,6 +21,7 @@
 #include "timing.h"
 #include "music.h"
 #include "sound.h"
+#include "sprite_data.h"
 
 /* Runtime library symbol for large model code */
 int _big_code_ = 1;
@@ -51,12 +52,16 @@ int _big_code_ = 1;
 #define LEVEL_NUMBER_CASTLE     6
 #define LEVEL_NUMBER_COMP       7
 
+/* Game constants */
+#define MAX_NUM_LIVES           5
+
 /* Global variables for initialization and game state */
 static uint8_t interrupt_handler_install_sentinel = 0;
 static volatile uint8_t game_tick_flag = 0;
 static uint16_t max_joystick_reads = 0;
 static uint16_t saved_video_mode = 0;
 static uint8_t current_level_number = LEVEL_NUMBER_LAKE;
+static uint8_t comic_num_lives = 0;
 
 /* Default keymap for keyboard configuration */
 static uint8_t keymap[6] = {
@@ -125,6 +130,9 @@ static const char TITLE_SEQUENCE_MESSAGE[] =
     "Title Sequence\r\n"
     "(Would display title, story, and start game)\r\n"
     "Exiting...\r\n$";
+
+/* Forward declarations */
+void load_new_level(void);
 
 /*
  * disable_pc_speaker - Disable the PC speaker
@@ -659,6 +667,121 @@ int calibrate_joystick_interactive(void)
 }
 
 /*
+ * award_extra_life - Award an extra life to the player
+ * 
+ * Increments the number of lives if not already at maximum.
+ * Updates the UI display with a bright life icon.
+ */
+void award_extra_life(void)
+{
+    uint16_t x_pixel, y_pixel;
+    
+    /* Increment lives if below max */
+    if (comic_num_lives < MAX_NUM_LIVES) {
+        comic_num_lives++;
+        
+        /* Display the bright life icon at the appropriate position
+         * Icons start at x=24, then each life is at x = 24 + (life_count * 24) pixels
+         * After incrementing, comic_num_lives contains the NEW count */
+        x_pixel = 24 + (comic_num_lives * 24);
+        y_pixel = 180;
+        
+        /* Blit the bright life icon to both gameplay buffers */
+        blit_sprite_16x16_masked(x_pixel, y_pixel, sprite_life_icon_bright);
+    }
+}
+
+/*
+ * lose_a_life - Subtract a life from the player
+ * 
+ * Decrements the number of lives if greater than 0.
+ * Updates the UI display with a dark life icon.
+ */
+void lose_a_life(void)
+{
+    uint16_t x_pixel, y_pixel;
+    uint8_t old_lives;
+    
+    /* Subtract a life if any remain */
+    if (comic_num_lives > 0) {
+        /* Save the current life count before decrementing */
+        old_lives = comic_num_lives;
+        
+        /* Decrement the life count */
+        comic_num_lives--;
+        
+        /* Display the dark (unavailable) life icon at the position of the life we just lost
+         * Use the OLD value (before decrement) to calculate position
+         * Icons are at x = 24 + (life_count * 24) pixels */
+        x_pixel = 24 + (old_lives * 24);
+        y_pixel = 180;
+        
+        /* Blit the dark life icon to both gameplay buffers */
+        blit_sprite_16x16_masked(x_pixel, y_pixel, sprite_life_icon_dark);
+    }
+}
+
+/*
+ * initialize_lives_sequence - Play the animation of awarding initial lives
+ * 
+ * Awards MAX_NUM_LIVES lives one at a time with animation, then subtracts
+ * one to represent the life in use at the start of the game. This matches
+ * the behavior of the original assembly code.
+ * 
+ * The sequence:
+ * 1. Save current sound mute state
+ * 2. Mute sound
+ * 3. Award MAX_NUM_LIVES lives one by one with 1 tick delay between each
+ * 4. Stop sound and restore mute state
+ * 5. Wait 3 ticks
+ * 6. Subtract 1 life (the one currently in use)
+ * 7. Continue to load_new_level
+ * 
+ * Output:
+ *   comic_num_lives = MAX_NUM_LIVES - 1
+ */
+void initialize_lives_sequence(void)
+{
+    uint8_t i;
+    uint8_t sound_was_enabled;
+    
+    /* Save current sound enable state and mute sound
+     * This prevents the extra life sound from actually playing */
+    sound_was_enabled = is_sound_enabled();
+    mute_sound();
+    
+    /* Award MAX_NUM_LIVES lives, one at a time with animation */
+    for (i = 0; i < MAX_NUM_LIVES; i++) {
+        wait_n_ticks(1);  /* Wait 1 tick between each life awarded */
+        award_extra_life();
+    }
+    
+    /* Stop the extra life sound that's playing (but muted) */
+    stop_sound();
+    
+    /* Restore the saved sound enable state */
+    if (sound_was_enabled) {
+        unmute_sound();
+    }
+    
+    /* Wait 3 ticks before subtracting the initial life */
+    wait_n_ticks(3);
+    
+    /* Subtract 1 life (the one in use at game start) */
+    lose_a_life();
+    
+    /* Sanity check: verify lives == MAX_NUM_LIVES - 1 */
+    if (comic_num_lives != MAX_NUM_LIVES - 1) {
+        /* This is dead code from the original assembly that sets win_counter
+         * to trigger an instant win. We'll omit it for now. */
+        /* win_counter = 200; */
+    }
+    
+    /* Continue to load the first level */
+    load_new_level();
+}
+
+/*
  * title_sequence - Display title sequence with graphics and transitions
  * 
  * Orchestrates the complete title sequence flow:
@@ -739,6 +862,10 @@ void title_sequence(void)
     
     /* Step 5: Switch to gameplay buffer B (with UI background) */
     switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
+    
+    /* Initialize lives and start the game */
+    /* In the original assembly, this jumps to initialize_lives_sequence */
+    initialize_lives_sequence();
 }
 
 /*

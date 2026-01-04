@@ -74,6 +74,13 @@ void unmute_sound(void);
 void mute_sound(void);
 
 /**
+ * Query whether sound output is enabled
+ * 
+ * @return 1 if sound is enabled (unmuted), 0 if muted
+ */
+uint8_t is_sound_enabled(void);
+
+/**
  * Query whether a sound is currently playing
  * 
  * @return 1 if sound is playing, 0 otherwise

@@ -51,4 +51,7 @@ void palette_darken(void);
 void palette_fade_in(void);
 void init_default_palette(void);
 
+/* Sprite blitting operations */
+void blit_sprite_16x16_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data);
+
 #endif /* GRAPHICS_H */
