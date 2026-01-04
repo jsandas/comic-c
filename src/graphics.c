@@ -6,6 +6,7 @@
  */
 
 #include <stdint.h>
+#include <stdio.h>
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
@@ -277,6 +278,7 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
     int86x(0x21, &regs, &regs, &sregs);
     
     if (regs.x.cflag) {
+        fprintf(stderr, "ERROR: Failed to open file '%s'\n", filename);
         return -1;  /* File open failed */
     }
     
@@ -293,6 +295,7 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
 
     /* Check for read error (carry flag set) */
     if (regs.x.cflag) {
+        fprintf(stderr, "ERROR: Failed to read file '%s'\n", filename);
         /* Close the file before returning */
         regs.h.ah = 0x3e;  /* AH=3Eh: close file */
         regs.x.bx = file_handle;
@@ -310,6 +313,7 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
     
     /* Validate file has at least the 2-byte header */
     if (bytes_read < 2) {
+        fprintf(stderr, "ERROR: File '%s' too small (%u bytes) - invalid format\n", filename, bytes_read);
         return -2;  /* File too small - invalid format */
     }
     
@@ -321,6 +325,7 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
     
     /* Validate plane size matches EGA fullscreen format specification */
     if (plane_size != 8000) {
+        fprintf(stderr, "ERROR: Invalid plane size in '%s' (%u bytes, expected 8000)\n", filename, plane_size);
         return -2;  /* Invalid plane size - corrupted or wrong format */
     }
     
@@ -355,6 +360,7 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
         /* Calculate remaining bytes in source buffer for this plane */
         if (bytes_read <= src_offset) {
             /* File truncated before all planes could be decoded */
+            fprintf(stderr, "ERROR: File '%s' truncated at plane %u - insufficient data\n", filename, plane);
             return -2;  /* File read failed - insufficient data */
         }
         remaining_src_bytes = bytes_read - src_offset;
