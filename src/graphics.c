@@ -200,7 +200,6 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
             }
             
             byte_value = *src_ptr++;  /* Get the byte to repeat */
-
             bytes_consumed++;
             
             /* Validate that repeat won't exceed plane boundary */
