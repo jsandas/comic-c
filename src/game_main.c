@@ -665,6 +665,17 @@ void title_sequence(void)
 {
     union REGS regs;
     
+    /* Set EGA graphics mode 0x0D (320x200 16-color) */
+    regs.h.ah = 0x00;  /* AH=0x00: set video mode */
+    regs.h.al = 0x0D;  /* AL=0x0D: 320x200 16-color EGA */
+    int86(0x10, &regs, &regs);
+    
+    /* Initialize EGA graphics controller for correct write mode */
+    init_ega_graphics();
+    
+    /* Set palette explicitly - BIOS defaults may be wrong */
+    init_default_palette();
+    
     /* Step 1: Load and display title screen (SYS000.EGA) */
     if (load_fullscreen_graphic("SYS000.EGA", GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
         /* Failed to load - skip title sequence */

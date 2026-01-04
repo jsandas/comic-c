@@ -60,22 +60,47 @@ static uint8_t graphics_load_buffer[GRAPHICS_LOAD_BUFFER_SIZE];  /* Statically a
 /* Current display buffer offset (0x0000, 0x2000, 0x8000, or 0xa000) */
 static uint16_t current_display_offset = BUFFER_GAMEPLAY_A;
 
+/* Forward declaration for static helper function */
+static void set_palette_register(uint8_t index, uint8_t color);
+
+/*
+ * init_ega_graphics - Initialize EGA graphics controller for pixel writing
+ * 
+ * Sets the Graphics Controller to write mode 0 (CPU data replicated to all bits),
+ * which works with the Map Mask to write individual planes.
+ */
+void init_ega_graphics(void)
+{
+    /* Set Graphics Controller Write Mode to 0 */
+    outp(EGA_GRAPHICS_INDEX_PORT, 0x05);  /* GC Register 5: Graphics Mode */
+    outp(EGA_GRAPHICS_DATA_PORT, 0x00);   /* Bits 0-1: Write Mode 0, Bit 3: Read Mode 0 */
+}
+
 /*
  * enable_ega_plane_write - Enable writing to a specific EGA color plane
  * 
  * Input:
  *   plane = plane index (0=Blue, 1=Green, 2=Red, 3=Intensity)
  * 
- * Sets the Write Plane Enable register (Graphics Register 0x02)
- * to select which plane is written to.
+ * Sets the Sequencer Map Mask register (SC Register 0x02) to select which
+ * plane is written to. Uses ports 0x3c4 (index) and 0x3c5 (data).
  */
 void enable_ega_plane_write(uint8_t plane)
 {
-    uint8_t mask = 1 << plane;  /* Convert plane index to bit mask (1, 2, 4, 8) */
+    uint8_t mask;
     
-    /* Output to Graphics Registers at port 0x3ce/0x3cf */
-    outp(EGA_GRAPHICS_INDEX_PORT, EGA_WRITE_PLANE_ENABLE);
-    outp(EGA_GRAPHICS_DATA_PORT, mask);
+    /* Compute plane mask: bit N is set for plane N */
+    switch (plane) {
+        case 0: mask = 0x01; break;  /* Plane 0: bit 0 */
+        case 1: mask = 0x02; break;  /* Plane 1: bit 1 */
+        case 2: mask = 0x04; break;  /* Plane 2: bit 2 */
+        case 3: mask = 0x08; break;  /* Plane 3: bit 3 */
+        default: return;  /* Invalid plane */
+    }
+    
+    /* Output to Sequencer Registers at port 0x3c4/0x3c5 */
+    outp(EGA_SEQUENCER_INDEX_PORT, 0x02);  /* SC Map Mask register */
+    outp(EGA_SEQUENCER_DATA_PORT, mask);
 }
 
 /*
@@ -116,8 +141,12 @@ void enable_ega_plane_read_write(uint8_t plane)
  *   plane_size = number of bytes to decode (typically 8000)
  * 
  * The RLE format is:
- *   - If bit 7 is clear (0x00-0x7f): literal byte - output as-is
- *   - If bit 7 is set (0x80-0xff): repeat count in bits 6-0, next byte is the value to repeat
+ *   - If control byte < 0x80 (0-127): Literal copy mode
+ *     * Control byte value = number of literal bytes to follow
+ *     * Followed by that many literal bytes to copy as-is
+ *   - If control byte >= 0x80 (128-255): Repeat mode
+ *     * Repeat count = (control byte - 128)
+ *     * Followed by 1 byte that is repeated that many times
  * 
  * Output: Decoded plane data written to video memory segment 0xa000
  * Returns: Number of source bytes consumed to decode the plane
@@ -131,8 +160,11 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
     uint16_t bytes_consumed = 0;
     uint16_t remaining_space;
     uint8_t __far *video_ptr = (uint8_t __far *)MK_FP(0xa000, dst_offset);
+    uint8_t control_byte;
     uint8_t byte_value;
     uint8_t repeat_count;
+    uint8_t literal_count;
+    uint8_t i;
     
     while (bytes_decoded < plane_size) {
         /* Validate we have at least one byte available for the control byte */
@@ -140,16 +172,34 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
             break;  /* Source buffer exhausted, stop decoding */
         }
         
-        byte_value = *src_ptr++;  /* Read next encoded byte */
+        control_byte = *src_ptr++;  /* Read next control byte */
         bytes_consumed++;
         
-        if ((byte_value & 0x80) == 0) {
-            /* Literal byte - output as-is */
-            *video_ptr++ = byte_value;
-            bytes_decoded++;
+        if (control_byte < 0x80) {
+            /* Literal copy mode: control byte is count of bytes to copy */
+            literal_count = control_byte;
+            
+            /* Validate remaining destination space */
+            remaining_space = plane_size - bytes_decoded;
+            if (literal_count > remaining_space) {
+                literal_count = remaining_space;  /* Clamp to available space */
+            }
+            
+            /* Copy literal bytes */
+            for (i = 0; i < literal_count; i++) {
+                /* Validate we have source data available */
+                if (bytes_consumed >= src_size) {
+                    break;  /* Source exhausted, stop decoding */
+                }
+                
+                byte_value = *src_ptr++;  /* Read literal byte */
+                bytes_consumed++;
+                *video_ptr++ = byte_value;
+                bytes_decoded++;
+            }
         } else {
-            /* Repeat sequence - bits 6-0 are the repeat count */
-            repeat_count = byte_value & 0x7f;  /* Extract repeat count (0-127) */
+            /* Repeat mode: control byte minus 128 is the repeat count */
+            repeat_count = control_byte - 128;  /* Repeat count (1-128) */
             
             /* Validate we have at least one byte available for the repeat value */
             if (bytes_consumed >= src_size) {
@@ -157,6 +207,7 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
             }
             
             byte_value = *src_ptr++;  /* Get the byte to repeat */
+
             bytes_consumed++;
             
             /* Validate that repeat won't exceed plane boundary */
@@ -270,10 +321,30 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
     
     src_offset = 2;  /* Skip past the plane size word */
     
+    /* Clear the destination buffer to black (zeros) before decoding */
+    /* This is important to ensure old video data doesn't show through */
+    {
+        uint8_t plane_clear;
+        uint16_t i;
+        uint8_t __far *video_ptr;
+        
+        /* Clear all 4 planes */
+        for (plane_clear = 0; plane_clear < 4; plane_clear++) {
+            enable_ega_plane_write(plane_clear);
+            video_ptr = (uint8_t __far *)MK_FP(0xa000, dst_offset);
+            
+            /* Clear 8000 bytes (one full plane) with zeros */
+            for (i = 0; i < 8000; i++) {
+                *video_ptr++ = 0x00;
+            }
+        }
+    }
+    
     /* Decode and write each of the 4 EGA planes */
+    /* Standard BGRI order: Blue(0), Green(1), Red(2), Intensity(3) */
     for (plane = 0; plane < 4; plane++) {
-        /* Set the read/write plane for this color channel */
-        enable_ega_plane_read_write(plane);
+        /* Set the write plane for this color channel */
+        enable_ega_plane_write(plane);
         
         /* Decode RLE data for this plane directly into video memory */
         /* Calculate remaining bytes in source buffer for this plane */
@@ -284,6 +355,21 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
         remaining_src_bytes = bytes_read - src_offset;
         src_offset += rle_decode(&src_ptr[src_offset], remaining_src_bytes, dst_offset, plane_size);
     }
+    
+    /* Load palette from file (16 bytes: one palette value per register) */
+    /* The palette follows immediately after the 4 RLE-encoded planes */
+    /* NOTE: Disabled - may be corrupting plane data if file format differs */
+    /*
+    if (src_offset + 16 <= bytes_read) {
+        uint8_t *palette_ptr = &src_ptr[src_offset];
+        uint8_t color_index;
+        
+        /* Set all 16 palette registers from file data */
+        /*for (color_index = 0; color_index < 16; color_index++) {
+            set_palette_register(color_index, palette_ptr[color_index]);
+        }
+    }
+    */
     
     return 0;  /* Success */
 }
@@ -328,6 +414,56 @@ uint16_t get_current_display_offset(void)
 }
 
 /*
+ * init_default_palette - Initialize EGA palette registers to default EGA values
+ * 
+ * Initializes the DAC palette registers with the standard EGA 16-color palette values.
+ * Uses INT 10h AH=10h AL=12h (set block of palette registers) to initialize all
+ * 16 registers in one call, matching the standard EGA palette.
+ * 
+ * Standard EGA palette mapping:
+ * 0: Black (0,0,0)        8: Dark Gray (2,2,2)
+ * 1: Blue (0,0,2)         9: Light Blue (2,2,3)
+ * 2: Green (0,2,0)        10: Light Green (2,3,2)
+ * 3: Cyan (0,2,2)         11: Light Cyan (2,3,3)
+ * 4: Red (2,0,0)          12: Light Red (3,2,2)
+ * 5: Magenta (2,0,2)      13: Light Magenta (3,2,3)
+ * 6: Brown (2,2,0)        14: Yellow (3,3,2)
+ * 7: Light Gray (2,2,2)   15: White (3,3,3)
+ */
+void init_default_palette(void)
+{
+    union REGS regs;
+    uint8_t palette[16] = {
+        0x00,  /* 0: Black */
+        0x01,  /* 1: Blue */
+        0x02,  /* 2: Green */
+        0x03,  /* 3: Cyan */
+        0x04,  /* 4: Red */
+        0x05,  /* 5: Magenta */
+        0x06,  /* 6: Brown */
+        0x07,  /* 7: Light Gray */
+        0x38,  /* 8: Dark Gray */
+        0x39,  /* 9: Light Blue */
+        0x3a,  /* 10: Light Green */
+        0x3b,  /* 11: Light Cyan */
+        0x3c,  /* 12: Light Red */
+        0x3d,  /* 13: Light Magenta */
+        0x3e,  /* 14: Yellow */
+        0x3f   /* 15: White */
+    };
+    uint8_t i;
+    
+    /* Set each palette register individually using INT 10h AH=10h AL=00h */
+    for (i = 0; i < 16; i++) {
+        regs.h.ah = 0x10;   /* AH=10h: Palette functions */
+        regs.h.al = 0x00;   /* AL=00h: Set individual palette register */
+        regs.h.bl = i;      /* BL = color index to set */
+        regs.h.bh = palette[i]; /* BH = palette register value */
+        int86(0x10, &regs, &regs);
+    }
+}
+
+/*
  * set_palette_register - Set a single EGA palette register to a specific color
  * 
  * Input:
@@ -364,31 +500,37 @@ void palette_darken(void)
 }
 
 /*
- * palette_fade_in - Fade in from dark to final colors in 3 steps
+ * palette_fade_in - Fade in from dark to final colors in 4 steps
  * 
- * Performs a 3-step fade animation for palette entries 2, 10, and 12:
- *   Step 1: Dark gray (already set by palette_darken), wait 1 tick
- *   Step 2: Light gray, wait 1 tick
- *   Step 3: Final colors (bright), wait 1 tick
+ * Performs a 4-step fade animation for palette entries 2, 10, and 12.
+ * Based on the original assembly implementation, restores colors to their
+ * natural palette register values (not RGB values).
  * 
  * This creates a smooth fade-in effect for title sequence screens.
  * Uses wait_n_ticks() from game_main.c for timing between steps.
  */
 void palette_fade_in(void)
 {
-    /* Step 1: Already dark gray from palette_darken() - just wait */
+    /* Step 1: Set all three to light gray (palette register 0x07) */
+    set_palette_register(2, 0x07);   /* Background */
+    set_palette_register(10, 0x07);  /* Items */
+    set_palette_register(12, 0x07);  /* Title */
     wait_n_ticks(1);
     
-    /* Step 2: Set to light gray */
-    set_palette_register(PALETTE_REG_BACKGROUND, PALETTE_COLOR_LIGHT_GRAY);
-    set_palette_register(PALETTE_REG_ITEMS, PALETTE_COLOR_LIGHT_GRAY);
-    set_palette_register(PALETTE_REG_TITLE, PALETTE_COLOR_LIGHT_GRAY);
+    /* Step 2: Set colors 10 and 12 to white (0x1f), keep 2 at gray */
+    set_palette_register(2, 0x07);   /* Background - stay gray */
+    set_palette_register(10, 0x1f);  /* Items - white */
+    set_palette_register(12, 0x1f);  /* Title - white */
     wait_n_ticks(1);
     
-    /* Step 3: Set to final bright colors */
-    set_palette_register(PALETTE_REG_BACKGROUND, PALETTE_COLOR_BRIGHT_WHITE);
-    set_palette_register(PALETTE_REG_ITEMS, PALETTE_COLOR_BRIGHT_WHITE);
-    set_palette_register(PALETTE_REG_TITLE, PALETTE_COLOR_BRIGHT_WHITE);
+    /* Step 3: Set color 2 to green, 10 to bright green, keep 12 at white */
+    set_palette_register(2, 0x02);   /* Background - green (palette register 2) */
+    set_palette_register(10, 0x1a);  /* Items - bright green (palette register 26) */
+    set_palette_register(12, 0x1f);  /* Title - stay white temporarily */
+    wait_n_ticks(1);
+    
+    /* Step 4: Set color 12 to bright red (palette register 28) */
+    set_palette_register(12, 0x1c);  /* Title - bright red */
     wait_n_ticks(1);
 }
 
@@ -419,9 +561,9 @@ void copy_ega_plane(uint16_t src_offset, uint16_t dst_offset, uint16_t num_bytes
         /* Select plane for both reading and writing */
         enable_ega_plane_read_write(plane);
         
-        /* Set up far pointers to video memory */
-        src_ptr = (uint8_t __far *)((((uint32_t)VIDEO_MEMORY_BASE) << 16) | src_offset);
-        dst_ptr = (uint8_t __far *)((((uint32_t)VIDEO_MEMORY_BASE) << 16) | dst_offset);
+        /* Set up far pointers to video memory using MK_FP */
+        src_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, src_offset);
+        dst_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, dst_offset);
         
         /* Copy bytes for this plane */
         for (i = 0; i < num_bytes; i++) {

@@ -40,7 +40,9 @@ uint16_t get_current_display_offset(void);
 void copy_ega_plane(uint16_t src_offset, uint16_t dst_offset, uint16_t num_bytes);
 
 /* Palette manipulation for title sequence fade effects */
+void init_ega_graphics(void);
 void palette_darken(void);
 void palette_fade_in(void);
+void init_default_palette(void);
 
 #endif /* GRAPHICS_H */
