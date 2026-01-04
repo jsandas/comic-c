@@ -507,7 +507,7 @@ void palette_darken(void)
  * to the final display colors. Based on the original assembly implementation.
  * 
  * This creates a smooth fade-in effect for title sequence screens.
- * Uses wait_n_ticks() from game_main.c for timing between steps.
+ * Uses wait_n_ticks() from timing.h for timing between steps.
  */
 void palette_fade_in(void)
 {
