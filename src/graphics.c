@@ -513,6 +513,12 @@ void palette_darken(void)
  */
 void palette_fade_in(void)
 {
+    /* Step 0: Set all three to dark gray to start the fade from black */
+    set_palette_register(PALETTE_REG_BACKGROUND, 0x18);  /* dark gray */
+    set_palette_register(PALETTE_REG_ITEMS, 0x18);       /* dark gray */
+    set_palette_register(PALETTE_REG_TITLE, 0x18);       /* dark gray */
+    wait_n_ticks(1);
+    
     /* Step 1: Set all three to light gray (6-bit color value 0x07) */
     set_palette_register(PALETTE_REG_BACKGROUND, 0x07);  /* light gray */
     set_palette_register(PALETTE_REG_ITEMS, 0x07);       /* light gray */
