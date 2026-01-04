@@ -5,7 +5,7 @@
  * This data was originally in R3_levels.asm
  * 
  * TODO: Complete migration of all level data from R3_levels.asm
- * Currently only LAKE level is fully defined as an example.
+ * Currently only LAKE and FOREST levels are fully defined as examples.
  */
 
 #include "level_data.h"
