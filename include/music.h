@@ -2,10 +2,10 @@
  * Title Sequence Music Module Header
  * 
  * Provides music playback for the title sequence through the PC speaker.
- * Implementation uses PC speaker sound driver (sound.c/sound.h).
+ * Implementation uses PC speaker sound driver (sound.c/sound.h) and
+ * C sound data definitions (sound_data.h).
  * 
- * Sound data (SOUND_TITLE melody) is defined in sound_data.asm and
- * played via INT 3 and INT 8 interrupt handlers (assembly).
+ * Sound data (SOUND_TITLE melody) is defined in sound_data.h.
  */
 
 #ifndef MUSIC_H
