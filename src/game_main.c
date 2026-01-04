@@ -16,12 +16,16 @@
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
+#include <fcntl.h>
+#include <io.h>
 #include "globals.h"
 #include "graphics.h"
 #include "timing.h"
 #include "music.h"
 #include "sound.h"
 #include "sprite_data.h"
+#include "level_data.h"
+#include "file_loaders.h"
 
 /* Runtime library symbol for large model code */
 int _big_code_ = 1;
@@ -60,7 +64,19 @@ static uint8_t interrupt_handler_install_sentinel = 0;
 static volatile uint8_t game_tick_flag = 0;
 static uint16_t max_joystick_reads = 0;
 static uint16_t saved_video_mode = 0;
-static uint8_t current_level_number = LEVEL_NUMBER_LAKE;
+static uint8_t current_level_number = LEVEL_NUMBER_FOREST;
+static uint8_t current_stage_number = 0;
+static level_t current_level;
+
+/* Tileset buffer - holds data from .TT2 file */
+static uint8_t tileset_last_passable;
+static uint8_t tileset_flags;
+static uint8_t tileset_graphics[128 * 128];  /* Up to 128 16x16 tiles */
+
+/* Stage data - three .PT files per level */
+static pt_file_t pt0;
+static pt_file_t pt1;
+static pt_file_t pt2;
 static uint8_t comic_num_lives = 0;
 
 /* Default keymap for keyboard configuration */
@@ -968,66 +984,59 @@ static void copy_string(char* dest, const char* src)
  */
 void load_new_level(void)
 {
-    char filename[16];
-    uint16_t file_handle;
-    uint16_t result;
-    const char* message;
+    int file_handle;
+    unsigned bytes_read;
+    const level_t* source_level;
+    uint8_t* dest;
+    const uint8_t* src;
+    unsigned i;
     
-    /* Build the filename: LEVELNAME.TT2 */
-    if (current_level_number < 8) {
-        const char* level_name = level_names[current_level_number];
-        char* p = filename;
-        
-        /* Copy level name */
-        copy_string(p, level_name);
-        p += 4; /* LAKE, BASE, CAVE, SHED, COMP are 4 chars */
-        if (current_level_number == LEVEL_NUMBER_FOREST || 
-            current_level_number == LEVEL_NUMBER_CASTLE) {
-            p += 2; /* FOREST and CASTLE are 6 chars */
-        } else if (current_level_number == LEVEL_NUMBER_SPACE) {
-            p += 1; /* SPACE is 5 chars */
-        }
-        
-        /* Append .TT2 extension */
-        copy_string(p, ".TT2");
-        
-        /* Try to open the file using DOS INT 21h, AH=3Dh */
-        __asm {
-            push ds
-            lea dx, filename
-            mov ax, 0x3d00      ; AH=3Dh: open file, AL=00: read-only
-            int 0x21
-            pop ds
-            jc open_failed
-            mov file_handle, ax
-            mov result, 0       ; success
-            jmp done
-        open_failed:
-            mov result, 1       ; failure
-        done:
-        }
-        
-        /* Close the file if opened successfully */
-        if (result == 0) {
-            __asm {
-                mov bx, file_handle
-                mov ah, 0x3e        ; AH=3Eh: close file
-                int 0x21
-            }
-            message = "TT2 file opened successfully\r\n$";
-        } else {
-            message = "TT2 file open failed\r\n$";
-        }
-        
-        /* Output message using DOS INT 21h, AH=09h */
-        __asm {
-            push ds
-            lea dx, message
-            mov ah, 0x09        ; AH=09h: write string to stdout
-            int 0x21
-            pop ds
-        }
+    /* Validate level number */
+    if (current_level_number >= 8) {
+        return;  /* Invalid level */
     }
+    
+    /* Copy level data from static data to current_level */
+    source_level = level_data_pointers[current_level_number];
+    dest = (uint8_t*)&current_level;
+    src = (const uint8_t*)source_level;
+    for (i = 0; i < sizeof(level_t); i++) {
+        dest[i] = src[i];
+    }
+    
+    /* Load the .TT2 file (tileset graphics) */
+    file_handle = _open(current_level.tt2_filename, O_RDONLY | O_BINARY);
+    if (file_handle == -1) {
+        /* Fatal error - can't continue without tileset */
+        return;
+    }
+    
+    /* Read tileset header (4 bytes) and graphics */
+    bytes_read = _read(file_handle, &tileset_last_passable, 1);
+    _read(file_handle, &tileset_last_passable + 1, 1);  /* unused byte */
+    _read(file_handle, &tileset_last_passable + 2, 1);  /* unused byte */
+    bytes_read = _read(file_handle, &tileset_flags, 1);
+    bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
+    _close(file_handle);
+    
+    /* Lantern check: If in castle without lantern, black out tiles */
+    if (current_level_number == LEVEL_NUMBER_CASTLE) {
+        /* TODO: Check comic_has_lantern when that variable is available */
+        /* For now, skip the blackout */
+        /* if (comic_has_lantern != 1) { */
+        /*     for (i = 0; i < sizeof(tileset_graphics); i++) { */
+        /*         tileset_graphics[i] = 0; */
+        /*     } */
+        /* } */
+    }
+    
+    /* Load the three .PT files for this level */
+    load_pt_file(current_level.pt0_filename, &pt0);
+    load_pt_file(current_level.pt1_filename, &pt1);
+    load_pt_file(current_level.pt2_filename, &pt2);
+    
+    /* TODO: Load .SHP files when load_shp_files() is implemented */
+    /* load_shp_files(); */
 }
 
 /*
