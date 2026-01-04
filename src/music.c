@@ -21,7 +21,7 @@
  */
 void play_title_music(void)
 {
-	play_sound((uint16_t *)SOUND_TITLE, 4);
+	play_sound(SOUND_TITLE, 4);
 }
 
 /**
