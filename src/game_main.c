@@ -702,7 +702,7 @@ void title_sequence(void)
     
     /* Step 3: Load UI background (SYS003.EGA) into both gameplay buffers */
     if (load_fullscreen_graphic(FILENAME_UI_GRAPHIC, GRAPHICS_BUFFER_GAMEPLAY_A) != 0) {
-        /* Failed to load - continue without UI */
+        /* Failed to load - skip remaining sequence */
         return;
     }
     /* Copy UI from buffer A to buffer B for static background (8000 bytes per plane) */
