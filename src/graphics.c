@@ -41,19 +41,12 @@
 /* Video memory base address in segment 0xa000 */
 #define VIDEO_MEMORY_BASE       0xa000
 
-/* Buffer offsets within video memory (byte offsets relative to segment 0xa000) */
-#define BUFFER_GAMEPLAY_A       0x0000  /* 0xa000:0000 - Double buffer page A (8KB) */
-#define BUFFER_GAMEPLAY_B       0x2000  /* 0xa000:2000 - Double buffer page B (8KB) */
-#define BUFFER_RENDERED_MAP     0x4000  /* 0xa000:4000 - Rendered map (40KB) */
-#define BUFFER_TITLE_TEMP1      0x8000  /* 0xa000:8000 - Title temp buffer 1 (8KB) */
-#define BUFFER_TITLE_TEMP2      0xa000  /* 0xa000:a000 - Title temp buffer 2 (8KB) */
-
 /* Buffer for loading fullscreen graphics from disk (32KB max for uncompressed EGA data) */
 #define GRAPHICS_LOAD_BUFFER_SIZE 0x8000  /* 32KB */
 static uint8_t graphics_load_buffer[GRAPHICS_LOAD_BUFFER_SIZE];  /* Statically allocated buffer in data segment */
 
 /* Current display buffer offset (0x0000, 0x2000, 0x8000, or 0xa000) */
-static uint16_t current_display_offset = BUFFER_GAMEPLAY_A;
+static uint16_t current_display_offset = GRAPHICS_BUFFER_GAMEPLAY_A;
 
 /* Forward declaration for static helper function */
 static void set_palette_register(uint8_t index, uint8_t color);
@@ -551,7 +544,7 @@ void palette_fade_in(void)
  * 
  * Copies data within EGA video memory from source to destination offset.
  * Handles all 4 EGA planes independently. Used primarily to duplicate the
- * UI buffer from BUFFER_GAMEPLAY_A to BUFFER_GAMEPLAY_B.
+ * UI buffer from GRAPHICS_BUFFER_GAMEPLAY_A to GRAPHICS_BUFFER_GAMEPLAY_B.
  * 
  * Parameters:
  *   src_offset - Source offset within video segment 0xa000
