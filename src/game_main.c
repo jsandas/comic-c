@@ -1073,9 +1073,20 @@ void load_new_level(void)
     }
     
     /* Load the three .PT files for this level */
-    load_pt_file(current_level.pt0_filename, &pt0);
-    load_pt_file(current_level.pt1_filename, &pt1);
-    load_pt_file(current_level.pt2_filename, &pt2);
+    if (load_pt_file(current_level.pt0_filename, &pt0) != 0) {
+        /* Fatal error - can't continue without stage 0 map */
+        return;
+    }
+    
+    if (load_pt_file(current_level.pt1_filename, &pt1) != 0) {
+        /* Fatal error - can't continue without stage 1 map */
+        return;
+    }
+    
+    if (load_pt_file(current_level.pt2_filename, &pt2) != 0) {
+        /* Fatal error - can't continue without stage 2 map */
+        return;
+    }
     
     /* TODO: Load .SHP files when load_shp_files() is implemented */
     /* load_shp_files(); */
