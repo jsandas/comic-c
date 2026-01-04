@@ -187,6 +187,11 @@ void sound_advance_tick(void)
 		return;
 	}
 	
+	/* Ensure duration is at least 1 to avoid unsigned underflow */
+	if (duration == 0) {
+		duration = 1;
+	}
+	
 	/* Set note duration (minus 1 since we consume this tick) */
 	sound_state.note_counter = duration - 1;
 	
