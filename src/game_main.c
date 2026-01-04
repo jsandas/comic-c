@@ -677,7 +677,7 @@ void title_sequence(void)
     init_default_palette();
     
     /* Step 1: Load and display title screen (SYS000.EGA) */
-    if (load_fullscreen_graphic("SYS000.EGA", GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
+    if (load_fullscreen_graphic(FILENAME_TITLE_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
         /* Failed to load - skip title sequence */
         return;
     }
@@ -687,7 +687,7 @@ void title_sequence(void)
     wait_n_ticks(14);  /* Display title for ~280ms */
     
     /* Step 2: Load and display story screen (SYS001.EGA) */
-    if (load_fullscreen_graphic("SYS001.EGA", GRAPHICS_BUFFER_TITLE_TEMP2) != 0) {
+    if (load_fullscreen_graphic(FILENAME_STORY_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP2) != 0) {
         /* Failed to load - continue with what we have */
         return;
     }
@@ -700,7 +700,7 @@ void title_sequence(void)
     int86(0x16, &regs, &regs);
     
     /* Step 3: Load UI background (SYS003.EGA) into both gameplay buffers */
-    if (load_fullscreen_graphic("SYS003.EGA", GRAPHICS_BUFFER_GAMEPLAY_A) != 0) {
+    if (load_fullscreen_graphic(FILENAME_UI_GRAPHIC, GRAPHICS_BUFFER_GAMEPLAY_A) != 0) {
         /* Failed to load - continue without UI */
         return;
     }
@@ -708,7 +708,7 @@ void title_sequence(void)
     copy_ega_plane(GRAPHICS_BUFFER_GAMEPLAY_A, GRAPHICS_BUFFER_GAMEPLAY_B, 0x2000);
     
     /* Step 4: Load and display items screen (SYS004.EGA) */
-    if (load_fullscreen_graphic("SYS004.EGA", GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
+    if (load_fullscreen_graphic(FILENAME_ITEMS_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
         /* Failed to load - skip items screen */
         return;
     }

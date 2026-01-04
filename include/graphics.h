@@ -17,6 +17,12 @@
 #define GRAPHICS_BUFFER_TITLE_TEMP1 0x8000  /* 0xa000:8000 - Title temp buffer 1 (8KB) */
 #define GRAPHICS_BUFFER_TITLE_TEMP2 0xa000  /* 0xa000:a000 - Title temp buffer 2 (8KB) */
 
+/* Title sequence graphics filenames */
+#define FILENAME_TITLE_GRAPHIC "SYS000.EGA"
+#define FILENAME_STORY_GRAPHIC "SYS001.EGA"
+#define FILENAME_UI_GRAPHIC "SYS003.EGA"
+#define FILENAME_ITEMS_GRAPHIC "SYS004.EGA"
+
 /* EGA plane indices */
 #define EGA_PLANE_BLUE       0
 #define EGA_PLANE_GREEN      1
