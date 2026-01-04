@@ -205,7 +205,7 @@ uint16_t rle_decode(uint8_t *src_ptr, uint16_t src_size, uint16_t dst_offset, ui
             if (repeat_count == 0) {
                 continue;
             }
-            
+
             /* Validate we have at least one byte available for the repeat value */
             if (bytes_consumed >= src_size) {
                 break;  /* Source buffer exhausted, stop decoding */
@@ -507,35 +507,35 @@ void palette_darken(void)
 /*
  * palette_fade_in - Fade in from dark to final colors in 4 steps
  * 
- * Performs a 4-step fade animation for palette entries 2, 10, and 12.
- * Based on the original assembly implementation, restores colors to their
- * natural palette register values (not RGB values).
+ * Performs a 4-step fade animation for palette registers 2, 10, and 12.
+ * Uses 6-bit color values (0x00-0x3f) to smoothly transition from dark gray
+ * to the final display colors. Based on the original assembly implementation.
  * 
  * This creates a smooth fade-in effect for title sequence screens.
  * Uses wait_n_ticks() from game_main.c for timing between steps.
  */
 void palette_fade_in(void)
 {
-    /* Step 1: Set all three to light gray (palette register 0x07) */
-    set_palette_register(2, 0x07);   /* Background */
-    set_palette_register(10, 0x07);  /* Items */
-    set_palette_register(12, 0x07);  /* Title */
+    /* Step 1: Set all three to light gray (6-bit color value 0x07) */
+    set_palette_register(2, 0x07);   /* Palette register 2 - light gray */
+    set_palette_register(10, 0x07);  /* Palette register 10 - light gray */
+    set_palette_register(12, 0x07);  /* Palette register 12 - light gray */
     wait_n_ticks(1);
     
-    /* Step 2: Set colors 10 and 12 to white (0x1f), keep 2 at gray */
-    set_palette_register(2, 0x07);   /* Background - stay gray */
-    set_palette_register(10, 0x1f);  /* Items - white */
-    set_palette_register(12, 0x1f);  /* Title - white */
+    /* Step 2: Set registers 10 and 12 to white (0x1f), keep 2 at gray */
+    set_palette_register(2, 0x07);   /* Palette register 2 - stay gray */
+    set_palette_register(10, 0x1f);  /* Palette register 10 - white */
+    set_palette_register(12, 0x1f);  /* Palette register 12 - white */
     wait_n_ticks(1);
     
-    /* Step 3: Set color 2 to green, 10 to bright green, keep 12 at white */
-    set_palette_register(2, 0x02);   /* Background - green (palette register 2) */
-    set_palette_register(10, 0x1a);  /* Items - bright green (palette register 26) */
-    set_palette_register(12, 0x1f);  /* Title - stay white temporarily */
+    /* Step 3: Set register 2 to green, 10 to bright green, keep 12 at white */
+    set_palette_register(2, 0x02);   /* Palette register 2 - green (6-bit: 000010) */
+    set_palette_register(10, 0x1a);  /* Palette register 10 - bright green (6-bit: 011010) */
+    set_palette_register(12, 0x1f);  /* Palette register 12 - stay white */
     wait_n_ticks(1);
     
-    /* Step 4: Set color 12 to bright red (palette register 28) */
-    set_palette_register(12, 0x1c);  /* Title - bright red */
+    /* Step 4: Set register 12 to bright red (6-bit: 011100) */
+    set_palette_register(12, 0x1c);  /* Palette register 12 - bright red */
     wait_n_ticks(1);
 }
 
