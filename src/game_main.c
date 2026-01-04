@@ -1031,10 +1031,34 @@ void load_new_level(void)
     
     /* Read tileset header (4 bytes) and graphics */
     bytes_read = _read(file_handle, &tileset_last_passable, 1);
-    _read(file_handle, &tileset_last_passable + 1, 1);  /* unused byte */
-    _read(file_handle, &tileset_last_passable + 2, 1);  /* unused byte */
+    if (bytes_read != 1) {
+        _close(file_handle);
+        return;
+    }
+    
+    bytes_read = _read(file_handle, &tileset_last_passable + 1, 1);  /* unused byte */
+    if (bytes_read != 1) {
+        _close(file_handle);
+        return;
+    }
+    
+    bytes_read = _read(file_handle, &tileset_last_passable + 2, 1);  /* unused byte */
+    if (bytes_read != 1) {
+        _close(file_handle);
+        return;
+    }
+    
     bytes_read = _read(file_handle, &tileset_flags, 1);
+    if (bytes_read != 1) {
+        _close(file_handle);
+        return;
+    }
+    
     bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
+    if (bytes_read != sizeof(tileset_graphics)) {
+        _close(file_handle);
+        return;
+    }
     _close(file_handle);
     
     /* Lantern check: If in castle without lantern, black out tiles */
