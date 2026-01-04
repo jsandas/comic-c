@@ -94,7 +94,7 @@ const level_t level_data_lake = {
     }
 };
 
-/* TODO: Add remaining 7 levels - FOREST, SPACE, BASE, CAVE, SHED, CASTLE, COMP */
+/* TODO: Add remaining 6 levels - SPACE, BASE, CAVE, SHED, CASTLE, COMP */
 /* For now, create stub entries to allow compilation */
 
 const level_t level_data_forest = {
