@@ -689,7 +689,7 @@ void title_sequence(void)
     
     /* Step 2: Load and display story screen (SYS001.EGA) */
     if (load_fullscreen_graphic(FILENAME_STORY_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP2) != 0) {
-        /* Failed to load - continue with what we have */
+        /* Failed to load - skip remaining sequence */
         return;
     }
     switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP2);
