@@ -186,7 +186,17 @@ const level_t level_data_space = {
     .pt1_filename = "space1.pt    ",
     .pt2_filename = "space2.pt    ",
     .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
-    /* TODO: Complete space level data */
+    .shp = {
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""}
+    },
+    .stages = {
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+    }
 };
 
 const level_t level_data_base = {
@@ -195,7 +205,17 @@ const level_t level_data_base = {
     .pt1_filename = "base1.pt     ",
     .pt2_filename = "base2.pt     ",
     .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
-    /* TODO: Complete base level data */
+    .shp = {
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""}
+    },
+    .stages = {
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+    }
 };
 
 const level_t level_data_cave = {
@@ -204,7 +224,17 @@ const level_t level_data_cave = {
     .pt1_filename = "cave1.pt     ",
     .pt2_filename = "cave2.pt     ",
     .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
-    /* TODO: Complete cave level data */
+    .shp = {
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""}
+    },
+    .stages = {
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+    }
 };
 
 const level_t level_data_shed = {
@@ -213,7 +243,17 @@ const level_t level_data_shed = {
     .pt1_filename = "shed1.pt     ",
     .pt2_filename = "shed2.pt     ",
     .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
-    /* TODO: Complete shed level data */
+    .shp = {
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""}
+    },
+    .stages = {
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+    }
 };
 
 const level_t level_data_castle = {
@@ -222,7 +262,17 @@ const level_t level_data_castle = {
     .pt1_filename = "castle1.pt   ",
     .pt2_filename = "castle2.pt   ",
     .door_tile_ul = 48, .door_tile_ur = 49, .door_tile_ll = 48, .door_tile_lr = 49,
-    /* TODO: Complete castle level data */
+    .shp = {
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""}
+    },
+    .stages = {
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+    }
 };
 
 const level_t level_data_comp = {
@@ -231,7 +281,17 @@ const level_t level_data_comp = {
     .pt1_filename = "comp1.pt     ",
     .pt2_filename = "comp2.pt     ",
     .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
-    /* TODO: Complete comp level data */
+    .shp = {
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""},
+        {SHP_UNUSED, 0, 0, ""}
+    },
+    .stages = {
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}},
+        {0, 0, 0, 0, 0, {{DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}, {DOOR_UNUSED, DOOR_UNUSED, 0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}
+    }
 };
 
 /* Level data pointer array */
