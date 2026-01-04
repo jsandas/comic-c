@@ -16,6 +16,11 @@
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
+#include "globals.h"
+#include "graphics.h"
+#include "timing.h"
+#include "music.h"
+#include "sound.h"
 
 /* Runtime library symbol for large model code */
 int _big_code_ = 1;
@@ -35,9 +40,6 @@ int _big_code_ = 1;
  * This represents a baseline for CPU-speed calibration, used in the weighted average
  * formula: max_joystick_reads = 0.75 * (measured) + 0.25 * (target) */
 #define JOYSTICK_TARGET_VALUE 1280
-
-/* Sound operation codes */
-#define SOUND_MUTE 2
 
 /* Game level constants */
 #define LEVEL_NUMBER_LAKE       0
@@ -244,15 +246,24 @@ static void (__interrupt *saved_int8_handler)(void);   /* Timer tick handler */
 static void (__interrupt *saved_int9_handler)(void);   /* Keyboard handler */
 
 /*
- * simple_int8_handler - Simple timer interrupt (INT 8) handler
+ * int8_handler - Timer interrupt (INT 8) handler
  * 
- * Sets the game tick flag to signal the main loop that a timer tick occurred.
+ * Advances music on every interrupt cycle (to match the assembly implementation).
+ * Sets the game tick flag on every other interrupt to signal the main loop.
  * Uses inline assembly to define the interrupt handler.
  */
-static void __interrupt simple_int8_handler(void)
+static uint8_t irq0_parity = 0;
+
+static void __interrupt int8_handler(void)
 {
-    /* Set game tick flag to signal the main loop */
-    game_tick_flag = 1;
+    /* Advance music on every interrupt cycle */
+    sound_advance_tick();
+    
+    /* Toggle parity and set game tick flag only on odd interrupts */
+    irq0_parity = (irq0_parity + 1) % 2;
+    if (irq0_parity == 1) {
+        game_tick_flag = 1;
+    }
     
     /* Call the original timer interrupt handler to maintain system timing */
     if (saved_int8_handler) {
@@ -261,12 +272,12 @@ static void __interrupt simple_int8_handler(void)
 }
 
 /*
- * simple_int9_handler - Simple keyboard interrupt (INT 9) handler
+ * int9_handler - Keyboard interrupt (INT 9) handler
  * 
  * Reads the keyboard scancode and calls the original handler.
  * Uses inline assembly to define the interrupt handler.
  */
-static void __interrupt simple_int9_handler(void)
+static void __interrupt int9_handler(void)
 {
     uint8_t scancode;
     
@@ -292,11 +303,11 @@ void install_interrupt_handlers(void)
 {
     /* Save original INT 8 (timer) handler and install custom handler */
     saved_int8_handler = _dos_getvect(0x08);
-    _dos_setvect(0x08, (void (__interrupt *)())simple_int8_handler);
+    _dos_setvect(0x08, (void (__interrupt *)())int8_handler);
     
     /* Save original INT 9 (keyboard) handler and install custom handler */
     saved_int9_handler = _dos_getvect(0x09);
-    _dos_setvect(0x09, (void (__interrupt *)())simple_int9_handler);
+    _dos_setvect(0x09, (void (__interrupt *)())int9_handler);
     
     /* Set the sentinel value to indicate handlers were installed */
     interrupt_handler_install_sentinel = INTERRUPT_HANDLER_INSTALL_SENTINEL;
@@ -648,34 +659,86 @@ int calibrate_joystick_interactive(void)
 }
 
 /*
- * title_sequence - Stub for title sequence
+ * title_sequence - Display title sequence with graphics and transitions
  * 
- * In the real game, this would display the title screen, story screens, etc.
+ * Orchestrates the complete title sequence flow:
+ *   1. Title screen (SYS000.EGA) with fade-in, 14 tick delay
+ *   2. Story screen (SYS001.EGA) with fade-in, wait for keystroke
+ *   3. UI background (SYS003.EGA) loaded and duplicated
+ *   4. Items screen (SYS004.EGA), wait for keystroke
+ *   5. Switch to gameplay buffer
+ * 
+ * Uses graphics module for loading, buffer switching, and palette effects.
  */
 void title_sequence(void)
 {
     union REGS regs;
-    const char *text_ptr;
-    char ch;
     
-    /* Set video mode to 80x25 text (mode 3) */
+    /* Set EGA graphics mode 0x0D (320x200 16-color) */
     regs.h.ah = 0x00;  /* AH=0x00: set video mode */
-    regs.h.al = 0x03;  /* AL=0x03: 80x25 text */
+    regs.h.al = 0x0D;  /* AL=0x0D: 320x200 16-color EGA */
     int86(0x10, &regs, &regs);
     
-    /* Display the title sequence text character by character */
-    text_ptr = TITLE_SEQUENCE_MESSAGE;
-    while ((ch = *text_ptr++) != 0) {
-        /* Output character using teletype mode */
-        regs.h.ah = 0x0E;  /* AH=0x0E: teletype output */
-        regs.h.al = ch;
-        regs.h.bh = 0;     /* Page 0 */
-        int86(0x10, &regs, &regs);
-    }
+    /* Initialize EGA graphics controller for correct write mode */
+    init_ega_graphics();
     
-    /* Wait for a keystroke before returning */
+    /* Set palette explicitly - BIOS defaults may be wrong */
+    init_default_palette();
+    
+    /* Step 1: Load and display title screen (SYS000.EGA) */
+    if (load_fullscreen_graphic(FILENAME_TITLE_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
+        /* Failed to load - skip title sequence */
+        return;
+    }
+    switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
+    palette_darken();
+    palette_fade_in();
+    
+    /* Start title music */
+    play_title_music();
+    
+    wait_n_ticks(14);  /* Display title for ~770ms (14 ticks at ~55ms each) */
+    
+    /* Step 2: Load and display story screen (SYS001.EGA) */
+    if (load_fullscreen_graphic(FILENAME_STORY_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP2) != 0) {
+        /* Failed to load - stop music and skip remaining sequence */
+        stop_music();
+        return;
+    }
+    switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP2);
+    palette_darken();
+    palette_fade_in();
+    
+    /* Wait for keystroke */
     regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
     int86(0x16, &regs, &regs);
+    
+    /* Step 3: Load UI background (SYS003.EGA) into both gameplay buffers */
+    if (load_fullscreen_graphic(FILENAME_UI_GRAPHIC, GRAPHICS_BUFFER_GAMEPLAY_A) != 0) {
+        /* Failed to load - stop music and skip remaining sequence */
+        stop_music();
+        return;
+    }
+    /* Copy UI from buffer A to buffer B for static background (8000 bytes per plane) */
+    copy_ega_plane(GRAPHICS_BUFFER_GAMEPLAY_A, GRAPHICS_BUFFER_GAMEPLAY_B, 8000);
+    
+    /* Step 4: Load and display items screen (SYS004.EGA) */
+    if (load_fullscreen_graphic(FILENAME_ITEMS_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
+        /* Failed to load - stop music and skip items screen */
+        stop_music();
+        return;
+    }
+    switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
+    
+    /* Wait for keystroke */
+    regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
+    int86(0x16, &regs, &regs);
+    
+    /* Stop title music before transitioning to gameplay */
+    stop_music();
+    
+    /* Step 5: Switch to gameplay buffer B (with UI background) */
+    switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
 }
 
 /*
