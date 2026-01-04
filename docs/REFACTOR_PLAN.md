@@ -184,7 +184,7 @@ The refactoring approach has been revised to a **C-only entry point** model:
 **Goal**: Implement main game loop and level management in C
 
 1. **Implement game initialization in C**
-   - Prefer C equivalents for level and stage loading (e.g., `load_new_level_c()`)
+   - Prefer C equivalents for level and stage loading (e.g., `load_new_level()`)
    - Only call legacy assembly entry points as a temporary migration step with explicit justification and tests
    - Set up initial game state in C
 

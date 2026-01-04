@@ -61,7 +61,6 @@ make clean
   - `assembly.h` - Assembly function declarations
   - `file_loaders.h` - Data file format definitions
 - **`src/`** - C source files
-  - `R5sw1991_c.asm` - Modified assembly (initialization + calls C)
   - `game_main.c` - C game loop entry point
   - `file_loaders.c` - Data file loaders
 - **`build/`** - Build artifacts (generated)

@@ -22,7 +22,7 @@ As of 2026-01-03, `src/game_main.c` is the primary entry point containing:
 - Initialization functions: `disable_pc_speaker()`, `calibrate_joystick()`, `check_ega_support()`, etc.
 - Menu/UI functions: `display_startup_notice()`, `setup_keyboard_interactive()`, etc.
 - Cleanup functions: `terminate_program()`, `display_ega_error()`
-- Game stubs: `game_entry()`, `load_new_level_c()`, `game_loop_iteration()` skeleton
+- Game stubs: `game_entry()`, `load_new_level()`, `game_loop_iteration()` skeleton
 
 ### Header Files
 
