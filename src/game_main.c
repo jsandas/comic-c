@@ -19,6 +19,8 @@
 #include "globals.h"
 #include "graphics.h"
 #include "timing.h"
+#include "music.h"
+#include "sound.h"
 
 /* Runtime library symbol for large model code */
 int _big_code_ = 1;
@@ -156,22 +158,30 @@ void disable_pc_speaker(void)
  *   game_tick_flag is set to 0
  * 
  * Uses DOS INT 1Ah to read the system timer for timing.
+ * Advances sound playback with each tick.
  */
 void wait_n_ticks(uint16_t ticks)
 {
     union REGS regs;
-    uint32_t start_ticks, current_ticks;
+    uint32_t start_ticks, current_ticks, last_ticks;
     
     /* Get starting tick count from BIOS */
     regs.h.ah = 0x00;  /* AH=0x00: read system timer */
     int86(0x1A, &regs, &regs);
     start_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
+    last_ticks = start_ticks;
     
     /* Wait for the requested number of ticks to elapse */
     do {
         regs.h.ah = 0x00;
         int86(0x1A, &regs, &regs);
         current_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
+        
+        /* Advance sound playback only when tick counter changes */
+        if (current_ticks != last_ticks) {
+            sound_advance_tick();
+            last_ticks = current_ticks;
+        }
     } while ((current_ticks - start_ticks) < ticks);
     
     game_tick_flag = 0;
@@ -685,6 +695,10 @@ void title_sequence(void)
     switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
     palette_darken();
     palette_fade_in();
+    
+    /* Start title music */
+    play_title_music();
+    
     wait_n_ticks(14);  /* Display title for ~770ms (14 ticks at ~55ms each) */
     
     /* Step 2: Load and display story screen (SYS001.EGA) */
@@ -718,6 +732,9 @@ void title_sequence(void)
     /* Wait for keystroke */
     regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
     int86(0x16, &regs, &regs);
+    
+    /* Stop title music before transitioning to gameplay */
+    stop_music();
     
     /* Step 5: Switch to gameplay buffer B (with UI background) */
     switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
