@@ -1397,7 +1397,9 @@ void game_loop(void)
             }
             /* Check jump input (only if not already falling/jumping) */
             else if (key_state_jump == 1) {
-                /* Only jump if comic_jump_counter is not exhausted */
+                /* Only jump if comic_jump_counter is not exhausted
+                 * comic_jump_counter == 1 means "exhausted" (used as a sentinel value)
+                 * This prevents jumping while already in the air */
                 if (comic_jump_counter > 1) {
                     comic_is_falling_or_jumping = 1;
                     handle_fall_or_jump();
@@ -1462,6 +1464,7 @@ void game_loop(void)
                         }
                         
                         comic_is_falling_or_jumping = 1;
+                        /* Set counter to 1 (exhausted) to prevent mid-air jumping */
                         comic_jump_counter = 1;
                     }
                 }
