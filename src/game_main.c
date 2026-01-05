@@ -1267,26 +1267,6 @@ void load_new_stage(void)
     }
 }
 
-/* Forward declarations for game loop helper functions */
-static void clear_bios_keyboard_buffer(void);
-static void handle_teleport(void);
-static void handle_fall_or_jump(void);
-static void begin_teleport(void);
-static void face_or_move_left(void);
-static void face_or_move_right(void);
-static void pause_game(void);
-static void try_to_fire(void);
-static void decrement_fireball_meter(void);
-static void increment_fireball_meter(void);
-static void blit_map_playfield_offscreen(void);
-static void blit_comic_playfield_offscreen(void);
-static void handle_enemies(void);
-static void handle_fireballs(void);
-static void handle_item(void);
-static void swap_video_buffers(void);
-static void increment_comic_hp(void);
-static uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y);
-
 /*
  * clear_bios_keyboard_buffer - Clear the BIOS keyboard buffer
  * 
