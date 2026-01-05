@@ -1521,8 +1521,15 @@ void game_loop(void)
         /* Always decrement counter (whether firing or not) */
         fireball_meter_counter--;
         if (fireball_meter_counter == 0) {
-            /* Counter wrapped from 1 to 0; increment meter (recharging) and wrap to 2 */
-            increment_fireball_meter();
+            /* Counter wrapped from 1 to 0. Increment meter only if NOT firing.
+             * When firing: meter decrements every 2 ticks (only on counter==2)
+             * When not firing: meter increments every 2 ticks (on counter wrap)
+             * This asymmetry creates different rates: -1/2 ticks vs +1/2 ticks */
+            if (key_state_fire != 1) {
+                /* Not firing; allow meter to recharge */
+                increment_fireball_meter();
+            }
+            /* Always wrap counter back to 2 */
             fireball_meter_counter = 2;
         }
         
