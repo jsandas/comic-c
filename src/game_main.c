@@ -1355,11 +1355,15 @@ void game_loop(void)
         /* Clear the tick flag */
         game_tick_flag = 0;
         
-        /* Check for win condition */
+        /* Check for win condition
+         * When the player wins, win_counter is set to a delay value (e.g., 200).
+         * It decrements each tick until it reaches 1, at which point the game
+         * end sequence begins. The value 1 (not 0) is the trigger point, allowing
+         * win_counter to distinguish between: 0=no win, 1=trigger sequence, >1=counting down */
         if (win_counter != 0) {
             win_counter--;
             if (win_counter == 1) {
-                /* Game end sequence - TODO: implement game_end_sequence() */
+                /* TODO: implement game_end_sequence() */
                 return;
             }
         }
