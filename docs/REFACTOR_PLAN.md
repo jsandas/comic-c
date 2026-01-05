@@ -3,8 +3,8 @@
 ## Project Status (As of 2026-01-04)
 
 **Overall Progress**: Phase 3 in progress - Game Logic Implementation  
-**Latest Milestone**: Level data migration and file loader infrastructure complete  
-**Current Focus**: Main game loop implementation, rendering system, physics and collision
+**Latest Milestone**: Main game loop fully implemented with comprehensive code review and quality improvements  
+**Current Focus**: Rendering subsystem, physics and collision detection
 
 ### Recent Accomplishments
 - ✅ Migrated LAKE and FOREST level data from assembly to C
@@ -12,14 +12,31 @@
 - ✅ Implemented `load_new_level()` in pure C
 - ✅ Created comprehensive level data structures with type definitions
 - ✅ Established error handling for file I/O operations
-- ✅ Added stub functions for game loop and stage loading
+- ✅ **Implemented main game loop with tick synchronization**
+- ✅ **Added input state tracking (all keyboard inputs)**
+- ✅ **Implemented game state management (HP, lives, win counter, fireball meter)**
+- ✅ **Refactored control flow to eliminate goto statements**
+- ✅ **Created stub functions for all subsystems (physics, rendering, actors)**
+- ✅ **Code review: Fixed simultaneous left/right key handling**
+- ✅ **Code review: Clarified jump counter exhaustion logic**
+- ✅ **Code review: Removed redundant forward declarations**
+- ✅ **Code review: Consolidated fireball meter counter logic**
+- ✅ **Code review: Fixed null pointer checks in tile access**
+- ✅ **Code review: Fixed teleportation control flow (skip rendering instead of continue)**
+- ✅ **Code review: Fixed fireball meter increment condition (only when not firing)**
+- ✅ **Code review: Initialized registers in dos_idle()**
+- ✅ **Code review: Clarified Y coordinate bounds in floor detection**
+- ✅ **Code review: Refactored nested floor detection logic for clarity**
+- ✅ **Code review: Enhanced documentation for address_of_tile_at_coordinates()**
+- ✅ **Code review: Documented load_new_stage() implementation requirements**
+- ✅ **Code review: Enhanced handle_teleport() with complete implementation spec**
 
 ### Next Priority Items
 1. Complete remaining 6 level data definitions (SPACE, BASE, CAVE, SHED, CASTLE, COMP)
-2. Implement game loop tick handling and input processing
-3. Develop rendering subsystem (video buffer management, map/sprite rendering)
-4. Implement physics and collision detection
-5. Develop main game loop logic with win/lose conditions
+2. Implement rendering subsystem (video buffer management, map/sprite rendering)
+3. Implement physics and collision detection (gravity, jumping, wall collision)
+4. Implement player movement functions (face_or_move_left/right with collision)
+5. Develop enemy AI and actor management systems
 
 ---
 
@@ -226,28 +243,53 @@ The refactoring approach has been revised to a **C-only entry point** model:
 3. **Level loading in C**
    - ✅ `load_new_level()` - C implementation loads all three .PT files for stage
    - ✅ `load_new_stage()` - Stub function defined
-   - ✅ `game_loop()` - Stub function defined
+   - ✅ `game_loop()` - **Fully implemented main game loop structure**
 
+4. **Main game loop implementation** ✅ **COMPLETE**
+   - ✅ Tick-waiting logic with busy-wait synchronization
+   - ✅ Input state variables (`key_state_*`) declared and tracked
+   - ✅ Game state variables (HP, lives, win counter, fireball meter, player position, animation)
+   - ✅ Win/lose condition checking framework
+   - ✅ Proper control flow without goto statements
+   - ✅ Teleportation handling with skip_rendering flag
+   - ✅ Fall/jump, movement, pause, and fire input processing
+   - ✅ Actor management calls (enemies, fireballs, items)
+   - ✅ Video buffer swap integration
+   - ✅ **Code quality improvements from full review:**
+     - ✅ Fixed null pointer checks for tile map access
+     - ✅ Clarified jump counter sentinel value usage
+     - ✅ Consolidated and documented fireball meter counter logic
+     - ✅ Refactored nested floor detection for clarity
+     - ✅ Enhanced input handling documentation
+     - ✅ Fixed CPU initialization in dos_idle()
+     - ✅ Documented coordinate bounds and tile addressing
+   
 **In Progress / TODO**:
-1. **Implement main game loop in C**
-   - [ ] Tick-waiting logic (`wait_n_ticks()`)
-   - [ ] Input state checking (read `key_state_*` globals)
-   - [ ] Call rendering functions
-   - [ ] Win/lose condition checking
-   - [ ] Level transition logic
+1. **Implement rendering subsystem in C**
+   - [ ] `blit_map_playfield_offscreen()` - Render map tiles to offscreen buffer
+   - [ ] `blit_comic_playfield_offscreen()` - Render Comic sprite
+   - [ ] `swap_video_buffers()` - Page flip for double-buffering
+   - [ ] Video buffer management and addressing
    
-2. **Implement rendering in C**
-   - [ ] Video buffer swap logic
-   - [ ] Map tile rendering
-   - [ ] Sprite rendering (Comic, enemies, items)
+2. **Implement physics and collision in C**
+   - [ ] `handle_fall_or_jump()` - Gravity, jumping, terminal velocity
+   - [ ] `face_or_move_left()` - Left movement with wall collision
+   - [ ] `face_or_move_right()` - Right movement with wall collision
+   - [ ] `address_of_tile_at_coordinates()` - Tile map lookup
+   - [ ] Ground detection and landing mechanics
    
-3. **Implement physics and collision in C**
-   - [ ] Player movement (left/right)
-   - [ ] Gravity and falling
-   - [ ] Jumping mechanics
-   - [ ] Collision detection for tiles, enemies, items
+3. **Implement actor systems in C**
+   - [ ] `handle_enemies()` - Enemy AI and rendering
+   - [ ] `handle_fireballs()` - Fireball movement and collision
+   - [ ] `handle_item()` - Item collision and rendering
+   - [ ] `try_to_fire()` - Fireball spawning logic
    
-4. **Strategy**
+4. **Implement special features in C**
+   - [ ] `begin_teleport()` - Teleport destination calculation
+   - [ ] `handle_teleport()` - Teleport animation and camera movement
+   - [ ] `pause_game()` - Pause screen display
+   
+5. **Strategy**
    - Reimplement functions in C when feasible and preferred
    - Consult original assembly as implementation guidance
    - Only interface with original assembly when there is a clear, documented necessity and tests to justify it
