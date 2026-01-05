@@ -1422,6 +1422,10 @@ void game_loop(void)
             /* Handle left/right movement - only if not falling/jumping */
             if (comic_is_falling_or_jumping == 0) {
                 comic_x_momentum = 0;
+                /* Note: If both left and right keys are pressed simultaneously,
+                 * right movement takes priority (momentum is set to -5 then
+                 * immediately overwritten to +5). This matches the original
+                 * assembly behavior. */
                 if (key_state_left == 1) {
                     comic_x_momentum = -5;
                     face_or_move_left();
