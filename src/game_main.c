@@ -1458,14 +1458,24 @@ void game_loop(void)
                     tile_value = 0;  /* Treat as passable if no tile map loaded or out of bounds */
                 }
                 
-                if (tile_value <= tileset_last_passable) {
-                    /* Check if Comic is halfway between tiles */
+                /* Check if there's solid ground directly beneath Comic */
+                if (tile_value > tileset_last_passable) {
+                    /* Primary tile is solid; we're standing on something */
+                    /* Do nothing - remain on ground */
+                } else {
+                    /* Primary tile is passable. If Comic is halfway between tiles,
+                     * also check the secondary tile (tile to the right) */
+                    uint8_t secondary_tile_solid = 0;
                     if ((comic_x & 1) && current_tiles_ptr != NULL && tile_addr + 1 < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
+                        /* Comic is odd-positioned (halfway between tiles) */
                         tile_value = current_tiles_ptr[tile_addr + 1];
+                        if (tile_value > tileset_last_passable) {
+                            secondary_tile_solid = 1;
+                        }
                     }
                     
-                    /* No solid ground beneath us - start falling */
-                    if (tile_value <= tileset_last_passable) {
+                    /* Start falling if both primary and secondary tiles are passable */
+                    if (!secondary_tile_solid) {
                         comic_y_vel = 8;  /* Initial falling velocity */
                         
                         /* After walking off edge, Comic has 2 units of momentum */
