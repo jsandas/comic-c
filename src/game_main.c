@@ -1288,6 +1288,20 @@ static void clear_bios_keyboard_buffer(void)
 }
 
 /*
+ * dos_idle - Yield CPU time to other processes
+ * 
+ * Calls DOS idle interrupt (INT 28h) to allow other processes to run.
+ * This reduces CPU usage during busy-wait loops in DOS/Windows environments.
+ * The call is safe even if no other processes are running.
+ */
+static void dos_idle(void)
+{
+    union REGS regs;
+    /* INT 28h: DOS idle interrupt - yields CPU time */
+    int86(0x28, &regs, &regs);
+}
+
+/*
  * game_loop - Main game loop
  * 
  * This is the main game loop that runs continuously until the game ends.
@@ -1320,6 +1334,9 @@ void game_loop(void)
             if (comic_is_falling_or_jumping == 0 && key_state_jump == 0) {
                 comic_jump_counter = comic_jump_power;
             }
+            
+            /* Yield CPU time to reduce CPU usage during wait */
+            dos_idle();
         }
         
         /* Clear the tick flag */
@@ -1429,7 +1446,7 @@ void game_loop(void)
             pause_game();
             /* Wait for escape key release */
             while (key_state_esc == 1) {
-                /* busy wait */
+                dos_idle();  /* Yield CPU while waiting for key release */
             }
         }
         
