@@ -1456,7 +1456,7 @@ void game_loop(void)
                 try_to_fire();
                 
                 /* Decrement fireball meter every other tick */
-                if (fireball_meter_counter != 1) {
+                if (fireball_meter_counter == 2) {
                     decrement_fireball_meter();
                 }
             }
