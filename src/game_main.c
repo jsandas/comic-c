@@ -1398,11 +1398,12 @@ void game_loop(void)
             /* Check teleport input - only if not falling/jumping */
             if (comic_is_falling_or_jumping == 0 && key_state_teleport == 1 && comic_has_teleport_wand != 0) {
                 begin_teleport();
-                continue;  /* Jump back to top of loop to handle teleport */
+                /* begin_teleport sets comic_is_teleporting, which will be handled
+                 * at the top of the next loop iteration. Skip to actor handling. */
+                skip_rendering = 1;
             }
-            
-            /* Handle left/right movement - only if not falling/jumping */
-            if (comic_is_falling_or_jumping == 0) {
+            /* Handle left/right movement - only if not falling/jumping and not teleporting */
+            else if (comic_is_falling_or_jumping == 0) {
                 comic_x_momentum = 0;
                 /* Note: If both left and right keys are pressed simultaneously,
                  * right movement takes priority (momentum is set to -5 then
