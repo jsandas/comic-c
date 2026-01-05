@@ -1307,6 +1307,8 @@ static void clear_bios_keyboard_buffer(void)
 static void dos_idle(void)
 {
     union REGS regs;
+    /* Initialize registers to avoid passing garbage values */
+    memset(&regs, 0, sizeof(regs));
     /* INT 28h: DOS idle interrupt - yields CPU time */
     int86(0x28, &regs, &regs);
 }
