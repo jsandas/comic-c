@@ -117,6 +117,7 @@ static uint8_t tileset_graphics[128 * 128];  /* Up to 128 16x16 tiles */
 static pt_file_t pt0;
 static pt_file_t pt1;
 static pt_file_t pt2;
+static uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
 static uint8_t comic_num_lives = 0;
 
 /* Default keymap for keyboard configuration */
@@ -1230,9 +1231,12 @@ static void increment_comic_hp(void)
 
 static uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y)
 {
-    /* TODO: Implement proper tile address calculation */
-    /* For now, return a safe value */
-    return 0;
+    /* Calculate byte offset into tile map
+     * Map is MAP_WIDTH_TILES (128) tiles wide
+     * Each tile is represented by one byte (tile ID)
+     * Offset = y * MAP_WIDTH_TILES + x
+     */
+    return (uint16_t)y * MAP_WIDTH_TILES + x;
 }
 
 /*
@@ -1245,13 +1249,22 @@ static uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y)
 void load_new_stage(void)
 {
     /* TODO: Implement full stage loading with:
-     * - Set current_tiles_ptr and current_stage_ptr
      * - Render the map
      * - Handle door entry vs new stage entry
      * - Position Comic based on entry point
      * - Initialize enemies
-     * For now, this is a no-op that allows the game to continue
      */
+    
+    /* For now, set current_tiles_ptr to stage 0's tile map */
+    if (current_stage_number == 0) {
+        current_tiles_ptr = pt0.tiles;
+    } else if (current_stage_number == 1) {
+        current_tiles_ptr = pt1.tiles;
+    } else if (current_stage_number == 2) {
+        current_tiles_ptr = pt2.tiles;
+    } else {
+        current_tiles_ptr = NULL;  /* Invalid stage number */
+    }
 }
 
 /* Forward declarations for game loop helper functions */
@@ -1416,11 +1429,17 @@ void game_loop(void)
                 
                 /* Check for floor beneath Comic */
                 tile_addr = address_of_tile_at_coordinates(comic_x, comic_y + 4);
-                tile_value = tileset_graphics[tile_addr];  /* TODO: Use proper tile map */
+                /* Look up the tile ID from the current stage's tile map */
+                if (current_tiles_ptr != NULL && tile_addr < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
+                    tile_value = current_tiles_ptr[tile_addr];
+                } else {
+                    tile_value = 0;  /* Treat as passable if no tile map loaded */
+                }
+                
                 if (tile_value <= tileset_last_passable) {
                     /* Check if Comic is halfway between tiles */
-                    if (comic_x & 1) {
-                        tile_value = tileset_graphics[tile_addr + 1];
+                    if ((comic_x & 1) && tile_addr + 1 < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
+                        tile_value = current_tiles_ptr[tile_addr + 1];
                     }
                     
                     /* No solid ground beneath us - start falling */
