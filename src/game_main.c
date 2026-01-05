@@ -1136,8 +1136,28 @@ int load_new_level(void)
 
 static void handle_teleport(void)
 {
-    /* TODO: Implement teleportation animation and logic */
-    comic_is_teleporting = 0;  /* End teleport for now */
+    /* TODO: Implement full teleportation animation and logic
+     * 
+     * Teleportation is a 6-frame animation (0-5) with special behavior:
+     * 1. Frames 0-5: Animate at source position
+     * 2. Frames 1-5: Animate at destination position (delayed by 1 frame)
+     * 3. Frame 3: Actual position change (collision with enemies uses new position)
+     * 4. Camera movement: Controlled by teleport_camera_counter/teleport_camera_vel
+     *    - Camera moves for first teleport_camera_counter ticks
+     *    - Amount per tick is teleport_camera_vel
+     * 5. Frame 6: Animation complete, set comic_is_teleporting = 0
+     * 
+     * Current behavior:
+     * - Immediately ends teleportation (WRONG - should animate for 6 frames)
+     * 
+     * Required variables (from begin_teleport):
+     * - teleport_source_y/x: Position where teleport started
+     * - teleport_destination_y/x: Position where teleport ends
+     * - teleport_animation: Current frame (0-6)
+     * - teleport_camera_counter: Frames during which camera should move
+     * - teleport_camera_vel: Camera movement per frame
+     */
+    comic_is_teleporting = 0;  /* TODO: Remove this and implement full animation */
 }
 
 static void handle_fall_or_jump(void)
