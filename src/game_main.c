@@ -1232,8 +1232,18 @@ static void increment_comic_hp(void)
 static uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y)
 {
     /* Calculate byte offset into tile map
-     * Map is MAP_WIDTH_TILES (128) tiles wide
-     * Each tile is represented by one byte (tile ID)
+     * 
+     * Input coordinates should be valid:
+     *   x: 0-127 (MAP_WIDTH_TILES - 1)
+     *   y: 0-9 (MAP_HEIGHT_TILES - 1)
+     * 
+     * If coordinates are out of bounds, the returned offset will exceed
+     * MAP_WIDTH_TILES * MAP_HEIGHT_TILES (1280). Callers must check the
+     * returned value against this limit before dereferencing the tile map.
+     * 
+     * Map layout: Linear array, row-major order
+     *   tiles[y*128 + x] = tile ID at (x, y)
+     * 
      * Offset = y * MAP_WIDTH_TILES + x
      */
     return (uint16_t)y * MAP_WIDTH_TILES + x;
