@@ -1242,9 +1242,26 @@ static uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y)
 /*
  * load_new_stage - Initialize stage data and render the map
  * 
- * Sets up the current stage based on current_stage_number.
- * Initializes player position, camera position, and enemies.
- * This is a stub implementation that prepares the game state.
+ * Loads the stage specified by current_stage_number and initializes all game state.
+ * 
+ * This function should:
+ * 1. Set current_tiles_ptr and current_stage_ptr based on current_stage_number
+ * 2. Call render_map to display the stage background
+ * 3. Handle door entry: if arriving via door (source_door_*), find the reciprocal door
+ *    and position Comic in front of it; otherwise use comic_y_checkpoint/comic_x_checkpoint
+ * 4. Clear comic_is_teleporting flag (may be set if respawning mid-teleport)
+ * 5. Despawn all fireballs by clearing the fireballs array
+ * 6. Initialize comic_x and comic_y from checkpoints (or door position)
+ * 7. Calculate and set camera_x with bounds clamping:
+ *    camera_x = clamp(comic_x - (PLAYFIELD_WIDTH/2 - 1), 0, MAP_WIDTH - PLAYFIELD_WIDTH)
+ * 8. Initialize all enemies from current_stage.enemies with:
+ *    - Copy behavior, sprite index, and animation data from stage definition
+ *    - Set enemy.state = ENEMY_STATE_DESPAWNED (not spawned yet)
+ *    - Set enemy.facing = ENEMY_FACING_LEFT
+ *    - Set enemy.spawn_timer_and_animation = 20 (spawn 20 ticks after stage load)
+ * 
+ * Currently, only step 1 is implemented. The remaining steps must be completed
+ * for the game to function properly.
  */
 void load_new_stage(void)
 {
