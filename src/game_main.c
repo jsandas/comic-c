@@ -1465,24 +1465,22 @@ void game_loop(void)
             if (fireball_meter > 0) {
                 try_to_fire();
                 
-                /* Decrement fireball meter every other tick */
-                if (fireball_meter_counter == 2) {
+                /* fireball_meter increases/decreases at a rate of 1 unit per 2 ticks.
+                 * fireball_meter_counter alternates 2, 1, 2, 1, ... to track when to adjust.
+                 * When firing: decrement meter when counter is 2 (before decrementing counter)
+                 * When not firing: increment meter when counter wraps from 1 to 0 */
+                if (fireball_meter_counter != 1) {
+                    /* Counter is 2; decrement meter before decrementing counter */
                     decrement_fireball_meter();
                 }
             }
-        } else {
-            /* Not firing; allow meter to recharge */
-            if (fireball_meter_counter == 0) {
-                increment_fireball_meter();
-            }
-            fireball_meter_counter--;
-            if (fireball_meter_counter == 0) {
-                fireball_meter_counter = 2;
-            }
         }
         
-        /* Adjust fireball meter counter */
-        if (fireball_meter_counter == 1) {
+        /* Always decrement counter (whether firing or not) */
+        fireball_meter_counter--;
+        if (fireball_meter_counter == 0) {
+            /* Counter wrapped from 1 to 0; increment meter (recharging) and wrap to 2 */
+            increment_fireball_meter();
             fireball_meter_counter = 2;
         }
         
