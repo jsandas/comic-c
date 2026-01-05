@@ -1428,7 +1428,7 @@ void game_loop(void)
                 
                 if (tile_value <= tileset_last_passable) {
                     /* Check if Comic is halfway between tiles */
-                    if ((comic_x & 1) && tile_addr + 1 < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
+                    if ((comic_x & 1) && current_tiles_ptr != NULL && tile_addr + 1 < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
                         tile_value = current_tiles_ptr[tile_addr + 1];
                     }
                     
