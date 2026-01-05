@@ -1445,12 +1445,17 @@ void game_loop(void)
                 }
                 
                 /* Check for floor beneath Comic */
+                /* We check comic_y + 4 to see if there's a solid tile 4 units below Comic.
+                 * Valid comic_y values are 0-9 (can occupy any tile row in a 10-tile map).
+                 * Adding 4 could put us at y=13 if comic_y=9, which is out of bounds.
+                 * The bounds check below (tile_addr < MAP_WIDTH_TILES * MAP_HEIGHT_TILES)
+                 * catches this and treats out-of-bounds as passable (no floor). */
                 tile_addr = address_of_tile_at_coordinates(comic_x, comic_y + 4);
                 /* Look up the tile ID from the current stage's tile map */
                 if (current_tiles_ptr != NULL && tile_addr < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
                     tile_value = current_tiles_ptr[tile_addr];
                 } else {
-                    tile_value = 0;  /* Treat as passable if no tile map loaded */
+                    tile_value = 0;  /* Treat as passable if no tile map loaded or out of bounds */
                 }
                 
                 if (tile_value <= tileset_last_passable) {
