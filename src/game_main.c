@@ -1340,7 +1340,10 @@ void game_loop(void)
         /* Busy-wait until int8_handler sets game_tick_flag */
         while (game_tick_flag != 1) {
             /* While waiting, reinitialize comic_jump_counter if Comic is not
-             * in the air and the player is not pressing the jump button */
+             * in the air and the player is not pressing the jump button.
+             * This recharge happens continuously during the wait, ensuring the
+             * jump counter is always ready when a tick arrives. This provides
+             * responsive jump input timing. */
             if (comic_is_falling_or_jumping == 0 && key_state_jump == 0) {
                 comic_jump_counter = comic_jump_power;
             }
@@ -1402,7 +1405,11 @@ void game_loop(void)
                     handle_fall_or_jump();
                 }
             } else {
-                /* Not pressing jump; recharge jump counter */
+                /* Not pressing jump; recharge jump counter for the next frame.
+                 * Note: The busy-wait loop above also recharges the counter
+                 * continuously while waiting, providing responsive jump timing.
+                 * This recharge ensures the counter is reset after jump key release
+                 * in case the condition was not met during the busy-wait. */
                 comic_jump_counter = comic_jump_power;
             }
             
