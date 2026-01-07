@@ -1509,18 +1509,6 @@ static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, co
     uint8_t byte0, byte1;
     uint8_t plane_mask;
     volatile uint16_t i;
-    static uint16_t call_count = 0;
-    
-    /* Count function calls */
-    call_count++;
-    
-    /* DIAGNOSTIC: Draw a mark for every 10 calls */
-    if ((call_count % 10) == 0 && call_count <= 1000) {
-        uint8_t __far *mark = (uint8_t __far *)MK_FP(0xa000, get_current_display_offset() + 520 + (call_count / 10));
-        outp(0x3c4, 0x02);
-        outp(0x3c5, 0x0F);
-        mark[0] = 0xFF;
-    }
     
     /* Calculate offset into tileset (each tile is 128 bytes) */
     tile_offset = (uint16_t)tile_id * 128;
@@ -1537,24 +1525,6 @@ static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, co
      * Destination writes go to the same offset for all planes (EGA planar mode)
      */
     src_ptr = tileset_ptr + tile_offset;
-    
-    /* DIAGNOSTIC: Check first few bytes of the tile data */
-    {
-        static uint16_t first_call = 0;
-        if (first_call == 0) {
-            uint8_t byte_sample = src_ptr[0];  /* First byte of plane 0 */
-            if (byte_sample != 0) {
-                /* Non-zero data found - mark it */
-                uint8_t __far *diag = (uint8_t __far *)MK_FP(0xa000, get_current_display_offset() + 560);
-                outp(0x3c4, 0x02);
-                outp(0x3c5, 0x0F);
-                for (i = 0; i < 20; i++) {
-                    diag[i] = byte_sample;  /* Write actual byte value to screen */
-                }
-            }
-            first_call = 1;
-        }
-    }
     
     for (plane = 0; plane < 4; plane++) {
         /* Set Sequencer Map Mask register for this plane
@@ -1615,31 +1585,7 @@ static void render_map(void)
     uint16_t clear_offset;
     uint16_t clear_row;
     uint8_t __far *clear_ptr;
-    uint8_t __far *test_ptr;
     uint16_t i;
-    uint8_t __far *diag_ptr;
-    
-    /* DIAGNOSTIC: Show that render_map was called */
-    diag_ptr = (uint8_t __far *)MK_FP(0xa000, get_current_display_offset() + 400);  /* Row 10 */
-    outp(0x3c4, 0x02);
-    outp(0x3c5, 0x0F);
-    for (i = 0; i < 30; i++) {
-        diag_ptr[i] = 0xFF;  /* Mark render_map entry */
-    }
-    
-    /* DIAGNOSTIC: Check if current_tiles_ptr is valid */
-    if (current_tiles_ptr == NULL) {
-        for (i = 0; i < 30; i++) {
-            diag_ptr[40 + i] = 0x00;  /* Mark as NULL */
-        }
-    } else {
-        /* Check first few tile IDs */
-        for (i = 0; i < 5; i++) {
-            if (current_tiles_ptr[i] != 0) {
-                diag_ptr[40 + (i*8)] = 0xFF;  /* Mark tiles that are non-zero */
-            }
-        }
-    }
     
     /* Clear RENDERED_MAP_BUFFER (all 4 planes) to black (zero)
      * Buffer size: 40KB (supporting 128×10 tiles with 16×16 pixels each)
@@ -1717,8 +1663,6 @@ void load_new_stage(void)
     const level_t *current_level_ptr;
     const stage_t *current_stage_ptr;
     int cam_x;
-    uint8_t __far *diag_ptr;
-    int j;
     
     /* Get the current level data pointer */
     if (current_level_number < 8) {
@@ -1731,14 +1675,6 @@ void load_new_stage(void)
     if (current_stage_number < 3 && current_level_ptr != NULL) {
         current_stage_ptr = &current_level_ptr->stages[current_stage_number];
         
-        /* DIAGNOSTIC: Mark which stage we're loading */
-        diag_ptr = (uint8_t __far *)MK_FP(0xa000, get_current_display_offset() + 440);
-        outp(0x3c4, 0x02);
-        outp(0x3c5, 0x0F);
-        for (j = 0; j < 20; j++) {
-            diag_ptr[j] = 0xFF;  /* Mark we got here */
-        }
-        
         /* Determine which tile map to use */
         if (current_stage_number == 0) {
             current_tiles_ptr = pt0.tiles;
@@ -1746,16 +1682,6 @@ void load_new_stage(void)
             current_tiles_ptr = pt1.tiles;
         } else {
             current_tiles_ptr = pt2.tiles;
-        }
-        
-        /* DIAGNOSTIC: Check if current_tiles_ptr is non-NULL */
-        if (current_tiles_ptr != NULL && current_tiles_ptr[0] != 0) {
-            diag_ptr = (uint8_t __far *)MK_FP(0xa000, get_current_display_offset() + 480);
-            outp(0x3c4, 0x02);
-            outp(0x3c5, 0x0F);
-            for (j = 0; j < 20; j++) {
-                diag_ptr[j] = 0xFF;  /* Mark tiles pointer is valid */
-            }
         }
         
         /* Initialize Comic's position from the first door in the stage
