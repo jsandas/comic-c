@@ -10,6 +10,7 @@
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
+#include "globals.h"
 #include "graphics.h"
 #include "timing.h"
 
@@ -580,6 +581,21 @@ void copy_ega_plane(uint16_t src_offset, uint16_t dst_offset, uint16_t num_bytes
     }
 }
 
+/* copy_plane_bytes - Copy a small number of bytes within a single EGA plane
+ * This is a helper that avoids relying on far-pointer casting inside other
+ * modules. It assumes the caller has already selected the appropriate plane
+ * for reading/writing. Offsets are relative to segment 0xa000. */
+void copy_plane_bytes(uint16_t src_offset, uint16_t dst_offset, uint16_t num_bytes)
+{
+    uint8_t __far *src_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, src_offset);
+    uint8_t __far *dst_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, dst_offset);
+    uint16_t i;
+
+    for (i = 0; i < num_bytes; i++) {
+        dst_ptr[i] = src_ptr[i];
+    }
+}
+
 /*
  * blit_sprite_16x16_masked - Blit a 16x16 masked EGA sprite to video memory
  * 
@@ -657,6 +673,66 @@ void blit_sprite_16x16_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t 
                 video_ptr_a[col] = (current_a & mask_byte) | (sprite_byte & ~mask_byte);
                 video_ptr_b[col] = (current_b & mask_byte) | (sprite_byte & ~mask_byte);
             }
+        }
+    }
+}
+
+/*
+ * blit_sprite_16x32_masked - Blit a 16x32 masked EGA sprite to video memory
+ *
+ * Sprite format (320 bytes):
+ *   Bytes 0-63:     Blue plane (2 bytes/row × 32 rows = 64 bytes)
+ *   Bytes 64-127:   Green plane
+ *   Bytes 128-191:  Red plane
+ *   Bytes 192-255:  Intensity plane
+ *   Bytes 256-319:  Mask (2 bytes/row × 32 rows = 64 bytes)
+ */
+void blit_sprite_16x32_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data)
+{
+    uint16_t base_offset;
+    uint8_t plane;
+    uint8_t row;
+    const uint8_t *plane_base;
+    const uint8_t *mask_base;
+    uint8_t __far *video_ptr_a;
+    uint8_t __far *video_ptr_b;
+    uint16_t screen_row_bytes;
+    uint8_t b0;
+    uint8_t b1;
+    uint8_t m0;
+    uint8_t m1;
+
+    base_offset = (pixel_y * 320 + pixel_x) / 8;
+    mask_base = sprite_data + 256;
+    screen_row_bytes = SCREEN_WIDTH / 8; /* 40 */
+
+    /* For each plane, copy 32 rows of two bytes each */
+    for (plane = 0; plane < 4; plane++) {
+        plane_base = sprite_data + plane * 64; /* 64 bytes per plane */
+
+        /* Start at top row for both buffers */
+        video_ptr_a = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_A + base_offset);
+        video_ptr_b = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_B + base_offset);
+
+        /* Enable plane for writing */
+        enable_ega_plane_write(plane);
+
+        for (row = 0; row < 32; row++) {
+            /* Two bytes per row */
+            b0 = plane_base[row * 2 + 0];
+            b1 = plane_base[row * 2 + 1];
+            m0 = mask_base[row * 2 + 0];
+            m1 = mask_base[row * 2 + 1];
+
+            video_ptr_a[0] = (video_ptr_a[0] & m0) | (b0 & ~m0);
+            video_ptr_a[1] = (video_ptr_a[1] & m1) | (b1 & ~m1);
+
+            video_ptr_b[0] = (video_ptr_b[0] & m0) | (b0 & ~m0);
+            video_ptr_b[1] = (video_ptr_b[1] & m1) | (b1 & ~m1);
+
+            /* Advance to next screen row (40 bytes) */
+            video_ptr_a += screen_row_bytes;
+            video_ptr_b += screen_row_bytes;
         }
     }
 }
