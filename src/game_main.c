@@ -918,59 +918,9 @@ void title_sequence(void)
         const uint16_t bytes_per_row = SCREEN_WIDTH / 8; /* 40 */
         uint8_t plane, row, col;
 
-        for (plane = 0; plane < 4; plane++) {
-            /* Select this plane for writing */
-            enable_ega_plane_write(plane);
-
-            for (row = 0; row < 32; row++) {
-                uint16_t off_a = GRAPHICS_BUFFER_GAMEPLAY_A + (dst_y_pix + row) * bytes_per_row + dst_byte_x;
-                uint16_t off_b = GRAPHICS_BUFFER_GAMEPLAY_B + (dst_y_pix + row) * bytes_per_row + dst_byte_x;
-                uint8_t __far *pa = (uint8_t __far *)MK_FP(0xa000, off_a);
-                uint8_t __far *pb = (uint8_t __far *)MK_FP(0xa000, off_b);
-
-                for (col = 0; col < 8; col++) {
-                    pa[col] = 0xFF; /* full-on bit pattern */
-                    pb[col] = 0xFF;
-                }
-            }
-        }
-
         /* Ensure the buffer with the UI is visible (we set to B later anyway) */
         switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
 
-        /* Replace destructive full-screen test with a non-destructive marker:
-         * write a small 48×8 pixel box into the INTENSITY plane (plane 3) only,
-         * so it contrasts with the UI without overwriting all color planes. */
-        {
-            const uint16_t dst_x_pix = 40;
-            const uint16_t dst_y_pix = 64;
-            const uint16_t dst_byte_x = dst_x_pix / 8;
-            const uint16_t bytes_per_row = SCREEN_WIDTH / 8; /* 40 */
-            const uint8_t marker_width_bytes = 6; /* 6*8 = 48px */
-            const uint8_t marker_height_rows = 8;
-            uint8_t row, col;
-
-            /* Only write intensity plane (plane index 3) to minimize damage */
-            enable_ega_plane_write(3);
-
-            for (row = 0; row < marker_height_rows; row++) {
-                uint16_t off_a = GRAPHICS_BUFFER_GAMEPLAY_A + (dst_y_pix + row) * bytes_per_row + dst_byte_x;
-                uint16_t off_b = GRAPHICS_BUFFER_GAMEPLAY_B + (dst_y_pix + row) * bytes_per_row + dst_byte_x;
-                uint8_t __far *pa = (uint8_t __far *)MK_FP(0xa000, off_a);
-                uint8_t __far *pb = (uint8_t __far *)MK_FP(0xa000, off_b);
-
-                for (col = 0; col < marker_width_bytes; col++) {
-                    /* Preserve other plane data; set intensity bits to max */
-                    pa[col] = 0xFF;
-                    pb[col] = 0xFF;
-                }
-            }
-
-            /* Ensure it is visible immediately */
-            switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
-
-
-        }
     }
 
     /* Step 4: Load and display items screen (SYS004.EGA) */
