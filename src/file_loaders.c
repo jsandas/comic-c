@@ -88,10 +88,31 @@ int load_tt2_file(const char* filename, void* buffer)
  */
 int load_shp_file(const char* filename, void* buffer)
 {
-    /* Placeholder - to be implemented */
-    (void)filename;
-    (void)buffer;
-    return -1;
+    /* Minimal SHP loader: read header of SHP into the provided shp_file_t buffer
+     * and return 0 on success. Full decoding is left for future work. */
+    int file_handle;
+    unsigned bytes_read;
+    shp_file_t* shp = (shp_file_t*)buffer;
+
+    if (!filename || !shp) {
+        return -1;
+    }
+
+    file_handle = _open(filename, O_RDONLY | O_BINARY);
+    if (file_handle == -1) {
+        return -1;
+    }
+
+    /* Read the 3-byte header (horizontal, animation, num_frames) */
+    bytes_read = _read(file_handle, shp, 3);
+    if (bytes_read != 3) {
+        _close(file_handle);
+        return -1;
+    }
+
+    /* Close and succeed; frame data decoding is not implemented here */
+    _close(file_handle);
+    return 0;
 }
 
 /*

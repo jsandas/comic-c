@@ -18,6 +18,7 @@
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
+#include <stdio.h>
 #include <fcntl.h>
 #include <io.h>
 #include "globals.h"
@@ -907,7 +908,71 @@ void title_sequence(void)
     }
     /* Copy UI from buffer A to buffer B for static background (8000 bytes per plane) */
     copy_ega_plane(GRAPHICS_BUFFER_GAMEPLAY_A, GRAPHICS_BUFFER_GAMEPLAY_B, 8000);
-    
+
+    /* Draw an immediate visible overlay directly into the gameplay buffers
+     * so it is visible on the title/UI screens (before gameplay starts). */
+    {
+        const uint16_t dst_x_pix = 40;
+        const uint16_t dst_y_pix = 64;
+        const uint16_t dst_byte_x = dst_x_pix / 8;
+        const uint16_t bytes_per_row = SCREEN_WIDTH / 8; /* 40 */
+        uint8_t plane, row, col;
+
+        for (plane = 0; plane < 4; plane++) {
+            /* Select this plane for writing */
+            enable_ega_plane_write(plane);
+
+            for (row = 0; row < 32; row++) {
+                uint16_t off_a = GRAPHICS_BUFFER_GAMEPLAY_A + (dst_y_pix + row) * bytes_per_row + dst_byte_x;
+                uint16_t off_b = GRAPHICS_BUFFER_GAMEPLAY_B + (dst_y_pix + row) * bytes_per_row + dst_byte_x;
+                uint8_t __far *pa = (uint8_t __far *)MK_FP(0xa000, off_a);
+                uint8_t __far *pb = (uint8_t __far *)MK_FP(0xa000, off_b);
+
+                for (col = 0; col < 8; col++) {
+                    pa[col] = 0xFF; /* full-on bit pattern */
+                    pb[col] = 0xFF;
+                }
+            }
+        }
+
+        /* Ensure the buffer with the UI is visible (we set to B later anyway) */
+        switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
+
+        /* Replace destructive full-screen test with a non-destructive marker:
+         * write a small 48×8 pixel box into the INTENSITY plane (plane 3) only,
+         * so it contrasts with the UI without overwriting all color planes. */
+        {
+            const uint16_t dst_x_pix = 40;
+            const uint16_t dst_y_pix = 64;
+            const uint16_t dst_byte_x = dst_x_pix / 8;
+            const uint16_t bytes_per_row = SCREEN_WIDTH / 8; /* 40 */
+            const uint8_t marker_width_bytes = 6; /* 6*8 = 48px */
+            const uint8_t marker_height_rows = 8;
+            uint8_t row, col;
+
+            /* Only write intensity plane (plane index 3) to minimize damage */
+            enable_ega_plane_write(3);
+
+            for (row = 0; row < marker_height_rows; row++) {
+                uint16_t off_a = GRAPHICS_BUFFER_GAMEPLAY_A + (dst_y_pix + row) * bytes_per_row + dst_byte_x;
+                uint16_t off_b = GRAPHICS_BUFFER_GAMEPLAY_B + (dst_y_pix + row) * bytes_per_row + dst_byte_x;
+                uint8_t __far *pa = (uint8_t __far *)MK_FP(0xa000, off_a);
+                uint8_t __far *pb = (uint8_t __far *)MK_FP(0xa000, off_b);
+
+                for (col = 0; col < marker_width_bytes; col++) {
+                    /* Preserve other plane data; set intensity bits to max */
+                    pa[col] = 0xFF;
+                    pb[col] = 0xFF;
+                }
+            }
+
+            /* Ensure it is visible immediately */
+            switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
+
+
+        }
+    }
+
     /* Step 4: Load and display items screen (SYS004.EGA) */
     if (load_fullscreen_graphic(FILENAME_ITEMS_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
         /* Failed to load - stop music and skip items screen */
@@ -1110,6 +1175,7 @@ int load_new_level(void)
     uint8_t __far *video_ptr;
     uint8_t *compressed_buffer;
     unsigned decompressed_size;
+    uint16_t j;
     
     /* TT2 file header structure */
     struct {
@@ -1118,6 +1184,8 @@ int load_new_level(void)
         uint8_t unused2;
         uint8_t flags;
     } tt2_header;
+    
+
     
     /* Validate level number */
     if (current_level_number >= 8) {
@@ -1154,6 +1222,8 @@ int load_new_level(void)
                 _close(file_handle);
                 memset(tileset_graphics, 0, sizeof(tileset_graphics));
             } else {
+
+                
                 /* Read all remaining RLE-compressed data */
                 bytes_read = _read(file_handle, compressed_buffer, 32768);
                 _close(file_handle);
@@ -1162,7 +1232,7 @@ int load_new_level(void)
                 decompressed_size = rle_decode_tt2(compressed_buffer, bytes_read, tileset_graphics, sizeof(tileset_graphics));
                 
                 /* Zero out any remaining space if decompression didn't fill the entire buffer */
-                if (decompressed_size < sizeof(tileset_graphics)) {
+                if (decompressed_size < (unsigned)sizeof(tileset_graphics)) {
                     memset(&tileset_graphics[decompressed_size], 0, sizeof(tileset_graphics) - decompressed_size);
                 }
                 
@@ -1189,34 +1259,10 @@ int load_new_level(void)
         pt0.width = MAP_WIDTH_TILES;
         pt0.height = MAP_HEIGHT_TILES;
         
-        /* DIAGNOSTIC: PT0 load failed */
-        {
-            char __far *screen = (char __far *)0xb8000000L;
-            const char *msg = "PT0 FAIL";
-            int j;
-            for (j = 0; msg[j] != '\0'; j++) {
-                screen[160 + j*2] = msg[j];
-                screen[160 + j*2+1] = 0x0E; /* Yellow on black */
-            }
-        }
+
     } else {
-        /* DIAGNOSTIC: Check if PT0 has any non-zero tile IDs */
-        int has_tiles = 0;
-        for (i = 0; i < 128 && i < MAP_WIDTH_TILES * MAP_HEIGHT_TILES; i++) {
-            if (pt0.tiles[i] != 0) {
-                has_tiles = 1;
-                break;
-            }
-        }
-        if (!has_tiles) {
-            char __far *screen = (char __far *)0xb8000000L;
-            const char *msg = "PT0 EMPTY";
-            int j;
-            for (j = 0; msg[j] != '\0'; j++) {
-                screen[160 + j*2] = msg[j];
-                screen[160 + j*2+1] = 0x0C; /* Red on black */
-            }
-        }
+
+
     }
     
     if (load_pt_file(current_level.pt1_filename, &pt1) != 0) {
@@ -1412,6 +1458,8 @@ static void blit_comic_playfield_offscreen(void)
     pixel_x = (unsigned int)(rel_x_units * 8) + 8; /* +8 pixel playfield left margin */
     pixel_y = (unsigned int)comic_y * 8 + 8;      /* vertical positioning */
 
+
+
     /* Blit 16x32 masked sprite to the offscreen buffers */
     blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, (const uint8_t *)sprite_ptr);
 }
@@ -1501,62 +1549,40 @@ static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, co
 {
     uint8_t plane;
     uint8_t row;
-    const uint8_t *src_ptr;
-    uint8_t __far *dst_ptr;
-    uint16_t tile_offset;
-    uint16_t dst_base_offset;
-    uint16_t dst_row_offset;
+    uint16_t src_offset;
+    uint16_t dst_offset;
     uint8_t byte0, byte1;
-    uint8_t plane_mask;
-    volatile uint16_t i;
+    uint8_t __far *dst_ptr;
+    int i;
     
-    /* Calculate offset into tileset (each tile is 128 bytes) */
-    tile_offset = (uint16_t)tile_id * 128;
-    
-    /* Calculate base destination offset for this tile in RENDERED_MAP_BUFFER
-     * Map layout: 128 tiles per row × 2 bytes per tile = 256 bytes per pixel row
-     * Each tile is 16 pixel rows tall
-     * Offset = (tile_y * 16 * 256) + (tile_x * 2)
-     */
-    dst_base_offset = RENDERED_MAP_BUFFER + ((uint16_t)tile_y * 16 * 256) + ((uint16_t)tile_x * 2);
-    
-    /* Process all 4 planes for this tile
-     * Source pointer is at the start of the tile in the tileset
-     * Destination writes go to the same offset for all planes (EGA planar mode)
-     */
-    src_ptr = tileset_ptr + tile_offset;
-    
+    /* For each plane */
     for (plane = 0; plane < 4; plane++) {
-        /* Set Sequencer Map Mask register for this plane
-         * Plane masks: 0=0x01 (Blue), 1=0x02 (Green), 2=0x04 (Red), 3=0x08 (Intensity)
-         */
-        plane_mask = 1 << plane;
+        /* Set plane mask */
+        outp(0x3c4, 0x02);
+        outp(0x3c5, 1 << plane);
         
-        /* Write to EGA Sequencer registers */
-        outp(0x3c4, 0x02);        /* SC Index: Map Mask register */
-        outp(0x3c5, plane_mask);  /* SC Data: write plane mask */
+        /* Delay to ensure register is set */
+        for (i = 0; i < 10; i++) inp(0x3c5);
         
-        /* Brief delay to ensure register write takes effect */
-        for (i = 0; i < 10; i++) {
-            inp(0x3c5);  /* Read back the register to ensure write */
-        }
-        
-        /* For each of the 16 pixel rows in the tile */
+        /* For each row in the tile */
         for (row = 0; row < 16; row++) {
-            /* Destination offset: base + (row offset in pixels) */
-            dst_row_offset = dst_base_offset + (row * 256);
-            dst_ptr = (uint8_t __far *)MK_FP(0xa000, dst_row_offset);
-            
-            /* Read 2 bytes from source tileset
-             * Tileset layout: [plane0: 32 bytes][plane1: 32 bytes]...[plane3: 32 bytes]
-             * For plane P, row R: byte offset is plane*32 + row*2
+            /* Source offset in tileset_ptr:
+             * Tile ID selects base: tile_id * 128
+             * Plane selects within tile: plane * 32
+             * Row selects within plane: row * 2
              */
-            byte0 = src_ptr[(plane * 32) + (row * 2) + 0];
-            byte1 = src_ptr[(plane * 32) + (row * 2) + 1];
+            src_offset = (tile_id * 128) + (plane * 32) + (row * 2);
+            byte0 = tileset_ptr[src_offset + 0];
+            byte1 = tileset_ptr[src_offset + 1];
             
-            /* Write 2 bytes to video memory
-             * The Sequencer Map Mask (set above) directs these bytes to the selected plane
+            /* Destination offset in RENDERED_MAP_BUFFER:
+             * Base position for this tile: (tile_y * 16 * 256) + (tile_x * 2)
+             * Plus row offset: row * 256
              */
+            dst_offset = RENDERED_MAP_BUFFER + (tile_y * 16 * 256) + (tile_x * 2) + (row * 256);
+            dst_ptr = (uint8_t __far *)MK_FP(0xa000, dst_offset);
+            
+            /* Write the bytes */
             dst_ptr[0] = byte0;
             dst_ptr[1] = byte1;
         }
@@ -1577,7 +1603,7 @@ static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, co
  */
 static void render_map(void)
 {
-    uint8_t tile_x;
+    uint16_t tile_x;
     uint8_t tile_y;
     uint16_t tile_index;
     uint8_t tile_id;
@@ -1587,10 +1613,7 @@ static void render_map(void)
     uint8_t __far *clear_ptr;
     uint16_t i;
     
-    /* Clear RENDERED_MAP_BUFFER (all 4 planes) to black (zero)
-     * Buffer size: 40KB (supporting 128×10 tiles with 16×16 pixels each)
-     * Layout: 256 bytes/row × 160 rows per plane × 4 planes
-     */
+
     for (plane = 0; plane < 4; plane++) {
         /* Set Sequencer Map Mask for this plane */
         outp(0x3c4, 0x02);      /* SC Index: Map Mask */
@@ -1607,6 +1630,8 @@ static void render_map(void)
             }
         }
     }
+    
+
     
     /* Iterate through all tiles in the map (128×10) */
     for (tile_y = 0; tile_y < MAP_HEIGHT_TILES; tile_y++) {
@@ -1632,7 +1657,10 @@ static void render_map(void)
             }
         }
     }
+
+
 }
+
 
 /*
  * load_new_stage - Initialize stage data and render the map
@@ -1711,7 +1739,17 @@ void load_new_stage(void)
     
     /* Pre-render the entire map into RENDERED_MAP_BUFFER */
     render_map();
+
+    /* Ensure the initial frame is drawn and displayed: replicate the
+     * assembly behavior of blitting and swapping buffers at load time. */
+    blit_map_playfield_offscreen();
+    blit_comic_playfield_offscreen();
+    swap_video_buffers();
+
+
 }
+
+
 
 /*
  * clear_bios_keyboard_buffer - Clear the BIOS keyboard buffer
