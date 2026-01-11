@@ -909,20 +909,6 @@ void title_sequence(void)
     /* Copy UI from buffer A to buffer B for static background (8000 bytes per plane) */
     copy_ega_plane(GRAPHICS_BUFFER_GAMEPLAY_A, GRAPHICS_BUFFER_GAMEPLAY_B, 8000);
 
-    /* Draw an immediate visible overlay directly into the gameplay buffers
-     * so it is visible on the title/UI screens (before gameplay starts). */
-    {
-        const uint16_t dst_x_pix = 40;
-        const uint16_t dst_y_pix = 64;
-        const uint16_t dst_byte_x = dst_x_pix / 8;
-        const uint16_t bytes_per_row = SCREEN_WIDTH / 8; /* 40 */
-        uint8_t plane, row, col;
-
-        /* Ensure the buffer with the UI is visible (we set to B later anyway) */
-        switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
-
-    }
-
     /* Step 4: Load and display items screen (SYS004.EGA) */
     if (load_fullscreen_graphic(FILENAME_ITEMS_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
         /* Failed to load - stop music and skip items screen */
