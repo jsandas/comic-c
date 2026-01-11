@@ -9,6 +9,7 @@
 #include "level_data.h"
 #include <fcntl.h>
 #include <io.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -194,12 +195,15 @@ int load_level_shp_files(const level_t* level)
 
         if (file_len % s->num_distinct_frames != 0) {
             /* Unexpected size; skip loading */
+            fprintf(stderr, "WARNING: SHP file '%s' size %ld not divisible by %u frames\n", 
+                    s->filename, file_len, s->num_distinct_frames);
             _close(fh);
             continue;
         }
 
         /* Validate that frame size won't overflow uint16_t */
         if ((file_len / s->num_distinct_frames) > 65535L) {
+            fprintf(stderr, "WARNING: SHP file '%s' frame size exceeds 65535 bytes\n", s->filename);
             _close(fh);
             continue;
         }
@@ -208,6 +212,8 @@ int load_level_shp_files(const level_t* level)
 
         /* Accept only known frame sizes: 80 (16x8), 160 (16x16), 320 (16x32) */
         if (frame_size != 80 && frame_size != 160 && frame_size != 320) {
+            fprintf(stderr, "WARNING: SHP file '%s' has unsupported frame size %u bytes\n", 
+                    s->filename, frame_size);
             _close(fh);
             continue;
         }
@@ -215,6 +221,8 @@ int load_level_shp_files(const level_t* level)
         /* Allocate buffer and read whole file */
         buf = (uint8_t *)malloc(file_len);
         if (!buf) {
+            fprintf(stderr, "ERROR: Failed to allocate %ld bytes for SHP file '%s'\n", 
+                    file_len, s->filename);
             _close(fh);
             continue;
         }
@@ -229,6 +237,8 @@ int load_level_shp_files(const level_t* level)
         _close(fh);
 
         if (bytes_read_total != file_len) {
+            fprintf(stderr, "ERROR: Failed to read SHP file '%s' (got %ld of %ld bytes)\n", 
+                    s->filename, bytes_read_total, file_len);
             free(buf);
             continue;
         }
