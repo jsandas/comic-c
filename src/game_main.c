@@ -1253,7 +1253,7 @@ static void blit_map_playfield_offscreen(void)
             uint16_t dst_offset = offscreen_video_buffer_ptr + ((8 + row) * screen_bytes_per_row) + (8 / 8);
 
             /* Ensure we do not read past the rendered map bounds */
-            uint16_t max_src_bytes = (rendered_bytes_per_row * 200) - ((8 + row) * rendered_bytes_per_row) - camera_x;
+            uint16_t max_src_bytes = (rendered_bytes_per_row * 160) - (row * rendered_bytes_per_row) - camera_x;
             uint16_t bytes_to_copy = playfield_bytes_per_row;
             if (bytes_to_copy > max_src_bytes) {
                 bytes_to_copy = max_src_bytes;
