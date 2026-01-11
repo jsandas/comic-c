@@ -139,7 +139,8 @@ const uint8_t* shp_get_frame(uint8_t shp_index, uint8_t frame_index)
     if (shp_index >= 4) return NULL;
     if (loaded_shps[shp_index].frames == NULL) return NULL;
     if (frame_index >= loaded_shps[shp_index].num_frames) return NULL;
-    return (const uint8_t*)(loaded_shps[shp_index].frames + (frame_index * loaded_shps[shp_index].frame_size));
+    /* Cast to unsigned long to avoid overflow: frame_index (0-255) * frame_size (80-320) = 0-81,600 */
+    return (const uint8_t*)(loaded_shps[shp_index].frames + ((unsigned long)frame_index * loaded_shps[shp_index].frame_size));
 }
 
 uint16_t shp_get_frame_size(uint8_t shp_index)
