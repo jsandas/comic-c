@@ -1516,7 +1516,6 @@ static void render_map(void)
 
 }
 
-
 /*
  * load_new_stage - Initialize stage data and render the map
  * 
