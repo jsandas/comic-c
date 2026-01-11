@@ -63,6 +63,9 @@ int _big_code_ = 1;
 #define MAX_NUM_LIVES           5
 #define MAX_HP                  7
 
+/* EGA video memory segment address */
+#define VIDEO_MEMORY_BASE       0xa000
+
 /* BIOS keyboard buffer addresses */
 #define BIOS_KEYBOARD_BUFFER_HEAD  0x041A
 #define BIOS_KEYBOARD_BUFFER_TAIL  0x041C
@@ -1437,7 +1440,7 @@ static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, co
              * Plus row offset: row * 256
              */
             dst_offset = RENDERED_MAP_BUFFER + (tile_y * 16 * 256) + (tile_x * 2) + (row * 256);
-            dst_ptr = (uint8_t __far *)MK_FP(0xa000, dst_offset);
+            dst_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, dst_offset);
             
             /* Write the bytes */
             dst_ptr[0] = byte0;
@@ -1479,7 +1482,7 @@ static void render_map(void)
         /* Clear all rows of this plane */
         for (clear_row = 0; clear_row < 160; clear_row++) {
             clear_offset = RENDERED_MAP_BUFFER + (clear_row * 256);
-            clear_ptr = (uint8_t __far *)MK_FP(0xa000, clear_offset);
+            clear_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, clear_offset);
             
             /* Write 256 bytes of zero to this row */
             for (i = 0; i < 256; i++) {
