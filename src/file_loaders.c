@@ -151,6 +151,7 @@ uint16_t shp_get_frame_size(uint8_t shp_index)
 int load_level_shp_files(const level_t* level)
 {
     int i;
+    int files_loaded = 0;
 
     if (!level) return -1;
 
@@ -229,9 +230,11 @@ int load_level_shp_files(const level_t* level)
         loaded_shps[i].num_frames = s->num_distinct_frames;
         loaded_shps[i].frame_size = frame_size;
         loaded_shps[i].frames = buf;
+        files_loaded++;
     }
 
-    return 0;
+    /* Return the number of successfully loaded files (0 = all failed, 1-4 = success) */
+    return files_loaded;
 }
 
 /*
