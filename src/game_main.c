@@ -1317,8 +1317,6 @@ static void blit_comic_playfield_offscreen(void)
     pixel_x = (unsigned int)(rel_x_units * 8) + 8; /* +8 pixel playfield left margin */
     pixel_y = (unsigned int)comic_y * 8 + 8;      /* vertical positioning */
 
-
-
     /* Blit 16x32 masked sprite to the offscreen buffers */
     blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, (const uint8_t *)sprite_ptr);
 }
