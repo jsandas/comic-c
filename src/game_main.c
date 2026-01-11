@@ -1477,7 +1477,7 @@ static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, co
  */
 static void render_map(void)
 {
-    uint16_t tile_x;
+    uint8_t tile_x;
     uint8_t tile_y;
     uint16_t tile_index;
     uint8_t tile_id;
@@ -1508,7 +1508,8 @@ static void render_map(void)
     /* Iterate through all tiles in the map (128×10) */
     for (tile_y = 0; tile_y < MAP_HEIGHT_TILES; tile_y++) {
         for (tile_x = 0; tile_x < MAP_WIDTH_TILES; tile_x++) {
-            /* Calculate index into tile map */
+            /* Calculate index into tile map, casting to uint16_t to avoid overflow:
+             * tile_y (0-9) * MAP_WIDTH_TILES (128) + tile_x (0-127) = 0-1279 */
             tile_index = (uint16_t)tile_y * MAP_WIDTH_TILES + tile_x;
             
             /* Get tile ID from current level's tile map */
