@@ -165,7 +165,7 @@ int load_level_shp_files(const level_t* level)
         long file_len;
         uint16_t frame_size;
         uint8_t *buf;
-        unsigned bytes_read_total;
+        long bytes_read_total;
         int r;
 
         if (s->num_distinct_frames == SHP_UNUSED) {
@@ -215,14 +215,14 @@ int load_level_shp_files(const level_t* level)
 
         _lseek(fh, 0, SEEK_SET);
         bytes_read_total = 0;
-        while (bytes_read_total < (unsigned)file_len) {
+        while (bytes_read_total < file_len) {
             r = _read(fh, buf + bytes_read_total, file_len - bytes_read_total);
             if (r <= 0) break;
             bytes_read_total += r;
         }
         _close(fh);
 
-        if (bytes_read_total != (unsigned)file_len) {
+        if (bytes_read_total != file_len) {
             free(buf);
             continue;
         }
