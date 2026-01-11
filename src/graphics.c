@@ -40,6 +40,10 @@
 /* Video memory base address in segment 0xa000 */
 #define VIDEO_MEMORY_BASE       0xa000
 
+/* Screen dimensions */
+#define SCREEN_WIDTH            320
+#define SCREEN_HEIGHT           200
+
 /* Buffer for loading fullscreen graphics from disk (32KB max for uncompressed EGA data) */
 #define GRAPHICS_LOAD_BUFFER_SIZE 0x8000  /* 32KB */
 static uint8_t graphics_load_buffer[GRAPHICS_LOAD_BUFFER_SIZE];  /* Statically allocated buffer in data segment */
@@ -698,6 +702,7 @@ void blit_sprite_16x32_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t 
     uint16_t base_offset;
     uint8_t plane;
     uint8_t row;
+    uint8_t rows_to_draw;
     const uint8_t *plane_base;
     const uint8_t *mask_base;
     uint8_t __far *video_ptr_a;
@@ -708,11 +713,33 @@ void blit_sprite_16x32_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t 
     uint8_t m0;
     uint8_t m1;
 
+    /* Validate sprite doesn't exceed screen bounds
+     * Screen is 320×200; sprite is 16×32
+     * Sprite extends from (pixel_x, pixel_y) to (pixel_x+15, pixel_y+31) */
+    
+    /* Check horizontal bounds: pixel_x must fit within screen and sprite can't overflow */
+    if (pixel_x >= SCREEN_WIDTH || pixel_x + 16 > SCREEN_WIDTH) {
+        return;  /* Sprite entirely or partially off-screen horizontally */
+    }
+    
+    /* Check vertical bounds: pixel_y must be within screen */
+    if (pixel_y >= SCREEN_HEIGHT) {
+        return;  /* Sprite entirely off-screen vertically (below bottom) */
+    }
+    
+    /* Calculate how many rows we can safely draw
+     * If sprite extends past screen bottom, limit rows to fit within screen */
+    if (pixel_y + 32 > SCREEN_HEIGHT) {
+        rows_to_draw = SCREEN_HEIGHT - pixel_y;  /* Clamp to remaining screen height */
+    } else {
+        rows_to_draw = 32;  /* Full sprite fits */
+    }
+
     base_offset = (pixel_y * 320 + pixel_x) / 8;
     mask_base = sprite_data + 256;
     screen_row_bytes = SCREEN_WIDTH / 8; /* 40 */
 
-    /* For each plane, copy 32 rows of two bytes each */
+    /* For each plane, copy rows to both buffers */
     for (plane = 0; plane < 4; plane++) {
         plane_base = sprite_data + plane * 64; /* 64 bytes per plane */
 
@@ -723,7 +750,7 @@ void blit_sprite_16x32_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t 
         /* Enable plane for both reading and writing */
         enable_ega_plane_read_write(plane);
 
-        for (row = 0; row < 32; row++) {
+        for (row = 0; row < rows_to_draw; row++) {
             /* Two bytes per row */
             b0 = plane_base[row * 2 + 0];
             b1 = plane_base[row * 2 + 1];
