@@ -1637,12 +1637,9 @@ void load_new_stage(void)
     }
 #endif
 
-
 }
 
-
-
-/*
+ /*
  * clear_bios_keyboard_buffer - Clear the BIOS keyboard buffer
  * 
  * Clears the BIOS keyboard buffer by setting the tail pointer equal to the
