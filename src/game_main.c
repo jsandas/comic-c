@@ -1073,8 +1073,6 @@ int load_new_level(void)
         uint8_t flags;
     } tt2_header;
     
-
-    
     /* Validate level number */
     if (current_level_number >= 8) {
         return -1;  /* Invalid level number */
