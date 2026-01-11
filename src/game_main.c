@@ -1488,8 +1488,6 @@ static void render_map(void)
         }
     }
     
-
-    
     /* Iterate through all tiles in the map (128×10) */
     for (tile_y = 0; tile_y < MAP_HEIGHT_TILES; tile_y++) {
         for (tile_x = 0; tile_x < MAP_WIDTH_TILES; tile_x++) {
