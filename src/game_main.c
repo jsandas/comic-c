@@ -1060,10 +1060,6 @@ int load_new_level(void)
     unsigned bytes_read;
     const level_t* source_level;
     unsigned i;
-    uint8_t __far *video_ptr;
-    uint8_t *compressed_buffer;
-    unsigned decompressed_size;
-    uint16_t j;
     
     /* TT2 file header structure */
     struct {
