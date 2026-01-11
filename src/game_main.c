@@ -1251,13 +1251,27 @@ static void blit_map_playfield_offscreen(void)
         enable_ega_plane_read_write(plane);
 
         for (row = 0; row < playfield_pixel_rows; row++) {
-            /* Source offset within RENDERED_MAP_BUFFER: rendered tiles start at row 0, not row 8 */
-            uint16_t src_offset = RENDERED_MAP_BUFFER + (row * rendered_bytes_per_row) + camera_x;
-            uint16_t dst_offset = offscreen_video_buffer_ptr + ((8 + row) * screen_bytes_per_row) + (8 / 8);
+            /* Source offset calculation using larger type to prevent overflow
+             * Max value: 0x4000 + (159 * 256) + camera_x ≈ 57K, fits in uint16_t
+             * but use unsigned long for intermediate to be safe */
+            unsigned long src_calc = RENDERED_MAP_BUFFER + ((unsigned long)row * rendered_bytes_per_row) + camera_x;
+            uint16_t src_offset;
+            uint16_t dst_offset;
+            uint16_t max_src_bytes;
+            uint16_t bytes_to_copy;
+            
+            /* Validate calculation fits within segment before assigning to uint16_t */
+            if (src_calc > 65535UL) {
+                /* Source offset would overflow; skip this row */
+                continue;
+            }
+            src_offset = (uint16_t)src_calc;
+            
+            dst_offset = offscreen_video_buffer_ptr + ((8 + row) * screen_bytes_per_row) + (8 / 8);
 
             /* Ensure we do not read past the rendered map bounds */
-            uint16_t max_src_bytes = (rendered_bytes_per_row * 160) - (row * rendered_bytes_per_row) - camera_x;
-            uint16_t bytes_to_copy = playfield_bytes_per_row;
+            max_src_bytes = (rendered_bytes_per_row * 160) - (row * rendered_bytes_per_row) - camera_x;
+            bytes_to_copy = playfield_bytes_per_row;
             if (bytes_to_copy > max_src_bytes) {
                 bytes_to_copy = max_src_bytes;
             }
