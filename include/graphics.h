@@ -58,4 +58,7 @@ void init_default_palette(void);
 void blit_sprite_16x16_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data);
 void blit_sprite_16x32_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data);
 
+/* Load 16-byte palette array (values 0-63) into EGA palette registers 0..15 */
+void load_ega_palette_from_file(const uint8_t *palette16);
+
 #endif /* GRAPHICS_H */

@@ -1047,54 +1047,6 @@ static void copy_string(char* dest, const char* src)
 }
 
 /*
- * rle_decode_tt2 - Decompress RLE-encoded TT2 tileset data
- * 
- * Format:
- *   - Byte with high bit clear (0x00-0x7F): copy next N bytes literally
- *   - Byte with high bit set (0x80-0xFF): repeat next byte (N & 0x7F) times
- * 
- * Input:
- *   src = pointer to RLE-encoded data
- *   src_size = size of RLE data
- *   dst = pointer to output buffer
- *   dst_size = maximum size of output buffer
- * 
- * Returns: number of bytes decompressed
- */
-static unsigned int rle_decode_tt2(const uint8_t *src, unsigned int src_size, uint8_t *dst, unsigned int dst_size)
-{
-    unsigned int src_pos = 0;
-    unsigned int dst_pos = 0;
-    uint8_t cmd;
-    unsigned int count;
-    uint8_t value;
-    unsigned int i;
-    
-    while (src_pos < src_size && dst_pos < dst_size) {
-        cmd = src[src_pos++];
-        
-        if (cmd & 0x80) {
-            /* High bit set: repeat next byte (cmd & 0x7F) times */
-            count = cmd & 0x7F;
-            if (src_pos < src_size) {
-                value = src[src_pos++];
-                for (i = 0; i < count && dst_pos < dst_size; i++) {
-                    dst[dst_pos++] = value;
-                }
-            }
-        } else {
-            /* High bit clear: copy next cmd bytes literally */
-            count = cmd;
-            for (i = 0; i < count && src_pos < src_size && dst_pos < dst_size; i++) {
-                dst[dst_pos++] = src[src_pos++];
-            }
-        }
-    }
-    
-    return dst_pos;
-}
-
-/*
  * load_new_level - Load a new level
  * 
  * Loads the level specified by current_level_number:
@@ -1166,28 +1118,11 @@ int load_new_level(void)
             tileset_last_passable = tt2_header.last_passable;
             tileset_flags = tt2_header.flags;
 
-            /* Allocate buffer for RLE-compressed data */
-            compressed_buffer = malloc(32768);  /* Max reasonable compressed size */
-            if (compressed_buffer == NULL) {
-                _close(file_handle);
-                memset(tileset_graphics, 0, sizeof(tileset_graphics));
-            } else {
-
-                
-                /* Read all remaining RLE-compressed data */
-                bytes_read = _read(file_handle, compressed_buffer, 32768);
-                _close(file_handle);
-                
-                /* Decompress the tileset data */
-                decompressed_size = rle_decode_tt2(compressed_buffer, bytes_read, tileset_graphics, sizeof(tileset_graphics));
-                
-                /* Zero out any remaining space if decompression didn't fill the entire buffer */
-                if (decompressed_size < (unsigned)sizeof(tileset_graphics)) {
-                    memset(&tileset_graphics[decompressed_size], 0, sizeof(tileset_graphics) - decompressed_size);
-                }
-                
-                free(compressed_buffer);
-            }
+            /* The TT2 file format is: 4-byte header + uncompressed tile data (tile-major order).
+             * Each tile is 128 bytes (4 planes × 32 bytes per plane).
+             * We read the tiles directly into tileset_graphics. */
+            bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
+            _close(file_handle);
         }
     }
     
@@ -1229,9 +1164,9 @@ int load_new_level(void)
         pt2.height = MAP_HEIGHT_TILES;
     }
     
-    /* TODO: Load .SHP files when load_shp_files() is implemented */
-    /* load_shp_files(); */
-    
+    /* Load .SHP files referenced by this level into runtime cache */
+    load_level_shp_files(&current_level);
+
     return 0;  /* Success - always proceed even if some files missing */
 }
 
@@ -1326,7 +1261,8 @@ static void blit_map_playfield_offscreen(void)
      *  - camera_x is in game units (1 unit == 8 pixels == 1 byte horizontally)
      *  - Playfield top-left pixel is at (8,8)
      */
-    const uint16_t bytes_per_row = SCREEN_WIDTH / 8; /* 40 */
+    const uint16_t screen_bytes_per_row = SCREEN_WIDTH / 8; /* 40 */
+    const uint16_t rendered_bytes_per_row = 256; /* Rendered map uses 256-byte stride */
     const uint16_t playfield_pixel_rows = PLAYFIELD_HEIGHT * 8; /* 20 * 8 = 160 */
     const uint16_t playfield_bytes_per_row = PLAYFIELD_WIDTH; /* 24 bytes */
     uint8_t plane;
@@ -1337,14 +1273,12 @@ static void blit_map_playfield_offscreen(void)
         enable_ega_plane_read_write(plane);
 
         for (row = 0; row < playfield_pixel_rows; row++) {
-            /* Source offset within RENDERED_MAP_BUFFER
-             * All planes are at the same offset range; plane selection is via registers
-             */
-            uint16_t src_offset = RENDERED_MAP_BUFFER + ((8 + row) * bytes_per_row) + camera_x;
-            uint16_t dst_offset = offscreen_video_buffer_ptr + ((8 + row) * bytes_per_row) + (8 / 8);
+            /* Source offset within RENDERED_MAP_BUFFER: rendered tiles start at row 0, not row 8 */
+            uint16_t src_offset = RENDERED_MAP_BUFFER + (row * rendered_bytes_per_row) + camera_x;
+            uint16_t dst_offset = offscreen_video_buffer_ptr + ((8 + row) * screen_bytes_per_row) + (8 / 8);
 
             /* Ensure we do not read past the rendered map bounds */
-            uint16_t max_src_bytes = (40 * 200) - ((8 + row) * bytes_per_row) - camera_x;
+            uint16_t max_src_bytes = (rendered_bytes_per_row * 200) - ((8 + row) * rendered_bytes_per_row) - camera_x;
             uint16_t bytes_to_copy = playfield_bytes_per_row;
             if (bytes_to_copy > max_src_bytes) {
                 bytes_to_copy = max_src_bytes;
@@ -1695,6 +1629,18 @@ void load_new_stage(void)
     blit_map_playfield_offscreen();
     blit_comic_playfield_offscreen();
     swap_video_buffers();
+
+#ifdef ENABLE_SHP_SMOKE_TEST
+    /* Smoke test: if a 16x32 SHP frame is loaded for shp index 0, blit its
+     * first frame at a visible location so we can verify loader correctness. */
+    {
+        const uint8_t *frame0 = shp_get_frame(0, 0);
+        if (frame0 && shp_get_frame_size(0) == 320) {
+            blit_sprite_16x32_masked(100, 64, frame0);
+            swap_video_buffers();
+        }
+    }
+#endif
 
 
 }

@@ -352,20 +352,17 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
         src_offset += rle_decode(&src_ptr[src_offset], remaining_src_bytes, dst_offset, plane_size);
     }
     
-    /* Load palette from file (16 bytes: one palette value per register) */
-    /* The palette follows immediately after the 4 RLE-encoded planes */
-    /* NOTE: Disabled - may be corrupting plane data if file format differs */
-    /*
+    /* Load palette from file (16 bytes: one palette value per register)
+     * The palette follows immediately after the 4 RLE-encoded planes */
     if (src_offset + 16 <= bytes_read) {
         uint8_t *palette_ptr = &src_ptr[src_offset];
         uint8_t color_index;
-        
-        // Set all 16 palette registers from file data
+
+        /* Set all 16 palette registers from file data */
         for (color_index = 0; color_index < 16; color_index++) {
             set_palette_register(color_index, palette_ptr[color_index]);
         }
     }
-    */
     
     return 0;  /* Success */
 }
@@ -379,6 +376,15 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
  * This function changes which 8KB region of video memory is displayed to the screen.
  * It does this by modifying the video memory offset register.
  */
+void load_ega_palette_from_file(const uint8_t *palette16)
+{
+    uint8_t i;
+    for (i = 0; i < 16; i++) {
+        set_palette_register(i, palette16[i]);
+    }
+}
+
+
 void switch_video_buffer(uint16_t buffer_offset)
 {
     /* Set the video memory start address by writing to CRTC registers.

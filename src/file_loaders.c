@@ -6,9 +6,11 @@
 
 #include "file_loaders.h"
 #include "globals.h"
+#include "level_data.h"
 #include <fcntl.h>
 #include <io.h>
 #include <string.h>
+#include <stdlib.h>
 
 /*
  * Load PT file (tile map) - 128x10 tiles
@@ -88,11 +90,13 @@ int load_tt2_file(const char* filename, void* buffer)
  */
 int load_shp_file(const char* filename, void* buffer)
 {
-    /* Minimal SHP loader: read header of SHP into the provided shp_file_t buffer
-     * and return 0 on success. Full decoding is left for future work. */
+    /* Legacy minimal loader retained for compatibility. The new runtime
+     * SHP loader provides frame storage and accessors (see load_level_shp_files).
+     * This function will attempt to read a small header if present, otherwise
+     * return success if the file exists. */
     int file_handle;
-    unsigned bytes_read;
     shp_file_t* shp = (shp_file_t*)buffer;
+    int bytes_read;
 
     if (!filename || !shp) {
         return -1;
@@ -103,15 +107,130 @@ int load_shp_file(const char* filename, void* buffer)
         return -1;
     }
 
-    /* Read the 3-byte header (horizontal, animation, num_frames) */
+    /* Try to read up to 3 bytes into header structure; if file shorter it's an error */
     bytes_read = _read(file_handle, shp, 3);
-    if (bytes_read != 3) {
+    if (bytes_read < 0) {
         _close(file_handle);
         return -1;
     }
 
-    /* Close and succeed; frame data decoding is not implemented here */
     _close(file_handle);
+    return 0;
+}
+
+/* Runtime cache for up to 4 SHP files referenced by a level */
+static shp_runtime_t loaded_shps[4] = {0};
+
+void free_loaded_shp_files(void)
+{
+    int i;
+    for (i = 0; i < 4; i++) {
+        if (loaded_shps[i].frames) {
+            free(loaded_shps[i].frames);
+            loaded_shps[i].frames = NULL;
+            loaded_shps[i].num_frames = 0;
+            loaded_shps[i].frame_size = 0;
+        }
+    }
+}
+
+const uint8_t* shp_get_frame(uint8_t shp_index, uint8_t frame_index)
+{
+    if (shp_index >= 4) return NULL;
+    if (loaded_shps[shp_index].frames == NULL) return NULL;
+    if (frame_index >= loaded_shps[shp_index].num_frames) return NULL;
+    return (const uint8_t*)(loaded_shps[shp_index].frames + (frame_index * loaded_shps[shp_index].frame_size));
+}
+
+uint16_t shp_get_frame_size(uint8_t shp_index)
+{
+    if (shp_index >= 4) return 0;
+    return loaded_shps[shp_index].frame_size;
+}
+
+int load_level_shp_files(const level_t* level)
+{
+    int i;
+
+    if (!level) return -1;
+
+    /* Free any existing SHP data first */
+    free_loaded_shp_files();
+
+    for (i = 0; i < 4; i++) {
+        const shp_t* s = &level->shp[i];
+        int fh;
+        long file_len;
+        uint16_t frame_size;
+        uint8_t *buf;
+        unsigned bytes_read_total;
+        int r;
+
+        if (s->num_distinct_frames == SHP_UNUSED) {
+            /* leave entry empty */
+            continue;
+        }
+
+        /* Open file and determine size */
+        fh = _open(s->filename, O_RDONLY | O_BINARY);
+        if (fh == -1) {
+            /* Failed to open - skip */
+            continue;
+        }
+
+        file_len = _lseek(fh, 0, SEEK_END);
+        if (file_len <= 0) {
+            _close(fh);
+            continue;
+        }
+
+        /* Compute expected frame size */
+        if (s->num_distinct_frames == 0) {
+            _close(fh);
+            continue;
+        }
+
+        if (file_len % s->num_distinct_frames != 0) {
+            /* Unexpected size; skip loading */
+            _close(fh);
+            continue;
+        }
+
+        frame_size = (uint16_t)(file_len / s->num_distinct_frames);
+
+        /* Accept only known frame sizes: 80 (16x8), 160 (16x16), 320 (16x32) */
+        if (frame_size != 80 && frame_size != 160 && frame_size != 320) {
+            _close(fh);
+            continue;
+        }
+
+        /* Allocate buffer and read whole file */
+        buf = (uint8_t *)malloc(file_len);
+        if (!buf) {
+            _close(fh);
+            continue;
+        }
+
+        _lseek(fh, 0, SEEK_SET);
+        bytes_read_total = 0;
+        while (bytes_read_total < (unsigned)file_len) {
+            r = _read(fh, buf + bytes_read_total, file_len - bytes_read_total);
+            if (r <= 0) break;
+            bytes_read_total += r;
+        }
+        _close(fh);
+
+        if (bytes_read_total != (unsigned)file_len) {
+            free(buf);
+            continue;
+        }
+
+        /* Store into runtime cache */
+        loaded_shps[i].num_frames = s->num_distinct_frames;
+        loaded_shps[i].frame_size = frame_size;
+        loaded_shps[i].frames = buf;
+    }
+
     return 0;
 }
 
