@@ -356,18 +356,6 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
         src_offset += rle_decode(&src_ptr[src_offset], remaining_src_bytes, dst_offset, plane_size);
     }
     
-    /* Load palette from file (16 bytes: one palette value per register)
-     * The palette follows immediately after the 4 RLE-encoded planes */
-    if (src_offset + 16 <= bytes_read) {
-        uint8_t *palette_ptr = &src_ptr[src_offset];
-        uint8_t color_index;
-
-        /* Set all 16 palette registers from file data */
-        for (color_index = 0; color_index < 16; color_index++) {
-            set_palette_register(color_index, palette_ptr[color_index]);
-        }
-    }
-    
     return 0;  /* Success */
 }
 
