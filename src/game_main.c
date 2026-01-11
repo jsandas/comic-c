@@ -1494,11 +1494,6 @@ static void render_map(void)
             /* Calculate index into tile map */
             tile_index = (uint16_t)tile_y * MAP_WIDTH_TILES + tile_x;
             
-            /* Bounds check */
-            if (tile_index >= MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
-                continue;
-            }
-            
             /* Get tile ID from current level's tile map */
             if (current_tiles_ptr != NULL) {
                 tile_id = current_tiles_ptr[tile_index];
