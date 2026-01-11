@@ -720,8 +720,8 @@ void blit_sprite_16x32_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t 
         video_ptr_a = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_A + base_offset);
         video_ptr_b = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_B + base_offset);
 
-        /* Enable plane for writing */
-        enable_ega_plane_write(plane);
+        /* Enable plane for both reading and writing */
+        enable_ega_plane_read_write(plane);
 
         for (row = 0; row < 32; row++) {
             /* Two bytes per row */
