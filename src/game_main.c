@@ -1143,11 +1143,6 @@ int load_new_level(void)
         memset(&pt0, 0, sizeof(pt0));
         pt0.width = MAP_WIDTH_TILES;
         pt0.height = MAP_HEIGHT_TILES;
-        
-
-    } else {
-
-
     }
     
     if (load_pt_file(current_level.pt1_filename, &pt1) != 0) {
