@@ -13,10 +13,12 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
+#include <stdio.h>
 #include <fcntl.h>
 #include <io.h>
 #include "globals.h"
@@ -119,6 +121,12 @@ static pt_file_t pt1;
 static pt_file_t pt2;
 static uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
 static uint8_t comic_num_lives = 0;
+
+/* Offscreen buffer pointer (0x0000 or 0x2000) - start with A as offscreen when B is displayed */
+static uint16_t offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
+
+/* Item animation counter (0 or 1) */
+static uint8_t item_animation_counter = 0;
 
 /* Default keymap for keyboard configuration */
 static uint8_t keymap[6] = {
@@ -900,7 +908,7 @@ void title_sequence(void)
     }
     /* Copy UI from buffer A to buffer B for static background (8000 bytes per plane) */
     copy_ega_plane(GRAPHICS_BUFFER_GAMEPLAY_A, GRAPHICS_BUFFER_GAMEPLAY_B, 8000);
-    
+
     /* Step 4: Load and display items screen (SYS004.EGA) */
     if (load_fullscreen_graphic(FILENAME_ITEMS_GRAPHIC, GRAPHICS_BUFFER_TITLE_TEMP1) != 0) {
         /* Failed to load - stop music and skip items screen */
@@ -1073,28 +1081,30 @@ int load_new_level(void)
     /* Load the .TT2 file (tileset graphics) */
     file_handle = _open(current_level.tt2_filename, O_RDONLY | O_BINARY);
     if (file_handle == -1) {
-        /* Fatal error - can't continue without tileset */
-        return -1;
+        /* Tileset file not found */
+        memset(tileset_graphics, 0, sizeof(tileset_graphics));
+        tileset_last_passable = 0;
+        tileset_flags = 0;
+    } else {
+        /* Read TT2 file header (4 bytes) */
+        bytes_read = _read(file_handle, &tt2_header, sizeof(tt2_header));
+        if (bytes_read != sizeof(tt2_header)) {
+            _close(file_handle);
+            memset(tileset_graphics, 0, sizeof(tileset_graphics));
+            tileset_last_passable = 0;
+            tileset_flags = 0;
+        } else {
+            /* Extract header fields */
+            tileset_last_passable = tt2_header.last_passable;
+            tileset_flags = tt2_header.flags;
+
+            /* The TT2 file format is: 4-byte header + uncompressed tile data (tile-major order).
+             * Each tile is 128 bytes (4 planes × 32 bytes per plane).
+             * We read the tiles directly into tileset_graphics. */
+            bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
+            _close(file_handle);
+        }
     }
-    
-    /* Read TT2 file header (4 bytes) */
-    bytes_read = _read(file_handle, &tt2_header, sizeof(tt2_header));
-    if (bytes_read != sizeof(tt2_header)) {
-        _close(file_handle);
-        return -1;
-    }
-    
-    /* Extract header fields */
-    tileset_last_passable = tt2_header.last_passable;
-    tileset_flags = tt2_header.flags;
-    
-    /* Read tileset graphics data */
-    bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
-    if (bytes_read != sizeof(tileset_graphics)) {
-        _close(file_handle);
-        return -1;
-    }
-    _close(file_handle);
     
     /* Lantern check: If in castle without lantern, black out tiles */
     if (current_level_number == LEVEL_NUMBER_CASTLE) {
@@ -1109,24 +1119,30 @@ int load_new_level(void)
     
     /* Load the three .PT files for this level */
     if (load_pt_file(current_level.pt0_filename, &pt0) != 0) {
-        /* Fatal error - can't continue without stage 0 map */
-        return -1;
+        /* Initialize with empty map if load fails */
+        memset(&pt0, 0, sizeof(pt0));
+        pt0.width = MAP_WIDTH_TILES;
+        pt0.height = MAP_HEIGHT_TILES;
     }
     
     if (load_pt_file(current_level.pt1_filename, &pt1) != 0) {
-        /* Fatal error - can't continue without stage 1 map */
-        return -1;
+        /* Initialize with empty map if load fails */
+        memset(&pt1, 0, sizeof(pt1));
+        pt1.width = MAP_WIDTH_TILES;
+        pt1.height = MAP_HEIGHT_TILES;
     }
     
     if (load_pt_file(current_level.pt2_filename, &pt2) != 0) {
-        /* Fatal error - can't continue without stage 2 map */
-        return -1;
+        /* Initialize with empty map if load fails */
+        memset(&pt2, 0, sizeof(pt2));
+        pt2.width = MAP_WIDTH_TILES;
+        pt2.height = MAP_HEIGHT_TILES;
     }
     
-    /* TODO: Load .SHP files when load_shp_files() is implemented */
-    /* load_shp_files(); */
-    
-    return 0;  /* Success */
+    /* Load .SHP files referenced by this level into runtime cache */
+    load_level_shp_files(&current_level);
+
+    return 0;  /* Success - always proceed even if some files missing */
 }
 
 /*
@@ -1214,12 +1230,95 @@ static void increment_fireball_meter(void)
 
 static void blit_map_playfield_offscreen(void)
 {
-    /* TODO: Implement map rendering */
+    /* Blit the visible playfield region from the rendered map buffer
+     * into the offscreen video buffer, plane by plane.
+     * Uses EGA planar layout: all planes at same offsets, selected via plane registers.
+     *  - camera_x is in game units (1 unit == 8 pixels == 1 byte horizontally)
+     *  - Playfield top-left pixel is at (8,8)
+     */
+    const uint16_t screen_bytes_per_row = SCREEN_WIDTH / 8; /* 40 */
+    const uint16_t rendered_bytes_per_row = 256; /* Rendered map uses 256-byte stride */
+    const uint16_t playfield_pixel_rows = PLAYFIELD_HEIGHT * 8; /* 20 * 8 = 160 */
+    const uint16_t playfield_bytes_per_row = PLAYFIELD_WIDTH; /* 24 bytes */
+    uint8_t plane;
+    uint16_t row;
+
+    for (plane = 0; plane < 4; plane++) {
+        /* Enable reading and writing for this plane */
+        enable_ega_plane_read_write(plane);
+
+        for (row = 0; row < playfield_pixel_rows; row++) {
+            /* Source offset within RENDERED_MAP_BUFFER: rendered tiles start at row 0, not row 8 */
+            uint16_t src_offset = RENDERED_MAP_BUFFER + (row * rendered_bytes_per_row) + camera_x;
+            uint16_t dst_offset = offscreen_video_buffer_ptr + ((8 + row) * screen_bytes_per_row) + (8 / 8);
+
+            /* Ensure we do not read past the rendered map bounds */
+            uint16_t max_src_bytes = (rendered_bytes_per_row * 160) - (row * rendered_bytes_per_row) - camera_x;
+            uint16_t bytes_to_copy = playfield_bytes_per_row;
+            if (bytes_to_copy > max_src_bytes) {
+                bytes_to_copy = max_src_bytes;
+            }
+
+            /* Copy the row for this plane using helper that performs far-pointer copy */
+            copy_plane_bytes(src_offset, dst_offset, bytes_to_copy);
+        }
+    }
 }
 
 static void blit_comic_playfield_offscreen(void)
 {
-    /* TODO: Implement Comic sprite rendering */
+    /* Choose the correct 16x32 sprite based on animation and facing */
+    const uint8_t __far *sprite_ptr = NULL;
+    int rel_x_units;              /* 16-bit on target */
+    unsigned int pixel_x;        /* pixel coordinates (0-319) */
+    unsigned int pixel_y;        /* pixel coordinates (0-199) */
+
+    if (comic_animation == COMIC_STANDING) {
+        sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+            ? sprite_R4_comic_standing_left_16x32m
+            : sprite_R4_comic_standing_right_16x32m;
+    } else if (comic_animation == COMIC_JUMPING) {
+        sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+            ? sprite_R4_comic_jumping_left_16x32m
+            : sprite_R4_comic_jumping_right_16x32m;
+    } else {
+        /* Running cycle 1..3 */
+        switch (comic_run_cycle) {
+            case COMIC_RUNNING_1:
+                sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+                    ? sprite_R4_comic_running_1_left_16x32m
+                    : sprite_R4_comic_running_1_right_16x32m;
+                break;
+            case COMIC_RUNNING_2:
+                sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+                    ? sprite_R4_comic_running_2_left_16x32m
+                    : sprite_R4_comic_running_2_right_16x32m;
+                break;
+            case COMIC_RUNNING_3:
+            default:
+                sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+                    ? sprite_R4_comic_running_3_left_16x32m
+                    : sprite_R4_comic_running_3_right_16x32m;
+                break;
+        }
+    }
+
+    if (sprite_ptr == NULL) {
+        return;
+    }
+
+    /* Compute pixel coordinates relative to camera and playfield offset (8,8) */
+    rel_x_units = (int)comic_x - (int)camera_x;
+    if (rel_x_units < -2 || rel_x_units > (PLAYFIELD_WIDTH + 2)) {
+        /* Offscreen horizontally; skip drawing */
+        return;
+    }
+
+    pixel_x = (unsigned int)(rel_x_units * 8) + 8; /* +8 pixel playfield left margin */
+    pixel_y = (unsigned int)comic_y * 8 + 8;      /* vertical positioning */
+
+    /* Blit 16x32 masked sprite to the offscreen buffers */
+    blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, (const uint8_t *)sprite_ptr);
 }
 
 static void handle_enemies(void)
@@ -1239,7 +1338,21 @@ static void handle_item(void)
 
 static void swap_video_buffers(void)
 {
-    /* TODO: Implement double-buffering page flip */
+    /* Display the offscreen buffer and then toggle which buffer is offscreen */
+    switch_video_buffer(offscreen_video_buffer_ptr);
+
+    /* Toggle between 0x0000 and 0x2000 */
+    if (offscreen_video_buffer_ptr == GRAPHICS_BUFFER_GAMEPLAY_A) {
+        offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_B;
+    } else {
+        offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
+    }
+
+    /* Advance item animation counter (0 -> 1 -> 0) */
+    item_animation_counter++;
+    if (item_animation_counter >= 2) {
+        item_animation_counter = 0;
+    }
 }
 
 static void increment_comic_hp(void)
@@ -1270,6 +1383,139 @@ static uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y)
 }
 
 /*
+ * blit_tile_to_map - Blit a single 16x16 tile to the pre-rendered map buffer
+ * 
+ * Input:
+ *   tile_id = ID of tile in tileset (0-127)
+ *   tile_x = column position in map (0-127)
+ *   tile_y = row position in map (0-9)
+ *   tileset_ptr = pointer to tileset graphics data
+ * 
+ * The tileset contains up to 128 tiles, each 16x16 pixels.
+ * Each tile is 128 bytes (32 bytes per plane × 4 planes).
+ * The rendered map buffer is at 0xa000:4000, organized as:
+ *   - Each screen row is 256 bytes (40 bytes per pixel row + padding)
+ *   - 128 tiles per row (each tile is 2 bytes wide)
+ *   - 16 pixel rows per tile
+ *   - 4 planes stored sequentially
+ * 
+ * Tiles are blitted plane-by-plane to RENDERED_MAP_BUFFER at offset:
+ *   buffer_offset = (tile_y * 16 * 256) + (tile_x * 2)
+ */
+static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, const uint8_t *tileset_ptr)
+{
+    uint8_t plane;
+    uint8_t row;
+    uint16_t src_offset;
+    uint16_t dst_offset;
+    uint8_t byte0, byte1;
+    uint8_t __far *dst_ptr;
+    int i;
+    
+    /* For each plane */
+    for (plane = 0; plane < 4; plane++) {
+        /* Set plane mask */
+        outp(0x3c4, 0x02);
+        outp(0x3c5, 1 << plane);
+        
+        /* Delay to ensure register is set */
+        for (i = 0; i < 10; i++) inp(0x3c5);
+        
+        /* For each row in the tile */
+        for (row = 0; row < 16; row++) {
+            /* Source offset in tileset_ptr:
+             * Tile ID selects base: tile_id * 128
+             * Plane selects within tile: plane * 32
+             * Row selects within plane: row * 2
+             */
+            src_offset = (tile_id * 128) + (plane * 32) + (row * 2);
+            byte0 = tileset_ptr[src_offset + 0];
+            byte1 = tileset_ptr[src_offset + 1];
+            
+            /* Destination offset in RENDERED_MAP_BUFFER:
+             * Base position for this tile: (tile_y * 16 * 256) + (tile_x * 2)
+             * Plus row offset: row * 256
+             */
+            dst_offset = RENDERED_MAP_BUFFER + (tile_y * 16 * 256) + (tile_x * 2) + (row * 256);
+            dst_ptr = (uint8_t __far *)MK_FP(0xa000, dst_offset);
+            
+            /* Write the bytes */
+            dst_ptr[0] = byte0;
+            dst_ptr[1] = byte1;
+        }
+    }
+}
+
+/*
+ * render_map - Pre-render entire tileset into RENDERED_MAP_BUFFER
+ * 
+ * Iterates through the current level's tile map and renders all tiles
+ * into RENDERED_MAP_BUFFER (0xa000:4000). This buffer is then used by
+ * blit_map_playfield_offscreen() to render the visible portion each frame.
+ * 
+ * Preconditions:
+ *   - current_tiles_ptr must point to a valid tile map (128×10)
+ *   - tileset_graphics[] must contain loaded tileset data
+ *   - RENDERED_MAP_BUFFER region must be accessible
+ */
+static void render_map(void)
+{
+    uint16_t tile_x;
+    uint8_t tile_y;
+    uint16_t tile_index;
+    uint8_t tile_id;
+    uint8_t plane;
+    uint16_t clear_offset;
+    uint16_t clear_row;
+    uint8_t __far *clear_ptr;
+    uint16_t i;
+    
+
+    for (plane = 0; plane < 4; plane++) {
+        /* Set Sequencer Map Mask for this plane */
+        outp(0x3c4, 0x02);      /* SC Index: Map Mask */
+        outp(0x3c5, 1 << plane); /* SC Data: plane mask */
+        
+        /* Clear all rows of this plane */
+        for (clear_row = 0; clear_row < 160; clear_row++) {
+            clear_offset = RENDERED_MAP_BUFFER + (clear_row * 256);
+            clear_ptr = (uint8_t __far *)MK_FP(0xa000, clear_offset);
+            
+            /* Write 256 bytes of zero to this row */
+            for (i = 0; i < 256; i++) {
+                clear_ptr[i] = 0;
+            }
+        }
+    }
+    
+    /* Iterate through all tiles in the map (128×10) */
+    for (tile_y = 0; tile_y < MAP_HEIGHT_TILES; tile_y++) {
+        for (tile_x = 0; tile_x < MAP_WIDTH_TILES; tile_x++) {
+            /* Calculate index into tile map */
+            tile_index = (uint16_t)tile_y * MAP_WIDTH_TILES + tile_x;
+            
+            /* Bounds check */
+            if (tile_index >= MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
+                continue;
+            }
+            
+            /* Get tile ID from current level's tile map */
+            if (current_tiles_ptr != NULL) {
+                tile_id = current_tiles_ptr[tile_index];
+            } else {
+                tile_id = 0;  /* No map loaded */
+            }
+            
+            /* Blit this tile to the rendered map buffer */
+            if (tile_id != 0) {
+                blit_tile_to_map(tile_id, tile_x, tile_y, tileset_graphics);
+            }
+        }
+    }
+}
+
+
+/*
  * load_new_stage - Initialize stage data and render the map
  * 
  * Loads the stage specified by current_stage_number and initializes all game state.
@@ -1295,26 +1541,79 @@ static uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y)
  */
 void load_new_stage(void)
 {
-    /* TODO: Implement full stage loading with:
-     * - Render the map
-     * - Handle door entry vs new stage entry
-     * - Position Comic based on entry point
-     * - Initialize enemies
-     */
+    const level_t *current_level_ptr;
+    const stage_t *current_stage_ptr;
+    int cam_x;
     
-    /* For now, set current_tiles_ptr to stage 0's tile map */
-    if (current_stage_number == 0) {
-        current_tiles_ptr = pt0.tiles;
-    } else if (current_stage_number == 1) {
-        current_tiles_ptr = pt1.tiles;
-    } else if (current_stage_number == 2) {
-        current_tiles_ptr = pt2.tiles;
+    /* Get the current level data pointer */
+    if (current_level_number < 8) {
+        current_level_ptr = level_data_pointers[current_level_number];
     } else {
-        current_tiles_ptr = NULL;  /* Invalid stage number */
+        return;  /* Invalid level */
     }
+    
+    /* Set current_tiles_ptr based on current stage (0, 1, or 2) */
+    if (current_stage_number < 3 && current_level_ptr != NULL) {
+        current_stage_ptr = &current_level_ptr->stages[current_stage_number];
+        
+        /* Determine which tile map to use */
+        if (current_stage_number == 0) {
+            current_tiles_ptr = pt0.tiles;
+        } else if (current_stage_number == 1) {
+            current_tiles_ptr = pt1.tiles;
+        } else {
+            current_tiles_ptr = pt2.tiles;
+        }
+        
+        /* Initialize Comic's position from the first door in the stage
+         * (simplified: using first door's position + 1 to center Comic)
+         */
+        if (current_stage_ptr->doors[0].target_level != DOOR_UNUSED) {
+            comic_y = current_stage_ptr->doors[0].y;
+            comic_x = current_stage_ptr->doors[0].x + 1;
+        } else {
+            /* Default position if no doors found */
+            comic_x = 12;
+            comic_y = 8;
+        }
+        
+        /* Initialize camera to center on Comic, clamped to valid range */
+        cam_x = (int)comic_x - (PLAYFIELD_WIDTH - 2) / 2;
+        if (cam_x < 0) {
+            camera_x = 0;
+        } else if (cam_x > MAP_WIDTH - PLAYFIELD_WIDTH) {
+            camera_x = MAP_WIDTH - PLAYFIELD_WIDTH;
+        } else {
+            camera_x = (uint16_t)cam_x;
+        }
+    } else {
+        current_tiles_ptr = NULL;
+    }
+    
+    /* Pre-render the entire map into RENDERED_MAP_BUFFER */
+    render_map();
+
+    /* Ensure the initial frame is drawn and displayed: replicate the
+     * assembly behavior of blitting and swapping buffers at load time. */
+    blit_map_playfield_offscreen();
+    blit_comic_playfield_offscreen();
+    swap_video_buffers();
+
+#ifdef ENABLE_SHP_SMOKE_TEST
+    /* Smoke test: if a 16x32 SHP frame is loaded for shp index 0, blit its
+     * first frame at a visible location so we can verify loader correctness. */
+    {
+        const uint8_t *frame0 = shp_get_frame(0, 0);
+        if (frame0 && shp_get_frame_size(0) == 320) {
+            blit_sprite_16x32_masked(100, 64, frame0);
+            swap_video_buffers();
+        }
+    }
+#endif
+
 }
 
-/*
+ /*
  * clear_bios_keyboard_buffer - Clear the BIOS keyboard buffer
  * 
  * Clears the BIOS keyboard buffer by setting the tail pointer equal to the

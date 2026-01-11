@@ -8,6 +8,7 @@
 #define FILE_LOADERS_H
 
 #include "globals.h"
+#include "level_data.h"
 
 /* PT file structure - tile map (128x10 tiles) */
 typedef struct {
@@ -50,6 +51,25 @@ int load_tt2_file(const char* filename, void* buffer);
 /* Load SHP file (sprite graphics) - CONVERSION TARGET #3 */
 /* Returns 0 on success, non-zero on error */
 int load_shp_file(const char* filename, void* buffer);
+
+/* Runtime SHP cache - holds decoded frames loaded at level load time */
+typedef struct {
+    uint8_t num_frames;        /* Number of frames loaded */
+    uint16_t frame_size;       /* Bytes per frame */
+    uint8_t *frames;           /* Contiguous frame data (num_frames * frame_size) */
+} shp_runtime_t;
+
+/* Load all SHP files referenced by a level into runtime cache (4 entries) */
+int load_level_shp_files(const level_t* level);
+
+/* Free all loaded SHP runtime data */
+void free_loaded_shp_files(void);
+
+/* Get pointer to a specific frame's data, or NULL if not available */
+const uint8_t* shp_get_frame(uint8_t shp_index, uint8_t frame_index);
+
+/* Get the frame size (bytes) for a loaded SHP, or 0 if not loaded */
+uint16_t shp_get_frame_size(uint8_t shp_index);
 
 /* Load EGA file (fullscreen graphics with RLE) - CONVERSION TARGET #4 */
 /* Returns 0 on success, non-zero on error */
