@@ -1427,16 +1427,17 @@ static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, co
     uint16_t dst_offset;
     uint8_t byte0, byte1;
     uint8_t __far *dst_ptr;
-    int i;
     
     /* For each plane */
     for (plane = 0; plane < 4; plane++) {
         /* Set plane mask */
-        outp(0x3c4, 0x02);
-        outp(0x3c5, 1 << plane);
+        outp(0x3c4, 0x02);           /* Write to Sequencer Index register */
+        outp(0x3c5, 1 << plane);     /* Write plane mask to Sequencer Data register */
         
-        /* Delay to ensure register is set */
-        for (i = 0; i < 10; i++) inp(0x3c5);
+        /* Delay to ensure register write completes before accessing video memory.
+         * Standard approach: delay 1 millisecond to account for hardware register
+         * write latency across different CPU speeds and system configurations. */
+        delay(1);
         
         /* For each row in the tile */
         for (row = 0; row < 16; row++) {
