@@ -1509,8 +1509,8 @@ static void render_map(void)
             clear_ptr = (uint8_t __far *)MK_FP(0xa000, clear_offset);
             
             /* Write 256 bytes of zero to this row */
-            for (tile_x = 0; tile_x < 256; tile_x++) {
-                clear_ptr[tile_x] = 0;
+            for (i = 0; i < 256; i++) {
+                clear_ptr[i] = 0;
             }
         }
     }
