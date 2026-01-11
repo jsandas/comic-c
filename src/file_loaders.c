@@ -198,6 +198,12 @@ int load_level_shp_files(const level_t* level)
             continue;
         }
 
+        /* Validate that frame size won't overflow uint16_t */
+        if ((file_len / s->num_distinct_frames) > 65535L) {
+            _close(fh);
+            continue;
+        }
+
         frame_size = (uint16_t)(file_len / s->num_distinct_frames);
 
         /* Accept only known frame sizes: 80 (16x8), 160 (16x16), 320 (16x32) */
