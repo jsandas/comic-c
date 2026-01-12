@@ -1090,6 +1090,11 @@ int load_new_level(void)
     
     /* Copy level data from static data to current_level */
     source_level = level_data_pointers[current_level_number];
+    if (source_level == NULL) {
+        fprintf(stderr, "ERROR: load_new_level: Level %d data pointer is NULL\n", 
+                current_level_number);
+        return -1;
+    }
     memcpy(&current_level, source_level, sizeof(level_t));
     
     /* Load the .TT2 file (tileset graphics) - CRITICAL */
@@ -1116,18 +1121,48 @@ int load_new_level(void)
     tileset_last_passable = tt2_header.last_passable;
     tileset_flags = tt2_header.flags;
 
-    /* The TT2 file format is: 4-byte header + uncompressed tile data (tile-major order).
+    /* The TT2 file format is: 4-byte header + uncompressed tile data (variable size).
      * Each tile is 128 bytes (4 planes × 32 bytes per plane).
-     * We read the tiles directly into tileset_graphics. */
-    bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
-    _close(file_handle);
+     * Not all levels use 128 tiles - some use fewer, so file sizes vary (~4KB to ~11KB).
+     * We read as much as available, then zero-fill the rest of the buffer.
+     * NOTE: _read() may not return all requested bytes in one call, so we loop until EOF. */
+    {
+        uint8_t *buf_ptr = tileset_graphics;
+        unsigned bytes_remaining = sizeof(tileset_graphics);
+        unsigned total_bytes_read = 0;
+        
+        while (bytes_remaining > 0) {
+            bytes_read = _read(file_handle, buf_ptr, bytes_remaining);
+            if (bytes_read == 0) {
+                /* End of file reached - this is expected for variable-size TT2 files */
+                break;
+            }
+            if (bytes_read == -1) {
+                /* Read error */
+                _close(file_handle);
+                fprintf(stderr, "ERROR: load_new_level: Read error while loading TT2 data from '%s'\n",
+                        current_level.tt2_filename);
+                return -1;
+            }
+            total_bytes_read += bytes_read;
+            buf_ptr += bytes_read;
+            bytes_remaining -= bytes_read;
+        }
+        
+        _close(file_handle);
+        
+        /* Zero-fill any remaining space in the tileset buffer */
+        if (bytes_remaining > 0) {
+            memset(buf_ptr, 0, bytes_remaining);
+        }
+        
+        bytes_read = total_bytes_read;
+    }
     
-    /* Check if we read the expected amount of tileset data - CRITICAL failure if incomplete */
-    if (bytes_read != sizeof(tileset_graphics)) {
-        fprintf(stderr, "ERROR: load_new_level: Incomplete tileset read from '%s' "
-                "(expected %u bytes, got %u). Cannot render level background.\n",
-                current_level.tt2_filename, (unsigned)sizeof(tileset_graphics), bytes_read);
-        return -1;  /* Critical error - no background means level is unplayable */
+    /* Log how much tileset data we read (should be at least some amount > 0) */
+    if (bytes_read == 0) {
+        fprintf(stderr, "WARNING: load_new_level: No tileset data read from '%s'. Level may render incorrectly.\n",
+                current_level.tt2_filename);
     }
     
     /* Lantern check: If in castle without lantern, black out tiles */

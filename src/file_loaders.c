@@ -58,11 +58,31 @@ int load_pt_file(const char* filename, pt_file_t* pt)
         return -1;
     }
     
-    /* Read tile data */
-    bytes_read = _read(file_handle, pt->tiles, MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
-    if (bytes_read != MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
-        _close(file_handle);
-        return -1;
+    /* Read tile data - need to loop in case _read doesn't return all bytes at once */
+    {
+        uint8_t *buf_ptr = pt->tiles;
+        unsigned bytes_remaining = MAP_WIDTH_TILES * MAP_HEIGHT_TILES;
+        unsigned total_bytes_read = 0;
+        
+        while (bytes_remaining > 0) {
+            bytes_read = _read(file_handle, buf_ptr, bytes_remaining);
+            if (bytes_read == 0) {
+                /* End of file reached before all data was read */
+                break;
+            }
+            if (bytes_read == -1) {
+                /* Read error */
+                break;
+            }
+            total_bytes_read += bytes_read;
+            buf_ptr += bytes_read;
+            bytes_remaining -= bytes_read;
+        }
+        
+        if (total_bytes_read != MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
+            _close(file_handle);
+            return -1;
+        }
     }
     
     _close(file_handle);
@@ -73,7 +93,7 @@ int load_pt_file(const char* filename, pt_file_t* pt)
  * Load TT2 file (tileset graphics)
  * 
  * TODO: Implement TT2 loader
- * TT2 format is more complex with EGA-encoded tile graphics
+ * TT2 format contains tile graphics data (variable size, not all levels use 128 tiles)
  */
 int load_tt2_file(const char* filename, void* buffer)
 {
