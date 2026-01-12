@@ -1605,8 +1605,14 @@ void load_new_stage(void)
         return;  /* Invalid level */
     }
     
+    /* Ensure the level data pointer is valid before using it */
+    if (current_level_ptr == NULL) {
+        current_tiles_ptr = NULL;
+        return;
+    }
+    
     /* Set current_tiles_ptr based on current stage (0, 1, or 2) */
-    if (current_stage_number < 3 && current_level_ptr != NULL) {
+    if (current_stage_number < 3) {
         current_stage_ptr = &current_level_ptr->stages[current_stage_number];
         
         /* Determine which tile map to use */
