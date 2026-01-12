@@ -1262,13 +1262,24 @@ static void blit_map_playfield_offscreen(void)
      * Uses EGA planar layout: all planes at same offsets, selected via plane registers.
      *  - camera_x is in game units (1 unit == 8 pixels == 1 byte horizontally)
      *  - Playfield top-left pixel is at (8,8)
+     *  - Rendered map uses 256-byte stride; maximum valid camera_x = 256 - PLAYFIELD_WIDTH
      */
     const uint16_t screen_bytes_per_row = SCREEN_WIDTH / 8; /* 40 */
     const uint16_t rendered_bytes_per_row = 256; /* Rendered map uses 256-byte stride */
     const uint16_t playfield_pixel_rows = PLAYFIELD_HEIGHT * 8; /* 20 * 8 = 160 */
     const uint16_t playfield_bytes_per_row = PLAYFIELD_WIDTH; /* 24 bytes */
+    const uint16_t max_camera_x = rendered_bytes_per_row - playfield_bytes_per_row; /* 232 */
     uint8_t plane;
     uint16_t row;
+
+    /* Validate camera position is within rendered map bounds.
+     * If camera_x exceeds max_camera_x, the max_src_bytes calculation would underflow.
+     * This should never happen if load_new_stage correctly bounds camera_x, but we
+     * validate here as a safety check. */
+    if (camera_x > max_camera_x) {
+        /* Invalid camera position; cannot safely render */
+        return;
+    }
 
     for (plane = 0; plane < 4; plane++) {
         /* Enable reading and writing for this plane */
@@ -1293,8 +1304,16 @@ static void blit_map_playfield_offscreen(void)
             
             dst_offset = offscreen_video_buffer_ptr + ((8 + row) * screen_bytes_per_row) + (8 / 8);
 
-            /* Ensure we do not read past the rendered map bounds */
-            max_src_bytes = (rendered_bytes_per_row * 160) - (row * rendered_bytes_per_row) - camera_x;
+            /* Calculate maximum bytes available to read from this row.
+             * Formula: remaining bytes in row = row_start + 256 - src_offset_within_row
+             * Which simplifies to: (256 - camera_x - 0) = 256 - camera_x bytes available
+             * for the first row. But this depends on the row number in the rendered buffer.
+             * 
+             * Safer approach: bytes available = bytes from camera_x to end of rendered row
+             * = rendered_bytes_per_row - camera_x = 256 - camera_x
+             * (This is constant across all rows since stride is uniform) */
+            max_src_bytes = rendered_bytes_per_row - camera_x;
+            
             bytes_to_copy = playfield_bytes_per_row;
             if (bytes_to_copy > max_src_bytes) {
                 bytes_to_copy = max_src_bytes;
