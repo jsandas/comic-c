@@ -93,8 +93,11 @@ int load_shp_file(const char* filename, void* buffer)
 {
     /* Legacy minimal loader retained for compatibility. The new runtime
      * SHP loader provides frame storage and accessors (see load_level_shp_files).
-     * This function will attempt to read a small header if present, otherwise
-     * return success if the file exists. */
+     * This function attempts to read a 3-byte header from the file.
+     * 
+     * Returns: 0 if file exists and header (3 bytes) read successfully
+     *          -1 if file not found, read error, or file is shorter than 3 bytes
+     */
     int file_handle;
     shp_file_t* shp = (shp_file_t*)buffer;
     int bytes_read;
@@ -108,14 +111,16 @@ int load_shp_file(const char* filename, void* buffer)
         return -1;
     }
 
-    /* Try to read up to 3 bytes into header structure; if file shorter it's an error */
+    /* Try to read 3-byte header; file must be at least 3 bytes long */
     bytes_read = _read(file_handle, shp, 3);
-    if (bytes_read < 0) {
-        _close(file_handle);
+    _close(file_handle);
+    
+    /* Reject if read failed, returned 0 bytes, or returned fewer than 3 bytes.
+     * This ensures the shp_file_t buffer is fully initialized. */
+    if (bytes_read != 3) {
         return -1;
     }
 
-    _close(file_handle);
     return 0;
 }
 
