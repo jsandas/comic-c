@@ -1,10 +1,10 @@
 # Captain Comic C Refactor Plan
 
-## Project Status (As of 2026-01-04)
+## Project Status (As of 2026-01-11)
 
 **Overall Progress**: Phase 3 in progress - Game Logic Implementation  
-**Latest Milestone**: Main game loop fully implemented with comprehensive code review and quality improvements  
-**Current Focus**: Rendering subsystem, physics and collision detection
+**Latest Milestone**: Rendering subsystem fully implemented with video buffer management, map/sprite rendering, and double-buffering  
+**Current Focus**: Physics and collision detection implementation
 
 ### Recent Accomplishments
 - ✅ Migrated LAKE and FOREST level data from assembly to C
@@ -30,13 +30,18 @@
 - ✅ **Code review: Enhanced documentation for address_of_tile_at_coordinates()**
 - ✅ **Code review: Documented load_new_stage() implementation requirements**
 - ✅ **Code review: Enhanced handle_teleport() with complete implementation spec**
+- ✅ **Implemented rendering subsystem in C**
+  - ✅ `blit_map_playfield_offscreen()` - Render map tiles with camera positioning
+  - ✅ `blit_comic_playfield_offscreen()` - Render player sprite with animation
+  - ✅ `swap_video_buffers()` - Double-buffering page flip
+  - ✅ EGA plane management and video buffer infrastructure
+  - ✅ Integer overflow/underflow prevention in coordinate calculations
 
 ### Next Priority Items
 1. Complete remaining 6 level data definitions (SPACE, BASE, CAVE, SHED, CASTLE, COMP)
-2. Implement rendering subsystem (video buffer management, map/sprite rendering)
-3. Implement physics and collision detection (gravity, jumping, wall collision)
-4. Implement player movement functions (face_or_move_left/right with collision)
-5. Develop enemy AI and actor management systems
+2. Implement physics and collision detection (gravity, jumping, wall collision)
+3. Implement player movement functions (face_or_move_left/right with collision)
+4. Develop enemy AI and actor management systems
 
 ---
 
@@ -263,33 +268,38 @@ The refactoring approach has been revised to a **C-only entry point** model:
      - ✅ Enhanced input handling documentation
      - ✅ Fixed CPU initialization in dos_idle()
      - ✅ Documented coordinate bounds and tile addressing
-   
-**In Progress / TODO**:
-1. **Implement rendering subsystem in C**
-   - [ ] `blit_map_playfield_offscreen()` - Render map tiles to offscreen buffer
-   - [ ] `blit_comic_playfield_offscreen()` - Render Comic sprite
-   - [ ] `swap_video_buffers()` - Page flip for double-buffering
-   - [ ] Video buffer management and addressing
-   
-2. **Implement physics and collision in C**
+
+5. **Rendering subsystem in C**
+   - ✅ `blit_map_playfield_offscreen()` - Render map tiles to offscreen buffer with camera positioning
+   - ✅ `blit_comic_playfield_offscreen()` - Render Comic sprite with animation state selection
+   - ✅ `swap_video_buffers()` - Page flip for double-buffering
+   - ✅ Video buffer management and addressing
+   - ✅ EGA plane write/read management
+   - ✅ Sprite blitting with masking (`blit_sprite_16x16_masked`, `blit_sprite_16x32_masked`)
+   - ✅ RLE decompression for fullscreen graphics
+   - ✅ Palette management for title sequence fades
+   - ✅ Safe integer arithmetic to prevent overflow/underflow in coordinate calculations
+
+**In Progress / TODO**:  
+6. **Implement physics and collision in C**
    - [ ] `handle_fall_or_jump()` - Gravity, jumping, terminal velocity
    - [ ] `face_or_move_left()` - Left movement with wall collision
    - [ ] `face_or_move_right()` - Right movement with wall collision
    - [ ] `address_of_tile_at_coordinates()` - Tile map lookup
    - [ ] Ground detection and landing mechanics
-   
-3. **Implement actor systems in C**
+
+7. **Implement actor systems in C**
    - [ ] `handle_enemies()` - Enemy AI and rendering
    - [ ] `handle_fireballs()` - Fireball movement and collision
    - [ ] `handle_item()` - Item collision and rendering
    - [ ] `try_to_fire()` - Fireball spawning logic
    
-4. **Implement special features in C**
+8. **Implement special features in C**
    - [ ] `begin_teleport()` - Teleport destination calculation
    - [ ] `handle_teleport()` - Teleport animation and camera movement
    - [ ] `pause_game()` - Pause screen display
    
-5. **Strategy**
+9. **Strategy**
    - Reimplement functions in C when feasible and preferred
    - Consult original assembly as implementation guidance
    - Only interface with original assembly when there is a clear, documented necessity and tests to justify it
@@ -614,16 +624,16 @@ make clean
 - [x] `load_pt_file()` fully functional
 - [x] `load_new_level()` C implementation working
 
-### Milestone 3: Game Loop
-- [ ] C game loop replaces assembly loop
-- [ ] Input handling in C
-- [ ] Win/lose/quit detection in C
+### Milestone 3: Game Loop ✅
+- [x] C game loop replaces assembly loop
+- [x] Input handling in C
+- [x] Win/lose/quit detection in C
 - [ ] Tier 1 tests pass
 
-### Milestone 4: Rendering
-- [ ] Video buffer management in C
-- [ ] Map rendering in C
-- [ ] Sprite rendering in C
+### Milestone 4: Rendering ✅
+- [x] Video buffer management in C
+- [x] Map rendering in C
+- [x] Sprite rendering in C
 - [ ] Tier 2 tests pass
 - [ ] Visual comparison matches original
 
