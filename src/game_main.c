@@ -1630,8 +1630,10 @@ void load_new_stage(void)
             comic_y = 8;
         }
         
-        /* Initialize camera to center on Comic, clamped to valid range */
-        cam_x = (int)comic_x - (PLAYFIELD_WIDTH - 2) / 2;
+        /* Initialize camera to center on Comic, clamped to valid range.
+         * Formula: camera_x = clamp(comic_x - (PLAYFIELD_WIDTH/2 - 1), 0, MAP_WIDTH - PLAYFIELD_WIDTH)
+         * This positions the camera so Comic is centered in the playfield. */
+        cam_x = (int)comic_x - (PLAYFIELD_WIDTH / 2 - 1);
         if (cam_x < 0) {
             camera_x = 0;
         } else if (cam_x > MAP_WIDTH - PLAYFIELD_WIDTH) {
