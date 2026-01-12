@@ -1472,12 +1472,11 @@ static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, co
         /* Set plane mask */
         outp(0x3c4, 0x02);           /* Write to Sequencer Index register */
         outp(0x3c5, 1 << plane);     /* Write plane mask to Sequencer Data register */
-        
-        /* Delay to ensure register write completes before accessing video memory.
-         * Standard approach: delay 1 millisecond to account for hardware register
-         * write latency across different CPU speeds and system configurations. */
-        delay(1);
-        
+
+        /* Minimal synchronization to ensure sequencer register write completes
+         * before accessing video memory. A single I/O read is sufficient on
+         * standard VGA/EGA hardware and avoids millisecond-scale delays. */
+        (void)inp(0x3DA);            /* Read from VGA status register */
         /* For each row in the tile */
         for (row = 0; row < 16; row++) {
             /* Source offset in tileset_ptr:
