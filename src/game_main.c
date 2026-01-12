@@ -1310,9 +1310,9 @@ static void blit_comic_playfield_offscreen(void)
 {
     /* Choose the correct 16x32 sprite based on animation and facing */
     const uint8_t __far *sprite_ptr = NULL;
-    int rel_x_units;              /* 16-bit on target */
-    unsigned int pixel_x;        /* pixel coordinates (0-319) */
-    unsigned int pixel_y;        /* pixel coordinates (0-199) */
+    int rel_x_units;              /* Signed: can be negative for left-of-camera sprites */
+    int pixel_x_signed;           /* Signed calculation to avoid underflow */
+    int pixel_y_signed;           /* Signed calculation */
 
     if (comic_animation == COMIC_STANDING) {
         sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
@@ -1370,11 +1370,16 @@ static void blit_comic_playfield_offscreen(void)
         return;
     }
 
-    pixel_x = (unsigned int)(rel_x_units * 8) + 8; /* +8 pixel playfield left margin */
-    pixel_y = (unsigned int)comic_y * 8 + 8;      /* vertical positioning */
+    /* Perform signed arithmetic first to avoid integer underflow when rel_x_units is negative.
+     * For example, rel_x_units = -1:
+     *   Signed:   (-1 * 8) + 8 = -8 + 8 = 0 (CORRECT)
+     *   Unsigned: (unsigned)(-8) + 8 = 65528 + 8 = 65536 (WRONG underflow)
+     * Cast to unsigned only for the function call. */
+    pixel_x_signed = (rel_x_units * 8) + 8;
+    pixel_y_signed = (int)comic_y * 8 + 8;
 
     /* Blit 16x32 masked sprite to the offscreen buffers */
-    blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, (const uint8_t *)sprite_ptr);
+    blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
 }
 
 static void handle_enemies(void)
