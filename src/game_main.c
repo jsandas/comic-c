@@ -1350,6 +1350,21 @@ static void blit_comic_playfield_offscreen(void)
 
     /* Compute pixel coordinates relative to camera and playfield offset (8,8) */
     rel_x_units = (int)comic_x - (int)camera_x;
+    
+    /* Bounds check: Allow sprites to be drawn partially offscreen at screen edges
+     * for smooth camera movement and scrolling.
+     * 
+     * rel_x_units range interpretation (each unit = 8 pixels):
+     *   -2: sprite left edge at pixel_x = (-2 * 8) + 8 = -8 (completely off-left)
+     *   -1: sprite left edge at pixel_x = (-1 * 8) + 8 = 0 (at left edge, partially visible)
+     *    0: sprite left edge at pixel_x = 0 + 8 = 8 pixels from left margin
+     *   PLAYFIELD_WIDTH+2: sprite at far right edge, partially visible
+     * 
+     * IMPORTANT: The blit_sprite_16x32_masked function MUST implement bounds clipping
+     * to handle sprites that extend beyond the 320x200 screen boundaries. Without
+     * clipping, negative pixel_x values would cause buffer underruns or write to
+     * invalid memory locations.
+     */
     if (rel_x_units < -2 || rel_x_units > (PLAYFIELD_WIDTH + 2)) {
         /* Offscreen horizontally; skip drawing */
         return;
