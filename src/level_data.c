@@ -181,437 +181,497 @@ const level_t level_data_forest = {
 };
 
 const level_t level_data_space = {
+    /* Filenames */
     .tt2_filename = "SPACE.TT2",
     .pt0_filename = "SPACE0.PT",
     .pt1_filename = "SPACE1.PT",
     .pt2_filename = "SPACE2.PT",
-    .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
+    
+    /* Door tiles */
+    .door_tile_ul = 51,
+    .door_tile_ur = 52,
+    .door_tile_ll = 51,
+    .door_tile_lr = 52,
+    
+    /* Enemy sprite files */
     .shp = {
-        {SHP_UNUSED, 0, 0, ""},
-        {SHP_UNUSED, 0, 0, ""},
+        {4, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_LOOP, "rock.shp"},
+        {4, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_LOOP, "saucer.shp"},
         {SHP_UNUSED, 0, 0, ""},
         {SHP_UNUSED, 0, 0, ""}
     },
+    
+    /* Three stages */
     .stages = {
-        /* space0 - stub */
+        /* space0 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_BLASTOLA_COLA,
+            .item_y = 16,
+            .item_x = 10,
+            .exit_l = EXIT_UNUSED,
+            .exit_r = 1,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {12, 2, 0, 2},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {0, ENEMY_BEHAVIOR_BOUNCE}
             }
         },
-        /* space1 - stub */
+        /* space1 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
+            .item_type = ITEM_SHIELD,
+            .item_y = 8,
+            .item_x = 114,
             .exit_l = 0,
-            .exit_r = 0,
+            .exit_r = 2,
             .doors = {
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {1, ENEMY_BEHAVIOR_BOUNCE}
             }
         },
-        /* space2 - stub */
+        /* space2 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_GEMS,
+            .item_y = 6,
+            .item_x = 198,
+            .exit_l = 1,
+            .exit_r = EXIT_UNUSED,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {12, 228, 3, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {1, ENEMY_BEHAVIOR_BOUNCE},
+                {1, ENEMY_BEHAVIOR_BOUNCE | ENEMY_BEHAVIOR_FAST}
             }
         }
     }
 };
 
 const level_t level_data_base = {
+    /* Filenames */
     .tt2_filename = "BASE.TT2",
     .pt0_filename = "BASE0.PT",
     .pt1_filename = "BASE1.PT",
     .pt2_filename = "BASE2.PT",
-    .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
+    
+    /* Door tiles */
+    .door_tile_ul = 9,
+    .door_tile_ur = 10,
+    .door_tile_ll = 11,
+    .door_tile_lr = 12,
+    
+    /* Enemy sprite files */
     .shp = {
-        {SHP_UNUSED, 0, 0, ""},
-        {SHP_UNUSED, 0, 0, ""},
+        {3, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_ALTERNATE, "bug.shp"},
+        {4, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_LOOP, "globe.shp"},
         {SHP_UNUSED, 0, 0, ""},
         {SHP_UNUSED, 0, 0, ""}
     },
+    
+    /* Three stages */
     .stages = {
-        /* base0 - stub */
+        /* base0 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_SHIELD,
+            .item_y = 4,
+            .item_x = 252,
+            .exit_l = 1,
+            .exit_r = 2,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+                {14, 240, 3, 2},
+                {14, 114, 3, 1},
+                {8, 138, 2, 2}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {1, ENEMY_BEHAVIOR_ROLL}
             }
         },
-        /* base1 - stub */
+        /* base1 */
         {
-            .item_type = 0,
-            .item_y = 0,
+            .item_type = ITEM_CORKSCREW,
+            .item_y = 16,
             .item_x = 0,
-            .exit_l = 0,
+            .exit_l = EXIT_UNUSED,
             .exit_r = 0,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+                {6, 0, 0, 2},
+                {14, 112, 3, 0},
+                {0, 0, 3, 2}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {1, ENEMY_BEHAVIOR_ROLL}
             }
         },
-        /* base2 - stub */
+        /* base2 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
+            .item_type = ITEM_BOOTS,
+            .item_y = 16,
+            .item_x = 230,
             .exit_l = 0,
-            .exit_r = 0,
+            .exit_r = EXIT_UNUSED,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {2, 36, 3, 0},
+                {14, 218, 3, 1},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {1, ENEMY_BEHAVIOR_ROLL},
+                {1, ENEMY_BEHAVIOR_ROLL | ENEMY_BEHAVIOR_FAST}
             }
         }
     }
 };
 
 const level_t level_data_cave = {
+    /* Filenames */
     .tt2_filename = "CAVE.TT2",
     .pt0_filename = "CAVE0.PT",
     .pt1_filename = "CAVE1.PT",
     .pt2_filename = "CAVE2.PT",
-    .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
+    
+    /* Door tiles */
+    .door_tile_ul = 5,
+    .door_tile_ur = 5,
+    .door_tile_ll = 5,
+    .door_tile_lr = 5,
+    
+    /* Enemy sprite files */
     .shp = {
-        {SHP_UNUSED, 0, 0, ""},
-        {SHP_UNUSED, 0, 0, ""},
+        {3, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_ALTERNATE, "frog.shp"},
+        {3, ENEMY_HORIZONTAL_SEPARATE, ENEMY_ANIMATION_ALTERNATE, "bee.shp"},
         {SHP_UNUSED, 0, 0, ""},
         {SHP_UNUSED, 0, 0, ""}
     },
+    
+    /* Three stages */
     .stages = {
-        /* cave0 - stub */
+        /* cave0 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_SHIELD,
+            .item_y = 6,
+            .item_x = 41,
+            .exit_l = EXIT_UNUSED,
+            .exit_r = 1,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+                {12, 8, 0, 2},
+                {4, 40, 4, 1},
+                {2, 154, 4, 2}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {0, ENEMY_BEHAVIOR_LEAP | ENEMY_BEHAVIOR_FAST},
+                {1, ENEMY_BEHAVIOR_SEEK}
             }
         },
-        /* cave1 - stub */
+        /* cave1 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
+            .item_type = ITEM_GOLD,
+            .item_y = 4,
+            .item_x = 228,
             .exit_l = 0,
-            .exit_r = 0,
+            .exit_r = 2,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {14, 236, 4, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {0, ENEMY_BEHAVIOR_LEAP | ENEMY_BEHAVIOR_FAST},
+                {1, ENEMY_BEHAVIOR_SEEK},
+                {1, ENEMY_BEHAVIOR_SEEK}
             }
         },
-        /* cave2 - stub */
+        /* cave2 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_TELEPORT_WAND,
+            .item_y = 10,
+            .item_x = 64,
+            .exit_l = 1,
+            .exit_r = EXIT_UNUSED,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {14, 236, 4, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_LEAP},
+                {0, ENEMY_BEHAVIOR_LEAP | ENEMY_BEHAVIOR_FAST},
+                {1, ENEMY_BEHAVIOR_SEEK},
+                {1, ENEMY_BEHAVIOR_SEEK}
             }
         }
     }
 };
 
 const level_t level_data_shed = {
+    /* Filenames */
     .tt2_filename = "SHED.TT2",
     .pt0_filename = "SHED0.PT",
     .pt1_filename = "SHED1.PT",
     .pt2_filename = "SHED2.PT",
-    .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
+    
+    /* Door tiles */
+    .door_tile_ul = 10,
+    .door_tile_ur = 11,
+    .door_tile_ll = 10,
+    .door_tile_lr = 11,
+    
+    /* Enemy sprite files */
     .shp = {
-        {SHP_UNUSED, 0, 0, ""},
-        {SHP_UNUSED, 0, 0, ""},
-        {SHP_UNUSED, 0, 0, ""},
+        {3, ENEMY_HORIZONTAL_SEPARATE, ENEMY_ANIMATION_ALTERNATE, "bird.shp"},
+        {3, ENEMY_HORIZONTAL_SEPARATE, ENEMY_ANIMATION_ALTERNATE, "bee.shp"},
+        {4, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_LOOP, "ball.shp"},
         {SHP_UNUSED, 0, 0, ""}
     },
+    
+    /* Three stages */
     .stages = {
-        /* shed0 - stub */
+        /* shed0 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_SHIELD,
+            .item_y = 12,
+            .item_x = 162,
+            .exit_l = EXIT_UNUSED,
+            .exit_r = 1,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {12, 4, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {1, ENEMY_BEHAVIOR_SEEK},
+                {2, ENEMY_BEHAVIOR_LEAP}
             }
         },
-        /* shed1 - stub */
+        /* shed1 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
+            .item_type = ITEM_BLASTOLA_COLA,
+            .item_y = 4,
+            .item_x = 250,
             .exit_l = 0,
-            .exit_r = 0,
+            .exit_r = EXIT_UNUSED,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {4, 240, 5, 2},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {1, ENEMY_BEHAVIOR_SEEK},
+                {2, ENEMY_BEHAVIOR_LEAP},
+                {2, ENEMY_BEHAVIOR_LEAP}
             }
         },
-        /* shed2 - stub */
+        /* shed2 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_SHIELD,
+            .item_y = 10,
+            .item_x = 246,
+            .exit_l = EXIT_UNUSED,
+            .exit_r = EXIT_UNUSED,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {14, 4, 5, 1},
+                {8, 242, 7, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_BOUNCE | ENEMY_BEHAVIOR_FAST},
+                {1, ENEMY_BEHAVIOR_SEEK},
+                {2, ENEMY_BEHAVIOR_LEAP},
+                {2, ENEMY_BEHAVIOR_LEAP | ENEMY_BEHAVIOR_FAST}
             }
         }
     }
 };
 
 const level_t level_data_castle = {
+    /* Filenames */
     .tt2_filename = "CASTLE.TT2",
     .pt0_filename = "CASTLE0.PT",
     .pt1_filename = "CASTLE1.PT",
     .pt2_filename = "CASTLE2.PT",
-    .door_tile_ul = 48, .door_tile_ur = 49, .door_tile_ll = 48, .door_tile_lr = 49,
+    
+    /* Door tiles */
+    .door_tile_ul = 26,
+    .door_tile_ur = 27,
+    .door_tile_ll = 26,
+    .door_tile_lr = 27,
+    
+    /* Enemy sprite files */
     .shp = {
-        {SHP_UNUSED, 0, 0, ""},
-        {SHP_UNUSED, 0, 0, ""},
-        {SHP_UNUSED, 0, 0, ""},
-        {SHP_UNUSED, 0, 0, ""}
+        {3, ENEMY_HORIZONTAL_SEPARATE, ENEMY_ANIMATION_ALTERNATE, "bird.shp"},
+        {4, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_LOOP, "ball.shp"},
+        {4, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_LOOP, "cube.shp"},
+        {3, ENEMY_HORIZONTAL_SEPARATE, ENEMY_ANIMATION_ALTERNATE, "bee.shp"}
     },
+    
+    /* Three stages */
     .stages = {
-        /* castle0 - stub */
+        /* castle0 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_CROWN,
+            .item_y = 2,
+            .item_x = 244,
+            .exit_l = EXIT_UNUSED,
+            .exit_r = EXIT_UNUSED,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
+                {14, 246, 1, 0},
+                {4, 228, 6, 2},
+                {8, 8, 6, 1}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_BOUNCE | ENEMY_BEHAVIOR_FAST},
+                {1, ENEMY_BEHAVIOR_LEAP},
+                {1, ENEMY_BEHAVIOR_LEAP | ENEMY_BEHAVIOR_FAST},
+                {3, ENEMY_BEHAVIOR_SEEK}
             }
         },
-        /* castle1 - stub */
+        /* castle1 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_SHIELD,
+            .item_y = 14,
+            .item_x = 66,
+            .exit_l = EXIT_UNUSED,
+            .exit_r = EXIT_UNUSED,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {14, 8, 6, 0},
+                {2, 8, 6, 2},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {0, ENEMY_BEHAVIOR_BOUNCE | ENEMY_BEHAVIOR_FAST},
+                {1, ENEMY_BEHAVIOR_LEAP},
+                {1, ENEMY_BEHAVIOR_LEAP | ENEMY_BEHAVIOR_FAST},
+                {2, ENEMY_BEHAVIOR_SHY}
             }
         },
-        /* castle2 - stub */
+        /* castle2 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_SHIELD,
+            .item_y = 8,
+            .item_x = 44,
+            .exit_l = EXIT_UNUSED,
+            .exit_r = EXIT_UNUSED,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {8, 8, 6, 1},
+                {4, 246, 6, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED}
+                {1, ENEMY_BEHAVIOR_LEAP},
+                {2, ENEMY_BEHAVIOR_SHY | ENEMY_BEHAVIOR_FAST},
+                {3, ENEMY_BEHAVIOR_SEEK},
+                {3, ENEMY_BEHAVIOR_SEEK | ENEMY_BEHAVIOR_FAST}
             }
         }
     }
 };
 
 const level_t level_data_comp = {
+    /* Filenames */
     .tt2_filename = "COMP.TT2",
     .pt0_filename = "COMP0.PT",
     .pt1_filename = "COMP1.PT",
     .pt2_filename = "COMP2.PT",
-    .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
+    
+    /* Door tiles */
+    .door_tile_ul = 2,
+    .door_tile_ur = 3,
+    .door_tile_ll = 4,
+    .door_tile_lr = 5,
+    
+    /* Enemy sprite files */
     .shp = {
-        {SHP_UNUSED, 0, 0, ""},
-        {SHP_UNUSED, 0, 0, ""},
-        {SHP_UNUSED, 0, 0, ""},
+        {4, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_LOOP, "star1.shp"},
+        {4, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_LOOP, "star2.shp"},
+        {3, ENEMY_HORIZONTAL_DUPLICATED, ENEMY_ANIMATION_ALTERNATE, "star3.shp"},
         {SHP_UNUSED, 0, 0, ""}
     },
+    
+    /* Three stages */
     .stages = {
-        /* comp0 - stub */
+        /* comp0 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_SHIELD,
+            .item_y = 2,
+            .item_x = 140,
+            .exit_l = EXIT_UNUSED,
+            .exit_r = 1,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {8, 6, 5, 2},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_BOUNCE},
+                {1, ENEMY_BEHAVIOR_BOUNCE},
+                {2, ENEMY_BEHAVIOR_BOUNCE},
                 {0, ENEMY_BEHAVIOR_UNUSED}
             }
         },
-        /* comp1 - stub */
+        /* comp1 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
+            .item_type = ITEM_SHIELD,
+            .item_y = 10,
+            .item_x = 70,
             .exit_l = 0,
-            .exit_r = 0,
+            .exit_r = 2,
             .doors = {
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_BOUNCE | ENEMY_BEHAVIOR_FAST},
+                {1, ENEMY_BEHAVIOR_BOUNCE | ENEMY_BEHAVIOR_FAST},
+                {2, ENEMY_BEHAVIOR_BOUNCE | ENEMY_BEHAVIOR_FAST},
                 {0, ENEMY_BEHAVIOR_UNUSED}
             }
         },
-        /* comp2 - stub */
+        /* comp2 */
         {
-            .item_type = 0,
-            .item_y = 0,
-            .item_x = 0,
-            .exit_l = 0,
-            .exit_r = 0,
+            .item_type = ITEM_LANTERN,
+            .item_y = 2,
+            .item_x = 166,
+            .exit_l = 1,
+            .exit_r = EXIT_UNUSED,
             .doors = {
-                {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
+                {14, 244, 1, 2},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0},
                 {DOOR_UNUSED, DOOR_UNUSED, 0, 0}
             },
             .enemies = {
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
-                {0, ENEMY_BEHAVIOR_UNUSED},
+                {0, ENEMY_BEHAVIOR_BOUNCE | ENEMY_BEHAVIOR_FAST},
+                {1, ENEMY_BEHAVIOR_BOUNCE | ENEMY_BEHAVIOR_FAST},
+                {2, ENEMY_BEHAVIOR_BOUNCE | ENEMY_BEHAVIOR_FAST},
                 {0, ENEMY_BEHAVIOR_UNUSED}
             }
         }
