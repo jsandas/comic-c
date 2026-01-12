@@ -1040,13 +1040,17 @@ static void copy_string(char* dest, const char* src)
  * 
  * Loads the level specified by current_level_number:
  * 1. Copies level data from static level_data_pointers array to current_level
- * 2. Opens and reads the .TT2 file (tileset graphics with 16x16 tile images) - CRITICAL
+ * 2. Opens and reads the .TT2 file (tileset graphics with 16x16 tile images)
+ *    - File open and header read are CRITICAL: returns -1 if they fail
+ *    - Incomplete data read is non-critical: logs warning but continues with partial tileset
  * 3. Loads the three .PT files (stage maps) into pt0, pt1, pt2 structures - logs warnings on failure
  * 4. Performs lantern check for castle level (TODO: implement lantern blackout)
  * 5. TODO: Load .SHP files for enemy sprites
  * 
  * Error Handling:
- *   - Tileset (TT2) failure is CRITICAL: returns -1, game cannot render level
+ *   - Tileset (TT2) file open failure: CRITICAL, returns -1 (cannot render level)
+ *   - Tileset (TT2) header read failure: CRITICAL, returns -1 (corrupted file)
+ *   - Tileset (TT2) data read incomplete: CRITICAL, returns -1 (no background for level)
  *   - Map (PT) failures: logs warning but continues, uses empty map
  *   - Sprite (SHP) failures: logged by load_level_shp_files, continues
  * 
@@ -1055,12 +1059,12 @@ static void copy_string(char* dest, const char* src)
  * 
  * Output:
  *   current_level = filled with level data
- *   tileset_graphics = array of tile images from .TT2 file
+ *   tileset_graphics = array of tile images from .TT2 file (may be partial)
  *   pt0, pt1, pt2 = stage maps from .PT files
  * 
  * Returns:
- *   0 on success (all critical and optional files loaded)
- *   -1 on critical error (invalid level number or tileset load failure)
+ *   0 on success (files opened and headers read successfully)
+ *   -1 on critical error (invalid level number, file open failed, or header read failed)
  */
 int load_new_level(void)
 {
@@ -1118,13 +1122,12 @@ int load_new_level(void)
     bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
     _close(file_handle);
     
-    /* Check if we read the expected amount of tileset data */
+    /* Check if we read the expected amount of tileset data - CRITICAL failure if incomplete */
     if (bytes_read != sizeof(tileset_graphics)) {
-        fprintf(stderr, "WARNING: load_new_level: Incomplete tileset read from '%s' "
-                "(expected %u bytes, got %u)\n",
+        fprintf(stderr, "ERROR: load_new_level: Incomplete tileset read from '%s' "
+                "(expected %u bytes, got %u). Cannot render level background.\n",
                 current_level.tt2_filename, (unsigned)sizeof(tileset_graphics), bytes_read);
-        /* Note: We'll proceed with partial tileset, but display may be corrupted.
-         * This is acceptable since the file exists and some data was read. */
+        return -1;  /* Critical error - no background means level is unplayable */
     }
     
     /* Lantern check: If in castle without lantern, black out tiles */
