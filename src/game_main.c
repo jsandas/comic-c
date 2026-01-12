@@ -1040,10 +1040,15 @@ static void copy_string(char* dest, const char* src)
  * 
  * Loads the level specified by current_level_number:
  * 1. Copies level data from static level_data_pointers array to current_level
- * 2. Opens and reads the .TT2 file (tileset graphics with 16x16 tile images)
- * 3. Loads the three .PT files (stage maps) into pt0, pt1, pt2 structures
+ * 2. Opens and reads the .TT2 file (tileset graphics with 16x16 tile images) - CRITICAL
+ * 3. Loads the three .PT files (stage maps) into pt0, pt1, pt2 structures - logs warnings on failure
  * 4. Performs lantern check for castle level (TODO: implement lantern blackout)
  * 5. TODO: Load .SHP files for enemy sprites
+ * 
+ * Error Handling:
+ *   - Tileset (TT2) failure is CRITICAL: returns -1, game cannot render level
+ *   - Map (PT) failures: logs warning but continues, uses empty map
+ *   - Sprite (SHP) failures: logged by load_level_shp_files, continues
  * 
  * Input:
  *   current_level_number = level to load (0-7)
@@ -1054,8 +1059,8 @@ static void copy_string(char* dest, const char* src)
  *   pt0, pt1, pt2 = stage maps from .PT files
  * 
  * Returns:
- *   0 on success
- *   -1 on error (invalid level number, file not found, read error)
+ *   0 on success (all critical and optional files loaded)
+ *   -1 on critical error (invalid level number or tileset load failure)
  */
 int load_new_level(void)
 {
@@ -1074,39 +1079,52 @@ int load_new_level(void)
     
     /* Validate level number */
     if (current_level_number >= 8) {
-        return -1;  /* Invalid level number */
+        fprintf(stderr, "ERROR: load_new_level: Invalid level number %d (must be 0-7)\n", 
+                current_level_number);
+        return -1;
     }
     
     /* Copy level data from static data to current_level */
     source_level = level_data_pointers[current_level_number];
     memcpy(&current_level, source_level, sizeof(level_t));
     
-    /* Load the .TT2 file (tileset graphics) */
+    /* Load the .TT2 file (tileset graphics) - CRITICAL */
     file_handle = _open(current_level.tt2_filename, O_RDONLY | O_BINARY);
     if (file_handle == -1) {
-        /* Tileset file not found */
-        memset(tileset_graphics, 0, sizeof(tileset_graphics));
-        tileset_last_passable = 0;
-        tileset_flags = 0;
-    } else {
-        /* Read TT2 file header (4 bytes) */
-        bytes_read = _read(file_handle, &tt2_header, sizeof(tt2_header));
-        if (bytes_read != sizeof(tt2_header)) {
-            _close(file_handle);
-            memset(tileset_graphics, 0, sizeof(tileset_graphics));
-            tileset_last_passable = 0;
-            tileset_flags = 0;
-        } else {
-            /* Extract header fields */
-            tileset_last_passable = tt2_header.last_passable;
-            tileset_flags = tt2_header.flags;
+        /* Tileset file not found - this is a critical failure */
+        fprintf(stderr, "ERROR: load_new_level: Cannot open tileset file '%s' for level %d\n",
+                current_level.tt2_filename, current_level_number);
+        return -1;
+    }
+    
+    /* Read TT2 file header (4 bytes) */
+    bytes_read = _read(file_handle, &tt2_header, sizeof(tt2_header));
+    if (bytes_read != sizeof(tt2_header)) {
+        /* Failed to read header - this is a critical failure */
+        fprintf(stderr, "ERROR: load_new_level: Failed to read TT2 header from '%s' "
+                "(expected %u bytes, got %u)\n",
+                current_level.tt2_filename, (unsigned)sizeof(tt2_header), bytes_read);
+        _close(file_handle);
+        return -1;
+    }
+    
+    /* Extract header fields */
+    tileset_last_passable = tt2_header.last_passable;
+    tileset_flags = tt2_header.flags;
 
-            /* The TT2 file format is: 4-byte header + uncompressed tile data (tile-major order).
-             * Each tile is 128 bytes (4 planes × 32 bytes per plane).
-             * We read the tiles directly into tileset_graphics. */
-            bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
-            _close(file_handle);
-        }
+    /* The TT2 file format is: 4-byte header + uncompressed tile data (tile-major order).
+     * Each tile is 128 bytes (4 planes × 32 bytes per plane).
+     * We read the tiles directly into tileset_graphics. */
+    bytes_read = _read(file_handle, tileset_graphics, sizeof(tileset_graphics));
+    _close(file_handle);
+    
+    /* Check if we read the expected amount of tileset data */
+    if (bytes_read != sizeof(tileset_graphics)) {
+        fprintf(stderr, "WARNING: load_new_level: Incomplete tileset read from '%s' "
+                "(expected %u bytes, got %u)\n",
+                current_level.tt2_filename, (unsigned)sizeof(tileset_graphics), bytes_read);
+        /* Note: We'll proceed with partial tileset, but display may be corrupted.
+         * This is acceptable since the file exists and some data was read. */
     }
     
     /* Lantern check: If in castle without lantern, black out tiles */
@@ -1120,8 +1138,10 @@ int load_new_level(void)
         /* } */
     }
     
-    /* Load the three .PT files for this level */
+    /* Load the three .PT files for this level - non-critical */
     if (load_pt_file(current_level.pt0_filename, &pt0) != 0) {
+        fprintf(stderr, "WARNING: load_new_level: Failed to load primary map '%s'\n",
+                current_level.pt0_filename);
         /* Initialize with empty map if load fails */
         memset(&pt0, 0, sizeof(pt0));
         pt0.width = MAP_WIDTH_TILES;
@@ -1129,6 +1149,8 @@ int load_new_level(void)
     }
     
     if (load_pt_file(current_level.pt1_filename, &pt1) != 0) {
+        fprintf(stderr, "WARNING: load_new_level: Failed to load secondary map '%s'\n",
+                current_level.pt1_filename);
         /* Initialize with empty map if load fails */
         memset(&pt1, 0, sizeof(pt1));
         pt1.width = MAP_WIDTH_TILES;
@@ -1136,6 +1158,8 @@ int load_new_level(void)
     }
     
     if (load_pt_file(current_level.pt2_filename, &pt2) != 0) {
+        fprintf(stderr, "WARNING: load_new_level: Failed to load tertiary map '%s'\n",
+                current_level.pt2_filename);
         /* Initialize with empty map if load fails */
         memset(&pt2, 0, sizeof(pt2));
         pt2.width = MAP_WIDTH_TILES;
@@ -1145,7 +1169,7 @@ int load_new_level(void)
     /* Load .SHP files referenced by this level into runtime cache */
     load_level_shp_files(&current_level);
 
-    return 0;  /* Success - always proceed even if some files missing */
+    return 0;  /* Success - tileset loaded and at least one playable state achieved */
 }
 
 /*
