@@ -10,6 +10,7 @@
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
+#include "globals.h"
 #include "graphics.h"
 #include "timing.h"
 
@@ -38,6 +39,10 @@
 
 /* Video memory base address in segment 0xa000 */
 #define VIDEO_MEMORY_BASE       0xa000
+
+/* Screen dimensions */
+#define SCREEN_WIDTH            320
+#define SCREEN_HEIGHT           200
 
 /* Buffer for loading fullscreen graphics from disk (32KB max for uncompressed EGA data) */
 #define GRAPHICS_LOAD_BUFFER_SIZE 0x8000  /* 32KB */
@@ -351,21 +356,6 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
         src_offset += rle_decode(&src_ptr[src_offset], remaining_src_bytes, dst_offset, plane_size);
     }
     
-    /* Load palette from file (16 bytes: one palette value per register) */
-    /* The palette follows immediately after the 4 RLE-encoded planes */
-    /* NOTE: Disabled - may be corrupting plane data if file format differs */
-    /*
-    if (src_offset + 16 <= bytes_read) {
-        uint8_t *palette_ptr = &src_ptr[src_offset];
-        uint8_t color_index;
-        
-        // Set all 16 palette registers from file data
-        for (color_index = 0; color_index < 16; color_index++) {
-            set_palette_register(color_index, palette_ptr[color_index]);
-        }
-    }
-    */
-    
     return 0;  /* Success */
 }
 
@@ -378,6 +368,15 @@ int load_fullscreen_graphic(const char *filename, uint16_t dst_offset)
  * This function changes which 8KB region of video memory is displayed to the screen.
  * It does this by modifying the video memory offset register.
  */
+void load_ega_palette_from_file(const uint8_t *palette16)
+{
+    uint8_t i;
+    for (i = 0; i < 16; i++) {
+        set_palette_register(i, palette16[i]);
+    }
+}
+
+
 void switch_video_buffer(uint16_t buffer_offset)
 {
     /* Set the video memory start address by writing to CRTC registers.
@@ -580,6 +579,21 @@ void copy_ega_plane(uint16_t src_offset, uint16_t dst_offset, uint16_t num_bytes
     }
 }
 
+/* copy_plane_bytes - Copy a small number of bytes within a single EGA plane
+ * This is a helper that avoids relying on far-pointer casting inside other
+ * modules. It assumes the caller has already selected the appropriate plane
+ * for reading/writing. Offsets are relative to segment 0xa000. */
+void copy_plane_bytes(uint16_t src_offset, uint16_t dst_offset, uint16_t num_bytes)
+{
+    uint8_t __far *src_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, src_offset);
+    uint8_t __far *dst_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, dst_offset);
+    uint16_t i;
+
+    for (i = 0; i < num_bytes; i++) {
+        dst_ptr[i] = src_ptr[i];
+    }
+}
+
 /*
  * blit_sprite_16x16_masked - Blit a 16x16 masked EGA sprite to video memory
  * 
@@ -657,6 +671,89 @@ void blit_sprite_16x16_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t 
                 video_ptr_a[col] = (current_a & mask_byte) | (sprite_byte & ~mask_byte);
                 video_ptr_b[col] = (current_b & mask_byte) | (sprite_byte & ~mask_byte);
             }
+        }
+    }
+}
+
+/*
+ * blit_sprite_16x32_masked - Blit a 16x32 masked EGA sprite to video memory
+ *
+ * Sprite format (320 bytes):
+ *   Bytes 0-63:     Blue plane (2 bytes/row × 32 rows = 64 bytes)
+ *   Bytes 64-127:   Green plane
+ *   Bytes 128-191:  Red plane
+ *   Bytes 192-255:  Intensity plane
+ *   Bytes 256-319:  Mask (2 bytes/row × 32 rows = 64 bytes)
+ */
+void blit_sprite_16x32_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data)
+{
+    uint16_t base_offset;
+    uint8_t plane;
+    uint8_t row;
+    uint8_t rows_to_draw;
+    const uint8_t *plane_base;
+    const uint8_t *mask_base;
+    uint8_t __far *video_ptr_a;
+    uint8_t __far *video_ptr_b;
+    uint16_t screen_row_bytes;
+    uint8_t b0;
+    uint8_t b1;
+    uint8_t m0;
+    uint8_t m1;
+
+    /* Validate sprite doesn't exceed screen bounds
+     * Screen is 320×200; sprite is 16×32
+     * Sprite extends from (pixel_x, pixel_y) to (pixel_x+15, pixel_y+31) */
+    
+    /* Check horizontal bounds: pixel_x must fit within screen and sprite can't overflow */
+    if (pixel_x >= SCREEN_WIDTH || pixel_x + 16 > SCREEN_WIDTH) {
+        return;  /* Sprite entirely or partially off-screen horizontally */
+    }
+    
+    /* Check vertical bounds: pixel_y must be within screen */
+    if (pixel_y >= SCREEN_HEIGHT) {
+        return;  /* Sprite entirely off-screen vertically (below bottom) */
+    }
+    
+    /* Calculate how many rows we can safely draw
+     * If sprite extends past screen bottom, limit rows to fit within screen */
+    if (pixel_y + 32 > SCREEN_HEIGHT) {
+        rows_to_draw = SCREEN_HEIGHT - pixel_y;  /* Clamp to remaining screen height */
+    } else {
+        rows_to_draw = 32;  /* Full sprite fits */
+    }
+
+    base_offset = (pixel_y * 320 + pixel_x) / 8;
+    mask_base = sprite_data + 256;
+    screen_row_bytes = SCREEN_WIDTH / 8; /* 40 */
+
+    /* For each plane, copy rows to both buffers */
+    for (plane = 0; plane < 4; plane++) {
+        plane_base = sprite_data + plane * 64; /* 64 bytes per plane */
+
+        /* Start at top row for both buffers */
+        video_ptr_a = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_A + base_offset);
+        video_ptr_b = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_B + base_offset);
+
+        /* Enable plane for both reading and writing */
+        enable_ega_plane_read_write(plane);
+
+        for (row = 0; row < rows_to_draw; row++) {
+            /* Two bytes per row */
+            b0 = plane_base[row * 2 + 0];
+            b1 = plane_base[row * 2 + 1];
+            m0 = mask_base[row * 2 + 0];
+            m1 = mask_base[row * 2 + 1];
+
+            video_ptr_a[0] = (video_ptr_a[0] & m0) | (b0 & ~m0);
+            video_ptr_a[1] = (video_ptr_a[1] & m1) | (b1 & ~m1);
+
+            video_ptr_b[0] = (video_ptr_b[0] & m0) | (b0 & ~m0);
+            video_ptr_b[1] = (video_ptr_b[1] & m1) | (b1 & ~m1);
+
+            /* Advance to next screen row (40 bytes) */
+            video_ptr_a += screen_row_bytes;
+            video_ptr_b += screen_row_bytes;
         }
     }
 }

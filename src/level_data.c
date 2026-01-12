@@ -13,10 +13,10 @@
 /* LAKE Level Data */
 const level_t level_data_lake = {
     /* Filenames */
-    .tt2_filename = "lake.tt2",
-    .pt0_filename = "lake0.pt",
-    .pt1_filename = "lake1.pt",
-    .pt2_filename = "lake2.pt",
+    .tt2_filename = "LAKE.TT2",
+    .pt0_filename = "LAKE0.PT",
+    .pt1_filename = "LAKE1.PT",
+    .pt2_filename = "LAKE2.PT",
     
     /* Door tiles */
     .door_tile_ul = 16,
@@ -99,10 +99,10 @@ const level_t level_data_lake = {
 
 const level_t level_data_forest = {
     /* Filenames */
-    .tt2_filename = "forest.tt2",
-    .pt0_filename = "forest0.pt",
-    .pt1_filename = "forest1.pt",
-    .pt2_filename = "forest2.pt",
+    .tt2_filename = "FOREST.TT2",
+    .pt0_filename = "FOREST0.PT",
+    .pt1_filename = "FOREST1.PT",
+    .pt2_filename = "FOREST2.PT",
     
     /* Door tiles */
     .door_tile_ul = 48,
@@ -181,10 +181,10 @@ const level_t level_data_forest = {
 };
 
 const level_t level_data_space = {
-    .tt2_filename = "space.tt2",
-    .pt0_filename = "space0.pt",
-    .pt1_filename = "space1.pt",
-    .pt2_filename = "space2.pt",
+    .tt2_filename = "SPACE.TT2",
+    .pt0_filename = "SPACE0.PT",
+    .pt1_filename = "SPACE1.PT",
+    .pt2_filename = "SPACE2.PT",
     .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
     .shp = {
         {SHP_UNUSED, 0, 0, ""},
@@ -254,10 +254,10 @@ const level_t level_data_space = {
 };
 
 const level_t level_data_base = {
-    .tt2_filename = "base.tt2",
-    .pt0_filename = "base0.pt",
-    .pt1_filename = "base1.pt",
-    .pt2_filename = "base2.pt",
+    .tt2_filename = "BASE.TT2",
+    .pt0_filename = "BASE0.PT",
+    .pt1_filename = "BASE1.PT",
+    .pt2_filename = "BASE2.PT",
     .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
     .shp = {
         {SHP_UNUSED, 0, 0, ""},
@@ -327,10 +327,10 @@ const level_t level_data_base = {
 };
 
 const level_t level_data_cave = {
-    .tt2_filename = "cave.tt2",
-    .pt0_filename = "cave0.pt",
-    .pt1_filename = "cave1.pt",
-    .pt2_filename = "cave2.pt",
+    .tt2_filename = "CAVE.TT2",
+    .pt0_filename = "CAVE0.PT",
+    .pt1_filename = "CAVE1.PT",
+    .pt2_filename = "CAVE2.PT",
     .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
     .shp = {
         {SHP_UNUSED, 0, 0, ""},
@@ -400,10 +400,10 @@ const level_t level_data_cave = {
 };
 
 const level_t level_data_shed = {
-    .tt2_filename = "shed.tt2",
-    .pt0_filename = "shed0.pt",
-    .pt1_filename = "shed1.pt",
-    .pt2_filename = "shed2.pt",
+    .tt2_filename = "SHED.TT2",
+    .pt0_filename = "SHED0.PT",
+    .pt1_filename = "SHED1.PT",
+    .pt2_filename = "SHED2.PT",
     .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
     .shp = {
         {SHP_UNUSED, 0, 0, ""},
@@ -473,10 +473,10 @@ const level_t level_data_shed = {
 };
 
 const level_t level_data_castle = {
-    .tt2_filename = "castle.tt2",
-    .pt0_filename = "castle0.pt",
-    .pt1_filename = "castle1.pt",
-    .pt2_filename = "castle2.pt",
+    .tt2_filename = "CASTLE.TT2",
+    .pt0_filename = "CASTLE0.PT",
+    .pt1_filename = "CASTLE1.PT",
+    .pt2_filename = "CASTLE2.PT",
     .door_tile_ul = 48, .door_tile_ur = 49, .door_tile_ll = 48, .door_tile_lr = 49,
     .shp = {
         {SHP_UNUSED, 0, 0, ""},
@@ -546,10 +546,10 @@ const level_t level_data_castle = {
 };
 
 const level_t level_data_comp = {
-    .tt2_filename = "comp.tt2",
-    .pt0_filename = "comp0.pt",
-    .pt1_filename = "comp1.pt",
-    .pt2_filename = "comp2.pt",
+    .tt2_filename = "COMP.TT2",
+    .pt0_filename = "COMP0.PT",
+    .pt1_filename = "COMP1.PT",
+    .pt2_filename = "COMP2.PT",
     .door_tile_ul = 32, .door_tile_ur = 33, .door_tile_ll = 32, .door_tile_lr = 33,
     .shp = {
         {SHP_UNUSED, 0, 0, ""},
