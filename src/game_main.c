@@ -28,6 +28,7 @@
 #include "sound.h"
 #include "sprite_data.h"
 #include "level_data.h"
+#include "physics.h"
 #include "file_loaders.h"
 
 /* Runtime library symbol for large model code */
@@ -75,35 +76,37 @@ static uint8_t interrupt_handler_install_sentinel = 0;
 static volatile uint8_t game_tick_flag = 0;
 static uint16_t max_joystick_reads = 0;
 static uint16_t saved_video_mode = 0;
-static uint8_t current_level_number = LEVEL_NUMBER_FOREST;
-static uint8_t current_stage_number = 0;
+uint8_t current_level_number = LEVEL_NUMBER_FOREST;
+uint8_t current_stage_number = 0;
 static level_t current_level;
 
 /* Game state variables */
 static uint8_t win_counter = 0;
-static uint8_t comic_x = 0;
-static uint8_t comic_y = 0;
-static uint8_t comic_animation = COMIC_STANDING;
-static uint8_t comic_facing = COMIC_FACING_RIGHT;
-static uint8_t comic_run_cycle = COMIC_RUNNING_1;
-static uint8_t comic_is_falling_or_jumping = 0;
-static uint8_t comic_is_teleporting = 0;
-static int8_t comic_x_momentum = 0;
-static int8_t comic_y_vel = 0;
-static uint8_t comic_jump_counter = 4;
-static uint8_t comic_jump_power = 4;
+uint8_t comic_x = 0;
+uint8_t comic_y = 0;
+uint8_t comic_animation = COMIC_STANDING;
+uint8_t comic_facing = COMIC_FACING_RIGHT;
+uint8_t comic_run_cycle = COMIC_RUNNING_1;
+uint8_t comic_is_falling_or_jumping = 0;
+uint8_t comic_is_teleporting = 0;
+int8_t comic_x_momentum = 0;
+int8_t comic_y_vel = 0;
+uint8_t comic_jump_counter = 4;
+uint8_t comic_jump_power = 4;
+uint8_t ceiling_stick_flag = 0;  /* Whether Comic is jumping upward against a ceiling */
+const level_t *current_level_ptr = NULL;  /* Pointer to current level data */
 static uint8_t comic_hp = MAX_HP;
 static uint8_t comic_hp_pending_increase = 0;
-static uint16_t camera_x = 0;
+uint16_t camera_x = 0;
 
 /* Input state variables (set by keyboard interrupt handler) */
-static uint8_t key_state_esc = 0;
-static uint8_t key_state_jump = 0;
-static uint8_t key_state_fire = 0;
-static uint8_t key_state_left = 0;
-static uint8_t key_state_right = 0;
-static uint8_t key_state_open = 0;
-static uint8_t key_state_teleport = 0;
+uint8_t key_state_esc = 0;
+uint8_t key_state_jump = 0;
+uint8_t key_state_fire = 0;
+uint8_t key_state_left = 0;
+uint8_t key_state_right = 0;
+uint8_t key_state_open = 0;
+uint8_t key_state_teleport = 0;
 
 /* Fireball state */
 static uint8_t fireball_meter = 100;
@@ -114,15 +117,15 @@ static uint8_t comic_has_door_key = 0;
 static uint8_t comic_has_teleport_wand = 0;
 
 /* Tileset buffer - holds data from .TT2 file */
-static uint8_t tileset_last_passable;
-static uint8_t tileset_flags;
-static uint8_t tileset_graphics[128 * 128];  /* Up to 128 16x16 tiles */
+uint8_t tileset_last_passable;
+uint8_t tileset_flags;
+uint8_t tileset_graphics[128 * 128];  /* Up to 128 16x16 tiles */
 
 /* Stage data - three .PT files per level */
 static pt_file_t pt0;
 static pt_file_t pt1;
 static pt_file_t pt2;
-static uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
+uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
 static uint8_t comic_num_lives = 0;
 
 /* Offscreen buffer pointer (0x0000 or 0x2000) - start with A as offscreen when B is displayed */
@@ -1206,33 +1209,15 @@ static void handle_teleport(void)
     comic_is_teleporting = 0;  /* TODO: Remove this and implement full animation */
 }
 
-static void handle_fall_or_jump(void)
-{
-    /* TODO: Implement gravity, jumping, and ground collision */
-}
+/* Physics functions implemented in physics.c */
+/* handle_fall_or_jump is defined in physics.c */
 
 static void begin_teleport(void)
 {
     /* TODO: Implement teleport initiation */
 }
 
-static void face_or_move_left(void)
-{
-    /* TODO: Implement left movement and collision */
-    comic_facing = COMIC_FACING_LEFT;
-    if (comic_is_falling_or_jumping == 0) {
-        comic_animation = comic_run_cycle;
-    }
-}
-
-static void face_or_move_right(void)
-{
-    /* TODO: Implement right movement and collision */
-    comic_facing = COMIC_FACING_RIGHT;
-    if (comic_is_falling_or_jumping == 0) {
-        comic_animation = comic_run_cycle;
-    }
-}
+/* face_or_move_left and face_or_move_right are implemented in physics.c */
 
 static void pause_game(void)
 {
@@ -1450,25 +1435,7 @@ static void increment_comic_hp(void)
     }
 }
 
-static uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y)
-{
-    /* Calculate byte offset into tile map
-     * 
-     * Input coordinates should be valid:
-     *   x: 0-127 (MAP_WIDTH_TILES - 1)
-     *   y: 0-9 (MAP_HEIGHT_TILES - 1)
-     * 
-     * If coordinates are out of bounds, the returned offset will exceed
-     * MAP_WIDTH_TILES * MAP_HEIGHT_TILES (1280). Callers must check the
-     * returned value against this limit before dereferencing the tile map.
-     * 
-     * Map layout: Linear array, row-major order
-     *   tiles[y*128 + x] = tile ID at (x, y)
-     * 
-     * Offset = y * MAP_WIDTH_TILES + x
-     */
-    return (uint16_t)y * MAP_WIDTH_TILES + x;
-}
+/* address_of_tile_at_coordinates is now defined in physics.c */
 
 /*
  * blit_tile_to_map - Blit a single 16x16 tile to the pre-rendered map buffer
@@ -1625,12 +1592,12 @@ static void render_map(void)
  */
 void load_new_stage(void)
 {
-    const level_t *current_level_ptr;
     const stage_t *current_stage_ptr;
     int cam_x;
     
     /* Get the current level data pointer */
     if (current_level_number < 8) {
+        /* Use the global current_level_ptr, which is accessible to physics.c */
         current_level_ptr = level_data_pointers[current_level_number];
     } else {
         return;  /* Invalid level */
@@ -1705,7 +1672,60 @@ void load_new_stage(void)
 
 }
 
- /*
+/*
+ * comic_dies - Handle Comic's death
+ * 
+ * This function is called when Comic falls off the bottom of the screen
+ * or when his HP is reduced to zero. It:
+ * 1. Sets Comic's animation to COMIC_JUMPING
+ * 2. Blits Comic and the map to the offscreen buffer
+ * 3. Swaps video buffers to show the death frame
+ * 4. Plays the "Too Bad" sound effect
+ * 5. Either respawns Comic with one less life, or ends the game
+ */
+void comic_dies(void)
+{
+    /* Set Comic's animation to jumping as he falls */
+    comic_animation = COMIC_JUMPING;
+    
+    /* If Comic is still visible on screen (y < PLAYFIELD_HEIGHT), show the death animation */
+    if (comic_y < PLAYFIELD_HEIGHT) {
+        /* Blit the map and Comic's current position */
+        blit_map_playfield_offscreen();
+        blit_comic_playfield_offscreen();
+        swap_video_buffers();
+        
+        /* Wait briefly to show the death frame */
+        wait_n_ticks(1);
+    }
+    
+    /* Blit final frame and swap buffers */
+    blit_map_playfield_offscreen();
+    swap_video_buffers();
+    
+    /* Wait for effect to display */
+    wait_n_ticks(2);
+    
+    /* Play "Too Bad" sound - TODO: implement sound playback
+     * In the assembly, this used: int3 with AX=SOUND_PLAY, BX=SOUND_TOO_BAD address, CX=priority
+     */
+    
+    /* Wait for sound to finish */
+    wait_n_ticks(15);
+    
+    /* Lose a life and respawn, or game over if no lives remain
+     * TODO: Implement lives tracking and respawn logic */
+    
+    /* For now, just reset Comic's state to allow continuing */
+    comic_run_cycle = 0;
+    comic_is_falling_or_jumping = 0;
+    comic_x_momentum = 0;
+    comic_y_vel = 0;
+    comic_jump_counter = 4;
+    comic_animation = COMIC_STANDING;
+}
+
+/*
  * clear_bios_keyboard_buffer - Clear the BIOS keyboard buffer
  * 
  * Clears the BIOS keyboard buffer by setting the tail pointer equal to the
