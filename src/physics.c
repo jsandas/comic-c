@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdio.h>
 #include "physics.h"
 #include "globals.h"
 #include "level_data.h"
@@ -43,11 +44,13 @@ static uint8_t is_tile_solid(uint8_t tile_id)
     return tile_id > tileset_last_passable;
 }
 
-/* Helper: Get tile at coordinates from current stage's map */
+/* Helper: Get tile at coordinates from current stage's map
+ * Note: x and y are in game units (0-255, 0-19), but address_of_tile_at_coordinates
+ * expects tile coordinates (0-127, 0-9). Each tile is 2 game units, so we divide by 2. */
 static uint8_t get_tile_at(uint8_t x, uint8_t y)
 {
     extern uint8_t *current_tiles_ptr;
-    uint16_t offset = address_of_tile_at_coordinates(x, y);
+    uint16_t offset = address_of_tile_at_coordinates(x / 2, y / 2);
     
     /* Bounds check: if offset exceeds map size, return non-solid */
     if (offset >= MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
@@ -128,11 +131,43 @@ void handle_fall_or_jump(void)
     }
     
     /* Apply gravity */
-    if (current_level_number == LEVEL_NUMBER_SPACE) {
-        /* Reduced gravity in space level */
-        comic_y_vel += (COMIC_GRAVITY - COMIC_GRAVITY_SPACE);
+    /* First check if we're already on a platform (standing on passable platform tiles) */
+    if (comic_y_vel == 0) {  /* Only check if not currently moving vertically */
+        uint8_t platform_foot_y = comic_y + 2;
+        uint8_t platform_tile = get_tile_at(comic_x, platform_foot_y);
+        uint8_t platform_solid = is_tile_solid(platform_tile);
+        
+        /* Check secondary tile if on odd boundary */
+        if (!platform_solid && (comic_x & 1)) {
+            platform_tile = get_tile_at(comic_x + 1, platform_foot_y);
+            platform_solid = is_tile_solid(platform_tile);
+        }
+        
+        /* If standing on a passable platform tile (not solid, not air),
+         * don't apply gravity - Comic is on a walkable platform */
+        if (!platform_solid && platform_tile != 0) {
+            /* Standing on passable platform - no gravity */
+            /* DEBUG: Could log this but would be very noisy */
+        } else if (platform_solid) {
+            /* Standing directly on solid ground - no gravity */
+            /* This shouldn't happen normally but handle it anyway */
+        } else {
+            /* Air/empty space - apply gravity to start falling */
+            if (current_level_number == LEVEL_NUMBER_SPACE) {
+                /* Reduced gravity in space level */
+                comic_y_vel += (COMIC_GRAVITY - COMIC_GRAVITY_SPACE);
+            } else {
+                comic_y_vel += COMIC_GRAVITY;
+            }
+        }
     } else {
-        comic_y_vel += COMIC_GRAVITY;
+        /* Already moving, apply gravity normally */
+        if (current_level_number == LEVEL_NUMBER_SPACE) {
+            /* Reduced gravity in space level */
+            comic_y_vel += (COMIC_GRAVITY - COMIC_GRAVITY_SPACE);
+        } else {
+            comic_y_vel += COMIC_GRAVITY;
+        }
     }
     
     /* Clamp downward velocity to terminal velocity */
@@ -170,6 +205,7 @@ void handle_fall_or_jump(void)
     
     /* Check solidity above (for upward collision) */
     if (comic_y_vel < 0) {  /* Moving upward */
+        /* Check at the top of Comic (comic_y - 2 game units = 1 tile above) */
         head_tile = get_tile_at(comic_x, comic_y);
         head_solid = is_tile_solid(head_tile);
         
@@ -188,7 +224,8 @@ void handle_fall_or_jump(void)
     
     /* Check solidity below (for downward collision / ground detection) */
     if (comic_y_vel > 0) {  /* Moving downward */
-        foot_y = comic_y + 5;  /* Position 1 unit below feet */
+        /* Check at the bottom of Comic (comic_y + 2 game units = 1 tile below) */
+        foot_y = comic_y + 2;
         foot_tile = get_tile_at(comic_x, foot_y);
         foot_solid = is_tile_solid(foot_tile);
         
@@ -198,19 +235,35 @@ void handle_fall_or_jump(void)
             foot_solid = is_tile_solid(foot_tile);
         }
         
-        /* Additional safety check: if foot_y >= PLAYFIELD_HEIGHT - 5,
-         * we're looking outside the map bounds, so don't treat it as solid */
-        if (foot_solid && foot_y < PLAYFIELD_HEIGHT - 5) {
-            /* Hit the ground: snap to even tile boundary and land */
-            comic_y = (comic_y + 1) & 0xfe;  /* Round up to next even number */
+        /* If we found solid ground, stop falling */
+        /* Only land if we've been falling with meaningful velocity (prevent bouncing on startup) */
+        if (foot_solid && comic_y_vel >= 16) {  /* Minimum velocity of 16 (2 full tiles per tick) before landing */
+            /* Hit the ground: position Comic so his feet are just above the solid tile
+             * Since we checked at comic_y + 2, the solid tile is there.
+             * Comic's feet should be at comic_y, so snap to a lower position. */
+            
+            /* DEBUG: Log landing info */
+            uint8_t tile_row = foot_y / 2;
+            FILE *dbg = fopen("DEBUG.LOG", "a");
+            if (dbg) {
+                fprintf(dbg, "PHYSICS_LAND: y=%d->%d, foot_y=%d, tile_row=%d, foot_tile=%d, vel=%d\n",
+                    comic_y, comic_y - 2, foot_y, tile_row, foot_tile, comic_y_vel);
+                fclose(dbg);
+            }
+            
+            comic_y -= 2;  /* Move feet to rest on the solid tile */
             comic_is_falling_or_jumping = 0;
             comic_y_vel = 0;
+            comic_animation = COMIC_STANDING;  /* Now standing on solid ground */
         } else {
             /* Still falling or jumping */
             comic_animation = COMIC_JUMPING;
         }
+    } else if (comic_y_vel == 0) {
+        /* Not moving downward and velocity is zero - standing on platform */
+        comic_animation = COMIC_STANDING;
     } else {
-        /* Still falling or jumping */
+        /* Still falling or jumping (vel < 0, moving upward) */
         comic_animation = COMIC_JUMPING;
     }
 }

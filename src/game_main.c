@@ -15,12 +15,14 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <io.h>
+#include <sys/stat.h>
 #include "globals.h"
 #include "graphics.h"
 #include "timing.h"
@@ -203,6 +205,7 @@ static const char TITLE_SEQUENCE_MESSAGE[] =
     "Exiting...\r\n$";
 
 /* Forward declarations */
+static void debug_log(const char *format, ...);
 int load_new_level(void);
 void load_new_stage(void);
 void game_loop(void);
@@ -1123,6 +1126,9 @@ int load_new_level(void)
     /* Extract header fields */
     tileset_last_passable = tt2_header.last_passable;
     tileset_flags = tt2_header.flags;
+    
+    debug_log("DEBUG: load_new_level() - TT2 header read: last_passable=%d, flags=%d\n",
+        tileset_last_passable, tileset_flags);
 
     /* The TT2 file format is: 4-byte header + uncompressed tile data (variable size).
      * Each tile is 128 bytes (4 planes × 32 bytes per plane).
@@ -1630,6 +1636,8 @@ void load_new_stage(void)
     const stage_t *current_stage_ptr;
     int cam_x;
     
+    debug_log("DEBUG: load_new_stage() called - level=%d, stage=%d\n", current_level_number, current_stage_number);
+    
     /* Get the current level data pointer */
     if (current_level_number < 8) {
         /* Use the global current_level_ptr, which is accessible to physics.c */
@@ -1640,6 +1648,7 @@ void load_new_stage(void)
     
     /* Ensure the level data pointer is valid before using it */
     if (current_level_ptr == NULL) {
+        debug_log("DEBUG: load_new_stage() - current_level_ptr is NULL\n");
         current_tiles_ptr = NULL;
         return;
     }
@@ -1657,6 +1666,9 @@ void load_new_stage(void)
             current_tiles_ptr = pt2.tiles;
         }
         
+        debug_log("DEBUG: load_new_stage() - stage=%d, current_tiles_ptr=%p, pt0.tiles=%p\n", 
+            current_stage_number, current_tiles_ptr, pt0.tiles);
+        
         /* Initialize Comic's position from the first door in the stage
          * (simplified: using first door's position + 1 to center Comic)
          */
@@ -1668,6 +1680,14 @@ void load_new_stage(void)
             comic_x = 12;
             comic_y = 8;
         }
+        
+        debug_log("DEBUG: load_new_stage() - initial comic_x=%d, comic_y=%d\n", comic_x, comic_y);
+        
+        /* Initialize Comic's physics state
+         * Start with Comic standing (not falling), let the game loop detect if he needs to fall */
+        comic_is_falling_or_jumping = 0;
+        comic_y_vel = 0;  /* Start at rest */
+        comic_jump_counter = 1;  /* Exhaust jump counter so he can't jump immediately */
         
         /* Initialize camera to center on Comic, clamped to valid range.
          * Formula: camera_x = clamp(comic_x - (PLAYFIELD_WIDTH/2 - 1), 0, MAP_WIDTH - PLAYFIELD_WIDTH)
@@ -1790,6 +1810,39 @@ static void dos_idle(void)
 }
 
 /*
+ * debug_log - Write debug message to DEBUG.LOG file
+ * 
+ * Appends formatted text to DEBUG.LOG file. Uses static file handle
+ * for efficiency (file stays open between calls).
+ */
+static void debug_log(const char *format, ...)
+{
+    static int debug_file = -1;
+    va_list args;
+    char buffer[256];
+    int len;
+    
+    /* Open DEBUG.LOG on first call (append mode) */
+    if (debug_file == -1) {
+        debug_file = _open("DEBUG.LOG", O_WRONLY | O_CREAT | O_APPEND | O_BINARY, 
+                          S_IREAD | S_IWRITE);
+        if (debug_file == -1) {
+            return;  /* Can't open file, silently fail */
+        }
+    }
+    
+    /* Format the message */
+    va_start(args, format);
+    len = vsprintf(buffer, format, args);
+    va_end(args);
+    
+    /* Write to file */
+    if (len > 0) {
+        _write(debug_file, buffer, len);
+    }
+}
+
+/*
  * game_loop - Main game loop
  * 
  * This is the main game loop that runs continuously until the game ends.
@@ -1808,6 +1861,8 @@ void game_loop(void)
     uint16_t tile_addr;
     uint8_t tile_value;
     uint8_t skip_rendering;
+    uint8_t check_tile_y;
+    uint8_t check_tile_x;
     
     while (1) {
         skip_rendering = 0;
@@ -1869,12 +1924,13 @@ void game_loop(void)
         }
         /* Handle falling, jumping, and movement only if not teleporting */
         else {
-            /* Handle falling or jumping */
-            if (comic_is_falling_or_jumping != 0) {
-                handle_fall_or_jump();
-            }
+            /* Always call physics to handle gravity and collisions */
+            debug_log("PHYSICS: Calling handle_fall_or_jump, y=%d, vel=%d, falling=%d\n", comic_y, comic_y_vel, comic_is_falling_or_jumping);
+            handle_fall_or_jump();
+            debug_log("PHYSICS: Returned, new y=%d, falling=%d\n", comic_y, comic_is_falling_or_jumping);
+            
             /* Check jump input (only if not already falling/jumping) */
-            else if (key_state_jump == 1) {
+            if (key_state_jump == 1 && comic_is_falling_or_jumping == 0) {
                 /* Only jump if comic_jump_counter is not exhausted
                  * comic_jump_counter == 1 means "exhausted" (used as a sentinel value)
                  * This prevents jumping while already in the air */
@@ -1882,7 +1938,7 @@ void game_loop(void)
                     comic_is_falling_or_jumping = 1;
                     handle_fall_or_jump();
                 }
-            } else {
+            } else if (key_state_jump == 0) {
                 /* Not pressing jump; recharge jump counter for the next frame.
                  * Note: The busy-wait loop above also recharges the counter
                  * continuously while waiting, providing responsive jump timing.
@@ -1920,52 +1976,9 @@ void game_loop(void)
                     face_or_move_right();
                 }
                 
-                /* Check for floor beneath Comic */
-                /* We check comic_y + 4 to see if there's a solid tile 4 units below Comic.
-                 * Valid comic_y values are 0-9 (can occupy any tile row in a 10-tile map).
-                 * Adding 4 could put us at y=13 if comic_y=9, which is out of bounds.
-                 * The bounds check below (tile_addr < MAP_WIDTH_TILES * MAP_HEIGHT_TILES)
-                 * catches this and treats out-of-bounds as passable (no floor). */
-                tile_addr = address_of_tile_at_coordinates(comic_x, comic_y + 4);
-                /* Look up the tile ID from the current stage's tile map */
-                if (current_tiles_ptr != NULL && tile_addr < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
-                    tile_value = current_tiles_ptr[tile_addr];
-                } else {
-                    tile_value = 0;  /* Treat as passable if no tile map loaded or out of bounds */
-                }
-                
-                /* Check if there's solid ground directly beneath Comic */
-                if (tile_value > tileset_last_passable) {
-                    /* Primary tile is solid; we're standing on something */
-                    /* Do nothing - remain on ground */
-                } else {
-                    /* Primary tile is passable. If Comic is halfway between tiles,
-                     * also check the secondary tile (tile to the right) */
-                    uint8_t secondary_tile_solid = 0;
-                    if ((comic_x & 1) && current_tiles_ptr != NULL && tile_addr + 1 < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
-                        /* Comic is odd-positioned (halfway between tiles) */
-                        tile_value = current_tiles_ptr[tile_addr + 1];
-                        if (tile_value > tileset_last_passable) {
-                            secondary_tile_solid = 1;
-                        }
-                    }
-                    
-                    /* Start falling if both primary and secondary tiles are passable */
-                    if (!secondary_tile_solid) {
-                        comic_y_vel = 8;  /* Initial falling velocity */
-                        
-                        /* After walking off edge, Comic has 2 units of momentum */
-                        if (comic_x_momentum < 0) {
-                            comic_x_momentum = -2;
-                        } else if (comic_x_momentum > 0) {
-                            comic_x_momentum = +2;
-                        }
-                        
-                        comic_is_falling_or_jumping = 1;
-                        /* Set counter to 1 (exhausted) to prevent mid-air jumping */
-                        comic_jump_counter = 1;
-                    }
-                }
+                /* NOTE: Floor detection has been moved entirely to physics.c/handle_fall_or_jump()
+                 * The physics module now handles all gravity, collision, and falling logic.
+                 * Game loop floor check disabled to avoid redundant/conflicting checks. */
             }
         }
         
