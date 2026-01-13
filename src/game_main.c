@@ -329,6 +329,12 @@ void calibrate_joystick(void)
 static void (__interrupt *saved_int8_handler)(void);   /* Timer tick handler */
 static void (__interrupt *saved_int9_handler)(void);   /* Keyboard handler */
 
+/* Keyboard scancode capture buffer (direct from INT 9) */
+#define MAX_SCANCODE_QUEUE 16
+static uint8_t scancode_queue[MAX_SCANCODE_QUEUE];
+static uint8_t scancode_queue_head = 0;
+static uint8_t scancode_queue_tail = 0;
+
 /*
  * int8_handler - Timer interrupt (INT 8) handler
  * 
@@ -358,15 +364,22 @@ static void __interrupt int8_handler(void)
 /*
  * int9_handler - Keyboard interrupt (INT 9) handler
  * 
- * Reads the keyboard scancode and calls the original handler.
- * Uses inline assembly to define the interrupt handler.
+ * Reads the keyboard scancode, stores it in a queue, and calls the original handler.
  */
 static void __interrupt int9_handler(void)
 {
     uint8_t scancode;
+    uint8_t next_head;
     
-    /* Read keyboard scancode */
+    /* Read keyboard scancode from port 0x60 */
     scancode = inp(0x60);
+    
+    /* Store scancode in queue if there's room */
+    next_head = (scancode_queue_head + 1) % MAX_SCANCODE_QUEUE;
+    if (next_head != scancode_queue_tail) {
+        scancode_queue[scancode_queue_head] = scancode;
+        scancode_queue_head = next_head;
+    }
     
     /* Call the original keyboard interrupt handler */
     if (saved_int9_handler) {
@@ -1843,6 +1856,106 @@ static void debug_log(const char *format, ...)
 }
 
 /*
+ * update_keyboard_input - Read keyboard state and update key_state variables
+ * 
+ * Polls the BIOS keyboard buffer and reads scancodes to update the key_state
+ * variables based on the configured keymap.
+ * 
+ * The key_state variables are:
+ * - key_state_jump: Space (jump)
+ * - key_state_fire: Insert (fire)
+ * - key_state_left: Left arrow (move left)
+ * - key_state_right: Right arrow (move right)
+ * - key_state_open: Alt (open door)
+ * - key_state_teleport: CapsLock (teleport)
+ * - key_state_esc: Escape (quit)
+ * 
+ * Keymaps are loaded from KEYS.DEF if present; otherwise defaults are used.
+ */
+static void update_keyboard_input(void)
+{
+    uint8_t scancode;
+    uint8_t key_count = 0;
+    
+    /* Reset all key states to 0 at start of scan */
+    key_state_esc = 0;
+    key_state_jump = 0;
+    key_state_fire = 0;
+    key_state_left = 0;
+    key_state_right = 0;
+    key_state_open = 0;
+    key_state_teleport = 0;
+    
+    debug_log("KEYS: queue head=%d tail=%d keymap=[0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X]\n",
+              scancode_queue_head, scancode_queue_tail, keymap[0], keymap[1], keymap[2], keymap[3], keymap[4], keymap[5]);
+    
+    /* Process all scancodes in the queue */
+    while (scancode_queue_head != scancode_queue_tail) {
+        /* Get next scancode from queue */
+        scancode = scancode_queue[scancode_queue_tail];
+        scancode_queue_tail = (scancode_queue_tail + 1) % MAX_SCANCODE_QUEUE;
+        
+        key_count++;
+        debug_log("  KEY[%d]: scancode=0x%02X ", key_count, scancode);
+        
+        /* Compare scancode with configured keymap */
+        if (scancode == keymap[0]) {
+            key_state_jump = 1;  /* SPACE */
+            debug_log("-> JUMP\n");
+        } else if (scancode == keymap[1]) {
+            key_state_fire = 1;  /* INSERT */
+            debug_log("-> FIRE\n");
+        } else if (scancode == keymap[2]) {
+            key_state_left = 1;  /* LEFT ARROW */
+            debug_log("-> LEFT\n");
+        } else if (scancode == keymap[3]) {
+            key_state_right = 1; /* RIGHT ARROW */
+            debug_log("-> RIGHT\n");
+        } else if (scancode == keymap[4]) {
+            key_state_open = 1;  /* ALT */
+            debug_log("-> OPEN\n");
+        } else if (scancode == keymap[5]) {
+            key_state_teleport = 1;  /* CAPSLOCK */
+            debug_log("-> TELEPORT\n");
+        } else if (scancode == 0x01) {
+            key_state_esc = 1;  /* ESCAPE - hardcoded */
+            debug_log("-> ESC\n");
+        } else {
+            debug_log("-> NO MATCH\n");
+        }
+    }
+    
+    if (key_count == 0) {
+        debug_log("  (no keys in queue)\n");
+    }
+    
+    debug_log("KEYS: After processing: left=%d right=%d jump=%d fire=%d\n",
+              key_state_left, key_state_right, key_state_jump, key_state_fire);
+}
+
+/*
+ * face_or_move_left - Face or move Comic left
+ * 
+ * Wrapper that sets facing direction and calls the physics move_left function.
+ */
+static void face_or_move_left(void)
+{
+    comic_facing = COMIC_FACING_LEFT;
+    move_left();
+}
+
+/*
+ * face_or_move_right - Face or move Comic right
+ * 
+ * Wrapper that sets facing direction and calls the physics move_right function.
+ */
+static void face_or_move_right(void)
+{
+    comic_facing = COMIC_FACING_RIGHT;
+    move_right();
+}
+
+/*
  * game_loop - Main game loop
  * 
  * This is the main game loop that runs continuously until the game ends.
@@ -1867,9 +1980,6 @@ void game_loop(void)
     while (1) {
         skip_rendering = 0;
         
-        /* Clear the BIOS keyboard buffer */
-        clear_bios_keyboard_buffer();
-        
         /* Busy-wait until int8_handler sets game_tick_flag */
         while (game_tick_flag != 1) {
             /* While waiting, reinitialize comic_jump_counter if Comic is not
@@ -1887,6 +1997,9 @@ void game_loop(void)
         
         /* Clear the tick flag */
         game_tick_flag = 0;
+        
+        /* Read keyboard input and update key_state variables */
+        update_keyboard_input();
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
@@ -1963,16 +2076,20 @@ void game_loop(void)
             /* Handle left/right movement - only if not falling/jumping and not teleporting */
             else if (comic_is_falling_or_jumping == 0) {
                 comic_x_momentum = 0;
+                debug_log("MOVE: falling=%d, left=%d, right=%d, comic_x=%d, comic_y=%d\n",
+                          comic_is_falling_or_jumping, key_state_left, key_state_right, comic_x, comic_y);
                 /* Note: If both left and right keys are pressed simultaneously,
                  * right movement takes priority (momentum is set to -5 then
                  * immediately overwritten to +5). This matches the original
                  * assembly behavior. */
                 if (key_state_left == 1) {
                     comic_x_momentum = -5;
+                    debug_log("MOVE: Moving LEFT\n");
                     face_or_move_left();
                 }
                 if (key_state_right == 1) {
                     comic_x_momentum = +5;
+                    debug_log("MOVE: Moving RIGHT\n");
                     face_or_move_right();
                 }
                 

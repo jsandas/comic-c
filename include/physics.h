@@ -26,8 +26,6 @@ uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y);
 
 /* Movement functions */
 void handle_fall_or_jump(void);
-void face_or_move_left(void);
-void face_or_move_right(void);
 
 /* Helper functions */
 void move_left(void);
