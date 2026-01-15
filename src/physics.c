@@ -25,6 +25,7 @@ extern uint8_t comic_jump_counter;
 extern uint8_t comic_jump_power;
 extern uint8_t comic_run_cycle;
 extern uint8_t ceiling_stick_flag;
+extern uint8_t comic_fall_delay;
 extern uint8_t tileset_last_passable;
 extern uint8_t *current_tiles_ptr;
 extern uint8_t current_level_number;
@@ -88,6 +89,7 @@ void handle_fall_or_jump(void)
     extern uint8_t comic_animation;
     
     int8_t delta_y;
+    uint8_t skip_vertical_integration;
     uint8_t head_tile;
     uint8_t head_solid;
     uint8_t foot_y;
@@ -122,18 +124,33 @@ void handle_fall_or_jump(void)
         if (comic_is_falling_or_jumping == 0) {
             return;
         }
+
+    /* If we hit the jump apex, add a brief hover before falling */
+    if (comic_fall_delay == 0 && comic_jump_counter == 0 && comic_y_vel == 0) {
+        comic_fall_delay = 2;
+    }
     
-    /* Integrate velocity: move by comic_y_vel / 8 */
-    delta_y = comic_y_vel / 8;
-    /* Use signed arithmetic to avoid underflow on negative velocities */
-    {
-        int16_t new_y = (int16_t)comic_y + (int16_t)delta_y;
-        if (new_y < 0) {
-            comic_y = 0;
-        } else if (new_y > 255) {
-            comic_y = 255;
-        } else {
-            comic_y = (uint8_t)new_y;
+    /* If we're in a short hover before falling, hold vertical position */
+    skip_vertical_integration = 0;
+    if (comic_fall_delay > 0 && comic_y_vel == 0) {
+        comic_fall_delay--;
+        comic_animation = COMIC_JUMPING;
+        skip_vertical_integration = 1;
+    }
+
+    if (!skip_vertical_integration) {
+        /* Integrate velocity: move by comic_y_vel / 8 */
+        delta_y = comic_y_vel / 8;
+        /* Use signed arithmetic to avoid underflow on negative velocities */
+        {
+            int16_t new_y = (int16_t)comic_y + (int16_t)delta_y;
+            if (new_y < 0) {
+                comic_y = 0;
+            } else if (new_y > 255) {
+                comic_y = 255;
+            } else {
+                comic_y = (uint8_t)new_y;
+            }
         }
     }
     
@@ -273,6 +290,7 @@ void handle_fall_or_jump(void)
             comic_y = (uint8_t)((comic_y + 1) & 0xFE);  /* snap to even boundary */
             comic_is_falling_or_jumping = 0;
             comic_y_vel = 0;
+            comic_fall_delay = 0;
             comic_animation = COMIC_STANDING;  /* Now standing on solid ground */
         } else {
             /* Still falling or jumping */

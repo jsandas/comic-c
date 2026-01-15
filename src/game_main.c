@@ -96,6 +96,7 @@ int8_t comic_y_vel = 0;
 uint8_t comic_jump_counter = 0;
 uint8_t comic_jump_power = JUMP_COUNTER_INITIAL;  /* Initialize to full jump */
 uint8_t ceiling_stick_flag = 0;  /* Whether Comic is jumping upward against a ceiling */
+uint8_t comic_fall_delay = 0;  /* Ticks to hover at jump apex */
 const level_t *current_level_ptr = NULL;  /* Pointer to current level data */
 static uint8_t comic_hp = MAX_HP;
 static uint8_t comic_hp_pending_increase = 0;
@@ -2096,6 +2097,12 @@ void game_loop(void)
             }
             /* Handle left/right movement - only if not falling/jumping and not teleporting */
             else if (comic_is_falling_or_jumping == 0) {
+                uint8_t foot_y;
+                uint16_t foot_offset;
+                uint8_t foot_tile;
+                uint8_t foot_solid;
+                uint8_t right_foot_solid;
+
                 comic_x_momentum = 0;
                 debug_log("MOVE: falling=%d, left=%d, right=%d, comic_x=%d, comic_y=%d\n",
                           comic_is_falling_or_jumping, key_state_left, key_state_right, comic_x, comic_y);
@@ -2113,10 +2120,36 @@ void game_loop(void)
                     debug_log("MOVE: Moving RIGHT\n");
                     face_or_move_right();
                 }
-                
-                /* NOTE: Floor detection has been moved entirely to physics.c/handle_fall_or_jump()
-                 * The physics module now handles all gravity, collision, and falling logic.
-                 * Game loop floor check disabled to avoid redundant/conflicting checks. */
+
+                /* Check for floor below Comic (walked off an edge) */
+                foot_y = comic_y + 4;
+                foot_offset = address_of_tile_at_coordinates(comic_x / 2, foot_y / 2);
+                foot_solid = 0;
+                right_foot_solid = 0;
+                if (current_tiles_ptr != NULL && foot_offset < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
+                    foot_tile = current_tiles_ptr[foot_offset];
+                    if (foot_tile > tileset_last_passable) {
+                        foot_solid = 1;
+                    }
+                    if ((comic_x & 1) && (foot_offset + 1) < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
+                        foot_tile = current_tiles_ptr[foot_offset + 1];
+                        if (foot_tile > tileset_last_passable) {
+                            right_foot_solid = 1;
+                        }
+                    }
+                }
+
+                if (!foot_solid && !right_foot_solid) {
+                    /* Start falling after walking off an edge */
+                    comic_y_vel = 8;
+                    if (comic_x_momentum > 0) {
+                        comic_x_momentum = +2;
+                    } else if (comic_x_momentum < 0) {
+                        comic_x_momentum = -2;
+                    }
+                    comic_is_falling_or_jumping = 1;
+                    comic_jump_counter = 1;
+                }
             }
         }
         
