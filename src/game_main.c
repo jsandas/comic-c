@@ -93,8 +93,8 @@ uint8_t comic_is_falling_or_jumping = 0;
 uint8_t comic_is_teleporting = 0;
 int8_t comic_x_momentum = 0;
 int8_t comic_y_vel = 0;
-uint8_t comic_jump_counter = 4;
-uint8_t comic_jump_power = 4;
+uint8_t comic_jump_counter = 0;
+uint8_t comic_jump_power = JUMP_COUNTER_INITIAL;  /* Initialize to full jump */
 uint8_t ceiling_stick_flag = 0;  /* Whether Comic is jumping upward against a ceiling */
 const level_t *current_level_ptr = NULL;  /* Pointer to current level data */
 static uint8_t comic_hp = MAX_HP;
@@ -205,7 +205,7 @@ static const char TITLE_SEQUENCE_MESSAGE[] =
     "Exiting...\r\n$";
 
 /* Forward declarations */
-static void debug_log(const char *format, ...);
+void debug_log(const char *format, ...);
 int load_new_level(void);
 void load_new_stage(void);
 void game_loop(void);
@@ -1700,7 +1700,7 @@ void load_new_stage(void)
          * Start with Comic standing (not falling), let the game loop detect if he needs to fall */
         comic_is_falling_or_jumping = 0;
         comic_y_vel = 0;  /* Start at rest */
-        comic_jump_counter = 1;  /* Exhaust jump counter so he can't jump immediately */
+        comic_jump_counter = 0;  /* Jump counter will be reinitialized when needed */
         
         /* Initialize camera to center on Comic, clamped to valid range.
          * Formula: camera_x = clamp(comic_x - (PLAYFIELD_WIDTH/2 - 1), 0, MAP_WIDTH - PLAYFIELD_WIDTH)
@@ -1789,7 +1789,7 @@ void comic_dies(void)
     comic_is_falling_or_jumping = 0;
     comic_x_momentum = 0;
     comic_y_vel = 0;
-    comic_jump_counter = 4;
+    comic_jump_counter = JUMP_COUNTER_INITIAL;  /* Full jump power */
     comic_animation = COMIC_STANDING;
 }
 
@@ -1828,7 +1828,7 @@ static void dos_idle(void)
  * Appends formatted text to DEBUG.LOG file. Uses static file handle
  * for efficiency (file stays open between calls).
  */
-static void debug_log(const char *format, ...)
+void debug_log(const char *format, ...)
 {
     static int debug_file = -1;
     va_list args;
@@ -1876,15 +1876,9 @@ static void update_keyboard_input(void)
 {
     uint8_t scancode;
     uint8_t key_count = 0;
-    
-    /* Reset all key states to 0 at start of scan */
-    key_state_esc = 0;
-    key_state_jump = 0;
-    key_state_fire = 0;
-    key_state_left = 0;
-    key_state_right = 0;
-    key_state_open = 0;
-    key_state_teleport = 0;
+    uint8_t is_break;
+    uint8_t code;
+    static uint8_t extended_prefix = 0;
     
     debug_log("KEYS: queue head=%d tail=%d keymap=[0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X]\n",
               scancode_queue_head, scancode_queue_tail, keymap[0], keymap[1], keymap[2], keymap[3], keymap[4], keymap[5]);
@@ -1898,27 +1892,39 @@ static void update_keyboard_input(void)
         key_count++;
         debug_log("  KEY[%d]: scancode=0x%02X ", key_count, scancode);
         
+        if (scancode == 0xE0) {
+            extended_prefix = 1;
+            debug_log("-> NO MATCH\n");
+            continue;
+        }
+
+        /* Handle break (key release) codes */
+        is_break = (scancode & 0x80) != 0;
+        code = scancode & 0x7F;
+        (void)extended_prefix; /* prefix retained for future use */
+        extended_prefix = 0;
+
         /* Compare scancode with configured keymap */
-        if (scancode == keymap[0]) {
-            key_state_jump = 1;  /* SPACE */
+        if (code == keymap[0]) {
+            key_state_jump = (uint8_t)(!is_break);  /* SPACE */
             debug_log("-> JUMP\n");
-        } else if (scancode == keymap[1]) {
-            key_state_fire = 1;  /* INSERT */
+        } else if (code == keymap[1]) {
+            key_state_fire = (uint8_t)(!is_break);  /* INSERT */
             debug_log("-> FIRE\n");
-        } else if (scancode == keymap[2]) {
-            key_state_left = 1;  /* LEFT ARROW */
+        } else if (code == keymap[2]) {
+            key_state_left = (uint8_t)(!is_break);  /* LEFT ARROW */
             debug_log("-> LEFT\n");
-        } else if (scancode == keymap[3]) {
-            key_state_right = 1; /* RIGHT ARROW */
+        } else if (code == keymap[3]) {
+            key_state_right = (uint8_t)(!is_break); /* RIGHT ARROW */
             debug_log("-> RIGHT\n");
-        } else if (scancode == keymap[4]) {
-            key_state_open = 1;  /* ALT */
+        } else if (code == keymap[4]) {
+            key_state_open = (uint8_t)(!is_break);  /* ALT */
             debug_log("-> OPEN\n");
-        } else if (scancode == keymap[5]) {
-            key_state_teleport = 1;  /* CAPSLOCK */
+        } else if (code == keymap[5]) {
+            key_state_teleport = (uint8_t)(!is_break);  /* CAPSLOCK */
             debug_log("-> TELEPORT\n");
-        } else if (scancode == 0x01) {
-            key_state_esc = 1;  /* ESCAPE - hardcoded */
+        } else if (code == 0x01) {
+            key_state_esc = (uint8_t)(!is_break);  /* ESCAPE - hardcoded */
             debug_log("-> ESC\n");
         } else {
             debug_log("-> NO MATCH\n");
@@ -2000,6 +2006,21 @@ void game_loop(void)
         
         /* Read keyboard input and update key_state variables */
         update_keyboard_input();
+        
+        /* Initiate jump if conditions are met (matching original assembly):
+         * - Player is standing (not in air)
+         * - Jump key is pressed
+         * - Jump counter has been recharged (> 1, since assembly checks "je .check_open_input")
+         * 
+         * This matches the original logic which continuously checks these conditions
+         * each tick, and handle_fall_or_jump applies acceleration while held.
+         */
+        if (comic_is_falling_or_jumping == 0 && key_state_jump && comic_jump_counter > 1) {
+            /* Start a new jump: mark as in air, let handle_fall_or_jump apply acceleration */
+            comic_is_falling_or_jumping = 1;
+            debug_log("GAME_MAIN_DEBUG: Jump initiated! falling=%d, counter=%d, key=%d\n",
+                      comic_is_falling_or_jumping, comic_jump_counter, key_state_jump);
+        }
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).

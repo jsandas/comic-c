@@ -28,6 +28,9 @@ extern uint8_t ceiling_stick_flag;
 extern uint8_t tileset_last_passable;
 extern uint8_t *current_tiles_ptr;
 extern uint8_t current_level_number;
+
+/* External function - debug logging */
+extern void debug_log(const char *format, ...);
 extern uint8_t current_stage_number;
 extern const level_t *current_level_ptr;
 extern uint16_t camera_x;
@@ -90,32 +93,48 @@ void handle_fall_or_jump(void)
     uint8_t foot_y;
     uint8_t foot_tile;
     uint8_t foot_solid;
+    uint8_t on_platform;
+    uint8_t platform_foot_y;
+    uint8_t platform_tile;
+    uint8_t platform_solid;
+    uint8_t tile_row;
+    FILE *dbg;
     
     /* Decrement jump counter to track when upward acceleration phase ends */
-    comic_jump_counter--;
-    
-    /* If jump counter expired (was 1, now 0), clamp it back to 1 
-     * This marks the end of the upward acceleration phase */
-    if (comic_jump_counter == 0) {
-        comic_jump_counter = 1;
-    } else if (key_state_jump) {
-        /* Still in jump acceleration phase and jump key is held:
-         * Apply upward acceleration */
-        comic_y_vel -= 7;  /* Subtract 7 from velocity (going upward) */
+    if (comic_jump_counter > 0) {
+        comic_jump_counter--;
     }
     
-    /* If we weren't accelerating upward, clear the ceiling stick flag */
-    if (comic_jump_counter <= 0 || !key_state_jump) {
+    /* While jump counter is active AND jump key is held: apply upward acceleration */
+    if (comic_jump_counter > 0 && key_state_jump) {
+        /* Still in jump acceleration phase: apply upward acceleration */
+        comic_y_vel -= JUMP_ACCELERATION;  /* Subtract to go upward */
+    } else {
+        /* Jump counter expired or jump key released: clear ceiling flag */
         ceiling_stick_flag = 0;
     }
     
+    /* DEBUG: Log jump physics state */
+    debug_log("PHYSICS_DEBUG: falling=%d, counter=%d, jump_key=%d, vel=%d\n",
+              comic_is_falling_or_jumping, comic_jump_counter, key_state_jump, comic_y_vel);
+    
+        /* If not in air (standing on ground), don't process physics - just return */
+        if (comic_is_falling_or_jumping == 0) {
+            return;
+        }
+    
     /* Integrate velocity: move by comic_y_vel / 8 */
     delta_y = comic_y_vel / 8;
-    comic_y += delta_y;
-    
-    /* Clamp to top of screen */
-    if (comic_y < 0) {
-        comic_y = 0;
+    /* Use signed arithmetic to avoid underflow on negative velocities */
+    {
+        int16_t new_y = (int16_t)comic_y + (int16_t)delta_y;
+        if (new_y < 0) {
+            comic_y = 0;
+        } else if (new_y > 255) {
+            comic_y = 255;
+        } else {
+            comic_y = (uint8_t)new_y;
+        }
     }
     
     /* Apply ceiling stick (push down 1 unit if against ceiling) */
@@ -130,12 +149,13 @@ void handle_fall_or_jump(void)
         return;
     }
     
-    /* Apply gravity */
-    /* First check if we're already on a platform (standing on passable platform tiles) */
-    if (comic_y_vel == 0) {  /* Only check if not currently moving vertically */
-        uint8_t platform_foot_y = comic_y + 2;
-        uint8_t platform_tile = get_tile_at(comic_x, platform_foot_y);
-        uint8_t platform_solid = is_tile_solid(platform_tile);
+    /* Apply gravity unless we just landed */
+    /* Check if we're standing on solid ground/platform */
+    on_platform = 0;
+    if (comic_y_vel >= 0) {  /* Only check for standing if not moving upward */
+        platform_foot_y = comic_y + 2;
+        platform_tile = get_tile_at(comic_x, platform_foot_y);
+        platform_solid = is_tile_solid(platform_tile);
         
         /* Check secondary tile if on odd boundary */
         if (!platform_solid && (comic_x & 1)) {
@@ -143,30 +163,24 @@ void handle_fall_or_jump(void)
             platform_solid = is_tile_solid(platform_tile);
         }
         
-        /* If standing on a passable platform tile (not solid, not air),
-         * don't apply gravity - Comic is on a walkable platform */
-        if (!platform_solid && platform_tile != 0) {
-            /* Standing on passable platform - no gravity */
-            /* DEBUG: Could log this but would be very noisy */
-        } else if (platform_solid) {
-            /* Standing directly on solid ground - no gravity */
-            /* This shouldn't happen normally but handle it anyway */
-        } else {
-            /* Air/empty space - apply gravity to start falling */
-            if (current_level_number == LEVEL_NUMBER_SPACE) {
-                /* Reduced gravity in space level */
-                comic_y_vel += (COMIC_GRAVITY - COMIC_GRAVITY_SPACE);
-            } else {
-                comic_y_vel += COMIC_GRAVITY;
-            }
+        /* Only standing on a platform if the tile is solid */
+        if (platform_solid) {
+            on_platform = 1;
         }
-    } else {
-        /* Already moving, apply gravity normally */
+    }
+    
+    /* If not on platform, apply gravity */
+    if (!on_platform) {
         if (current_level_number == LEVEL_NUMBER_SPACE) {
             /* Reduced gravity in space level */
-            comic_y_vel += (COMIC_GRAVITY - COMIC_GRAVITY_SPACE);
+            comic_y_vel += COMIC_GRAVITY_SPACE;
         } else {
             comic_y_vel += COMIC_GRAVITY;
+        }
+    } else {
+        /* Standing on platform with zero velocity - stay at zero */
+        if (comic_y_vel == 0) {
+            /* Already zero, good */
         }
     }
     
@@ -176,30 +190,32 @@ void handle_fall_or_jump(void)
     }
     
     /* Adjust horizontal momentum based on input */
+    /* Momentum range: -3 to +3 (slower than before) */
     if (key_state_left) {
         comic_facing = COMIC_FACING_LEFT;
         comic_x_momentum--;
-        if (comic_x_momentum < -5) {
-            comic_x_momentum = -5;
+        if (comic_x_momentum < -3) {
+            comic_x_momentum = -3;
         }
-    }
-    
-    if (key_state_right) {
+    } else if (key_state_right) {
         comic_facing = COMIC_FACING_RIGHT;
         comic_x_momentum++;
-        if (comic_x_momentum > 5) {
-            comic_x_momentum = 5;
+        if (comic_x_momentum > 3) {
+            comic_x_momentum = 3;
+        }
+    } else {
+        /* No input: apply friction by moving momentum toward zero */
+        if (comic_x_momentum < 0) {
+            comic_x_momentum++;
+        } else if (comic_x_momentum > 0) {
+            comic_x_momentum--;
         }
     }
     
-    /* Apply horizontal momentum with drag towards zero */
+    /* Apply horizontal movement only when momentum is non-zero */
     if (comic_x_momentum < 0) {
-        /* Negative momentum: drag towards zero */
-        comic_x_momentum++;
         move_left();
     } else if (comic_x_momentum > 0) {
-        /* Positive momentum: drag towards zero */
-        comic_x_momentum--;
         move_right();
     }
     
@@ -224,8 +240,8 @@ void handle_fall_or_jump(void)
     
     /* Check solidity below (for downward collision / ground detection) */
     if (comic_y_vel > 0) {  /* Moving downward */
-        /* Check at the bottom of Comic (comic_y + 2 game units = 1 tile below) */
-        foot_y = comic_y + 2;
+        /* Check 1 unit below Comic's feet: comic_y + 5 (matches original logic) */
+        foot_y = comic_y + 5;
         foot_tile = get_tile_at(comic_x, foot_y);
         foot_solid = is_tile_solid(foot_tile);
         
@@ -236,22 +252,25 @@ void handle_fall_or_jump(void)
         }
         
         /* If we found solid ground, stop falling */
-        /* Only land if we've been falling with meaningful velocity (prevent bouncing on startup) */
-        if (foot_solid && comic_y_vel >= 16) {  /* Minimum velocity of 16 (2 full tiles per tick) before landing */
+        if (foot_solid) {  /* Land as soon as we detect ground ahead */
+            /* If we're below the map bottom, ignore the solid tile */
+            if (comic_y >= PLAYFIELD_HEIGHT - 5) {
+                comic_animation = COMIC_JUMPING;
+                return;
+            }
             /* Hit the ground: position Comic so his feet are just above the solid tile
-             * Since we checked at comic_y + 2, the solid tile is there.
-             * Comic's feet should be at comic_y, so snap to a lower position. */
+             * Clamp Comic's feet to an even tile boundary (matches original logic). */
             
             /* DEBUG: Log landing info */
-            uint8_t tile_row = foot_y / 2;
-            FILE *dbg = fopen("DEBUG.LOG", "a");
+            tile_row = foot_y / 2;
+            dbg = fopen("DEBUG.LOG", "a");
             if (dbg) {
                 fprintf(dbg, "PHYSICS_LAND: y=%d->%d, foot_y=%d, tile_row=%d, foot_tile=%d, vel=%d\n",
                     comic_y, comic_y - 2, foot_y, tile_row, foot_tile, comic_y_vel);
                 fclose(dbg);
             }
             
-            comic_y -= 2;  /* Move feet to rest on the solid tile */
+            comic_y = (uint8_t)((comic_y + 1) & 0xFE);  /* snap to even boundary */
             comic_is_falling_or_jumping = 0;
             comic_y_vel = 0;
             comic_animation = COMIC_STANDING;  /* Now standing on solid ground */
@@ -260,8 +279,13 @@ void handle_fall_or_jump(void)
             comic_animation = COMIC_JUMPING;
         }
     } else if (comic_y_vel == 0) {
-        /* Not moving downward and velocity is zero - standing on platform */
-        comic_animation = COMIC_STANDING;
+        /* If we're in the air, keep jump animation even with zero velocity */
+        if (comic_is_falling_or_jumping) {
+            comic_animation = COMIC_JUMPING;
+        } else {
+            /* Not moving downward and velocity is zero - standing on platform */
+            comic_animation = COMIC_STANDING;
+        }
     } else {
         /* Still falling or jumping (vel < 0, moving upward) */
         comic_animation = COMIC_JUMPING;

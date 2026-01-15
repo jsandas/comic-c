@@ -10,10 +10,11 @@
 #include <stdint.h>
 
 /* Physics constants */
-#define COMIC_GRAVITY           5   /* Gravity in normal levels (units of 1/8 game units per tick) */
+#define COMIC_GRAVITY           8   /* Gravity in normal levels (units of 1/8 game units per tick) */
 #define COMIC_GRAVITY_SPACE     3   /* Reduced gravity in space level */
 #define TERMINAL_VELOCITY       23  /* Maximum downward velocity (units of 1/8 game units per tick) */
-#define JUMP_COUNTER_INITIAL    10  /* Initial value when jump starts (how many ticks can accelerate upward) */
+#define JUMP_COUNTER_INITIAL    7   /* Initial value when jump starts (how many ticks can accelerate upward) */
+#define JUMP_ACCELERATION       8   /* Upward acceleration during jump (units of 1/8 per tick) */
 
 /* Game dimensions */
 #define MAP_WIDTH_TILES         128 /* Number of tile columns in map */
