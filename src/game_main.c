@@ -2070,23 +2070,6 @@ void game_loop(void)
         }
         /* Handle falling, jumping, and movement only if not teleporting */
         else {
-            /* Check jump input BEFORE calling physics (matches assembly flow) */
-            if (key_state_jump == 1 && comic_is_falling_or_jumping == 0) {
-                /* Only jump if comic_jump_counter is not exhausted
-                 * comic_jump_counter == 1 means "exhausted" (used as a sentinel value)
-                 * This prevents jumping while already in the air */
-                if (comic_jump_counter > 1) {
-                    comic_is_falling_or_jumping = 1;
-                }
-            } else if (key_state_jump == 0) {
-                /* Not pressing jump; recharge jump counter for the next frame.
-                 * Note: The busy-wait loop above also recharges the counter
-                 * continuously while waiting, providing responsive jump timing.
-                 * This recharge ensures the counter is reset after jump key release
-                 * in case the condition was not met during the busy-wait. */
-                comic_jump_counter = comic_jump_power;
-            }
-            
             /* Call physics to handle gravity and collisions (single call per frame) */
             debug_log("PHYSICS: Calling handle_fall_or_jump, y=%d, vel=%d, falling=%d\n", comic_y, comic_y_vel, comic_is_falling_or_jumping);
             handle_fall_or_jump();
