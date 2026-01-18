@@ -45,10 +45,8 @@ extern void load_new_stage(void);
 static uint8_t is_tile_solid(uint8_t tile_id)
 {
     /* A tile is solid if its ID is > tileset_last_passable */
-    extern uint8_t tileset_last_passable;
     return tile_id > tileset_last_passable;
 }
-
 /* Helper: Get tile at coordinates from current stage's map
  * Note: x and y are in game units (0-255, 0-19), but address_of_tile_at_coordinates
  * expects tile coordinates (0-127, 0-9). Each tile is 2 game units, so we divide by 2. */
