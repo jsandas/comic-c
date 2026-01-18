@@ -369,26 +369,6 @@ void move_right(void)
     }
 }
 
-void face_or_move_left(void)
-{
-    /* If already facing left, move left. Otherwise just face left. */
-    if (comic_facing == COMIC_FACING_LEFT) {
-        move_left();
-    } else {
-        comic_facing = COMIC_FACING_LEFT;
-    }
-}
-
-void face_or_move_right(void)
-{
-    /* If already facing right, move right. Otherwise just face right. */
-    if (comic_facing == COMIC_FACING_RIGHT) {
-        move_right();
-    } else {
-        comic_facing = COMIC_FACING_RIGHT;
-    }
-}
-
 uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y)
 {
     /* Calculate byte offset into tile map for tile at (x, y)

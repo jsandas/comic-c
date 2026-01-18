@@ -1284,7 +1284,7 @@ static void begin_teleport(void)
     /* TODO: Implement teleport initiation */
 }
 
-/* face_or_move_left and face_or_move_right are implemented in physics.c */
+/* face_or_move_left and face_or_move_right are implemented in game_main.c */
 
 static void pause_game(void)
 {
