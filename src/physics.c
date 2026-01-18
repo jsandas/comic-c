@@ -99,7 +99,6 @@ void handle_fall_or_jump(void)
     uint8_t platform_tile;
     uint8_t platform_solid;
     uint8_t tile_row;
-    FILE *dbg;
     
     /* DEBUG: Log jump physics state */
     debug_log("PHYSICS_DEBUG: falling=%d, counter=%d, jump_key=%d, vel=%d\n",
@@ -243,12 +242,8 @@ void handle_fall_or_jump(void)
             
             /* DEBUG: Log landing info */
             tile_row = foot_y / 2;
-            dbg = fopen("DEBUG.LOG", "a");
-            if (dbg) {
-                fprintf(dbg, "PHYSICS_LAND: y=%d->%d, foot_y=%d, tile_row=%d, foot_tile=%d, vel=%d\n",
+            debug_log("PHYSICS_LAND: y=%d->%d, foot_y=%d, tile_row=%d, foot_tile=%d, vel=%d\n",
                     comic_y, comic_y - 2, foot_y, tile_row, foot_tile, comic_y_vel);
-                fclose(dbg);
-            }
             
             comic_y = (uint8_t)((comic_y + 1) & 0xFE);  /* snap to even boundary */
             comic_is_falling_or_jumping = 0;
