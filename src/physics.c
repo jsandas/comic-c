@@ -200,7 +200,7 @@ void handle_fall_or_jump(void)
     }
     
     /* STEP 6: Check ceiling collision (upward) */
-    if (comic_y_vel < 0) {  /* Moving upward, not > 0 */
+    if (comic_y_vel < 0) {  /* Moving upward */
         /* Check at the top of Comic */
         head_tile = get_tile_at(comic_x, comic_y);
         head_solid = is_tile_solid(head_tile);
