@@ -93,8 +93,8 @@ uint8_t comic_is_falling_or_jumping = 0;
 uint8_t comic_is_teleporting = 0;
 int8_t comic_x_momentum = 0;
 int8_t comic_y_vel = 0;
-uint8_t comic_jump_counter = 0;
-uint8_t comic_jump_power = JUMP_COUNTER_INITIAL;  /* Initialize to full jump */
+uint8_t comic_jump_counter = 0;  /* Current jump countdown (0 when standing) */
+uint8_t comic_jump_power = JUMP_POWER_DEFAULT;  /* Base jump power (4 default, 5 with Boots) */
 uint8_t ceiling_stick_flag = 0;  /* Whether Comic is jumping upward against a ceiling */
 uint8_t comic_fall_delay = 0;  /* Ticks to hover at jump apex */
 const level_t *current_level_ptr = NULL;  /* Pointer to current level data */
@@ -110,6 +110,12 @@ uint8_t key_state_left = 0;
 uint8_t key_state_right = 0;
 uint8_t key_state_open = 0;
 uint8_t key_state_teleport = 0;
+
+/* Previous frame input state (used for edge-triggered input like jump) */
+static uint8_t previous_key_state_jump = 0;
+
+/* Minimum jump frames counter - ensures quick taps get at least 2 frames of acceleration */
+uint8_t minimum_jump_frames = 0;
 
 /* Fireball state */
 static uint8_t fireball_meter = 100;
@@ -1790,7 +1796,7 @@ void comic_dies(void)
     comic_is_falling_or_jumping = 0;
     comic_x_momentum = 0;
     comic_y_vel = 0;
-    comic_jump_counter = JUMP_COUNTER_INITIAL;  /* Full jump power */
+    comic_jump_counter = 4;  /* Bug: hardcoded to 4, not comic_jump_power (matches assembly) */
     comic_animation = COMIC_STANDING;
 }
 
@@ -2010,18 +2016,23 @@ void game_loop(void)
         
         /* Initiate jump if conditions are met (matching original assembly):
          * - Player is standing (not in air)
-         * - Jump key is pressed
-         * - Jump counter has been recharged (> 1, since assembly checks "je .check_open_input")
+         * - Jump key transitioned from released to pressed (edge-triggered, not level-triggered)
+         * - Jump power has been recharged (comic_jump_power > 1)
          * 
-         * This matches the original logic which continuously checks these conditions
-         * each tick, and handle_fall_or_jump applies acceleration while held.
+         * Edge-triggering prevents repeated jumps while the key is continuously held.
+         * The key must transition from 0 (released) to 1 (pressed) to initiate a jump.
          */
-        if (comic_is_falling_or_jumping == 0 && key_state_jump && comic_jump_counter > 1) {
-            /* Start a new jump: mark as in air, let handle_fall_or_jump apply acceleration */
+        if (comic_is_falling_or_jumping == 0 && key_state_jump && !previous_key_state_jump && comic_jump_power > 1) {
+            /* Start a new jump: reset counter to power, mark as in air */
+            comic_jump_counter = comic_jump_power;
             comic_is_falling_or_jumping = 1;
+            minimum_jump_frames = 0;  /* No forced frames - rely on key press duration only */
             debug_log("GAME_MAIN_DEBUG: Jump initiated! falling=%d, counter=%d, key=%d\n",
                       comic_is_falling_or_jumping, comic_jump_counter, key_state_jump);
         }
+        
+        /* Update previous frame state for edge-triggered input */
+        previous_key_state_jump = key_state_jump;
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
@@ -2059,19 +2070,13 @@ void game_loop(void)
         }
         /* Handle falling, jumping, and movement only if not teleporting */
         else {
-            /* Always call physics to handle gravity and collisions */
-            debug_log("PHYSICS: Calling handle_fall_or_jump, y=%d, vel=%d, falling=%d\n", comic_y, comic_y_vel, comic_is_falling_or_jumping);
-            handle_fall_or_jump();
-            debug_log("PHYSICS: Returned, new y=%d, falling=%d\n", comic_y, comic_is_falling_or_jumping);
-            
-            /* Check jump input (only if not already falling/jumping) */
+            /* Check jump input BEFORE calling physics (matches assembly flow) */
             if (key_state_jump == 1 && comic_is_falling_or_jumping == 0) {
                 /* Only jump if comic_jump_counter is not exhausted
                  * comic_jump_counter == 1 means "exhausted" (used as a sentinel value)
                  * This prevents jumping while already in the air */
                 if (comic_jump_counter > 1) {
                     comic_is_falling_or_jumping = 1;
-                    handle_fall_or_jump();
                 }
             } else if (key_state_jump == 0) {
                 /* Not pressing jump; recharge jump counter for the next frame.
@@ -2081,6 +2086,11 @@ void game_loop(void)
                  * in case the condition was not met during the busy-wait. */
                 comic_jump_counter = comic_jump_power;
             }
+            
+            /* Call physics to handle gravity and collisions (single call per frame) */
+            debug_log("PHYSICS: Calling handle_fall_or_jump, y=%d, vel=%d, falling=%d\n", comic_y, comic_y_vel, comic_is_falling_or_jumping);
+            handle_fall_or_jump();
+            debug_log("PHYSICS: Returned, new y=%d, falling=%d\n", comic_y, comic_is_falling_or_jumping);
             
             /* Check open input (doors) - only if not falling/jumping */
             if (comic_is_falling_or_jumping == 0 && key_state_open == 1) {

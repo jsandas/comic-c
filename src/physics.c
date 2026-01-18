@@ -21,6 +21,7 @@ extern int8_t comic_x_momentum;
 extern uint8_t comic_facing;
 extern uint8_t comic_animation;
 extern uint8_t comic_is_falling_or_jumping;
+extern uint8_t minimum_jump_frames;
 extern uint8_t comic_jump_counter;
 extern uint8_t comic_jump_power;
 extern uint8_t comic_run_cycle;
@@ -102,56 +103,49 @@ void handle_fall_or_jump(void)
     uint8_t tile_row;
     FILE *dbg;
     
-    /* Decrement jump counter to track when upward acceleration phase ends */
-    if (comic_jump_counter > 0) {
-        comic_jump_counter--;
-    }
-    
-    /* While jump counter is active AND jump key is held: apply upward acceleration */
-    if (comic_jump_counter > 0 && key_state_jump) {
-        /* Still in jump acceleration phase: apply upward acceleration */
-        comic_y_vel -= JUMP_ACCELERATION;  /* Subtract to go upward */
-    } else {
-        /* Jump counter expired or jump key released: clear ceiling flag */
-        ceiling_stick_flag = 0;
-    }
-    
     /* DEBUG: Log jump physics state */
     debug_log("PHYSICS_DEBUG: falling=%d, counter=%d, jump_key=%d, vel=%d\n",
               comic_is_falling_or_jumping, comic_jump_counter, key_state_jump, comic_y_vel);
     
-        /* If not in air (standing on ground), don't process physics - just return */
-        if (comic_is_falling_or_jumping == 0) {
-            return;
-        }
-
-    /* If we hit the jump apex, add a brief hover before falling */
-    if (comic_fall_delay == 0 && comic_jump_counter == 0 && comic_y_vel == 0) {
-        comic_fall_delay = 2;
+    /* If not in air (standing on ground), don't process physics - just return */
+    if (comic_is_falling_or_jumping == 0) {
+        return;
     }
     
-    /* If we're in a short hover before falling, hold vertical position */
-    skip_vertical_integration = 0;
-    if (comic_fall_delay > 0 && comic_y_vel == 0) {
-        comic_fall_delay--;
-        comic_animation = COMIC_JUMPING;
-        skip_vertical_integration = 1;
+    /* STEP 1: Decrement jump counter FIRST (matches assembly) */
+    if (comic_jump_counter > 0) {
+        comic_jump_counter--;
+    }
+    
+    /* STEP 2: Check if counter expired AFTER decrement - if so, set to 1 as sentinel */
+    if (comic_jump_counter == 0) {
+        comic_jump_counter = 1;
+        ceiling_stick_flag = 0;
+    }
+    /* STEP 3: Apply upward acceleration if counter still > 0 (after decrement, before 0→1 conversion) and jump key held */
+    else if (key_state_jump) {
+        /* Counter is still > 0 (not expired yet), so apply acceleration */
+        comic_y_vel -= JUMP_ACCELERATION;  /* Accelerate upward */
+    } else {
+        /* Counter > 0 but jump key released */
+        ceiling_stick_flag = 0;
+    }
+    
+    /* Decrement minimum jump frames counter (if still using this mechanism) */
+    if (minimum_jump_frames > 0) {
+        minimum_jump_frames--;
     }
 
-    if (!skip_vertical_integration) {
-        /* Integrate velocity: move by comic_y_vel / 8 
-           Use arithmetic shift equivalent for floor division (matching assembly behavior) */
-        delta_y = comic_y_vel >> 3;  /* Arithmetic shift right by 3 = divide by 8 with floor behavior */
-        /* Use signed arithmetic to avoid underflow on negative velocities */
-        {
-            int16_t new_y = (int16_t)comic_y + (int16_t)delta_y;
-            if (new_y < 0) {
-                comic_y = 0;
-            } else if (new_y > 255) {
-                comic_y = 255;
-            } else {
-                comic_y = (uint8_t)new_y;
-            }
+    /* STEP 3: Integrate velocity - move by comic_y_vel / 8 */
+    delta_y = comic_y_vel >> 3;  /* Arithmetic shift right by 3 = divide by 8 */
+    {
+        int16_t new_y = (int16_t)comic_y + (int16_t)delta_y;
+        if (new_y < 0) {
+            comic_y = 0;
+        } else if (new_y > 255) {
+            comic_y = 255;
+        } else {
+            comic_y = (uint8_t)new_y;
         }
     }
     
@@ -161,15 +155,55 @@ void handle_fall_or_jump(void)
         ceiling_stick_flag = 0;
     }
     
-    /* Check bounds: if head is within 3 units of bottom, death by falling */
+    /* Check bounds: if too far down, death by falling */
     if (comic_y >= PLAYFIELD_HEIGHT - 3) {
         comic_dies();  /* This function terminates the level */
         return;
     }
     
-    /* Check solidity above (for upward collision) BEFORE gravity */
-    if (comic_y_vel < 0) {  /* Moving upward */
-        /* Check at the top of Comic (comic_y - 2 game units = 1 tile above) */
+    /* STEP 4: Apply gravity IMMEDIATELY after position update (matches assembly) */
+    if (current_level_number == LEVEL_NUMBER_SPACE) {
+        comic_y_vel += COMIC_GRAVITY_SPACE;
+    } else {
+        comic_y_vel += COMIC_GRAVITY;
+    }
+    
+    /* Clamp to terminal velocity */
+    if (comic_y_vel > TERMINAL_VELOCITY) {
+        comic_y_vel = TERMINAL_VELOCITY;
+    }
+    
+    /* STEP 5: Handle mid-air momentum and movement (matches assembly order) */
+    if (key_state_left) {
+        comic_facing = COMIC_FACING_LEFT;
+        comic_x_momentum--;
+        if (comic_x_momentum < -5) {
+            comic_x_momentum = -5;
+        }
+    }
+    
+    if (key_state_right) {
+        comic_facing = COMIC_FACING_RIGHT;
+        comic_x_momentum++;
+        if (comic_x_momentum > 5) {
+            comic_x_momentum = 5;
+        }
+    }
+    
+    /* Apply horizontal movement with drag */
+    if (comic_x_momentum < 0) {
+        comic_x_momentum++;  /* Drag toward zero */
+        move_left();
+    }
+    
+    if (comic_x_momentum > 0) {
+        comic_x_momentum--;  /* Drag toward zero */
+        move_right();
+    }
+    
+    /* STEP 6: Check ceiling collision (upward) */
+    if (comic_y_vel < 0) {  /* Moving upward, not > 0 */
+        /* Check at the top of Comic */
         head_tile = get_tile_at(comic_x, comic_y);
         head_solid = is_tile_solid(head_tile);
         
@@ -186,7 +220,7 @@ void handle_fall_or_jump(void)
         }
     }
     
-    /* Check solidity below (for downward collision / ground detection) BEFORE gravity */
+    /* STEP 7: Check ground collision (downward) */
     if (comic_y_vel > 0) {  /* Moving downward */
         /* Check 1 unit below Comic's feet: comic_y + 5 (matches original logic) */
         foot_y = comic_y + 5;
@@ -221,91 +255,13 @@ void handle_fall_or_jump(void)
             comic_y = (uint8_t)((comic_y + 1) & 0xFE);  /* snap to even boundary */
             comic_is_falling_or_jumping = 0;
             comic_y_vel = 0;
-            comic_fall_delay = 0;
             comic_animation = COMIC_STANDING;  /* Now standing on solid ground */
             return;  /* Exit early after landing */
         }
     }
     
-    /* Now apply gravity AFTER collision checks (gravity affects next frame's position) */
-    /* Apply gravity unless we just landed */
-    /* Check if we're standing on solid ground/platform */
-    on_platform = 0;
-    if (comic_y_vel >= 0) {  /* Only check for standing if not moving upward */
-        platform_foot_y = comic_y + 2;
-        platform_tile = get_tile_at(comic_x, platform_foot_y);
-        platform_solid = is_tile_solid(platform_tile);
-        
-        /* Check secondary tile if on odd boundary */
-        if (!platform_solid && (comic_x & 1)) {
-            platform_tile = get_tile_at(comic_x + 1, platform_foot_y);
-            platform_solid = is_tile_solid(platform_tile);
-        }
-        
-        /* Only standing on a platform if the tile is solid */
-        if (platform_solid) {
-            on_platform = 1;
-        }
-    }
-    
-    /* If not on platform, apply gravity */
-    if (!on_platform) {
-        if (current_level_number == LEVEL_NUMBER_SPACE) {
-            /* Reduced gravity in space level */
-            comic_y_vel += COMIC_GRAVITY_SPACE;
-        } else {
-            comic_y_vel += COMIC_GRAVITY;
-        }
-    } else {
-        /* Standing on platform with zero velocity - stay at zero */
-        if (comic_y_vel == 0) {
-            /* Already zero, good */
-        }
-    }
-    
-    /* Clamp downward velocity to terminal velocity */
-    if (comic_y_vel > TERMINAL_VELOCITY) {
-        comic_y_vel = TERMINAL_VELOCITY;
-    }
-    
-    /* Adjust horizontal momentum based on input */
-    /* Momentum range: -3 to +3 (slower than before) */
-    if (key_state_left) {
-        comic_facing = COMIC_FACING_LEFT;
-        comic_x_momentum--;
-        if (comic_x_momentum < -3) {
-            comic_x_momentum = -3;
-        }
-    } else if (key_state_right) {
-        comic_facing = COMIC_FACING_RIGHT;
-        comic_x_momentum++;
-        if (comic_x_momentum > 3) {
-            comic_x_momentum = 3;
-        }
-    } else {
-        /* No input: apply friction by moving momentum toward zero */
-        if (comic_x_momentum < 0) {
-            comic_x_momentum++;
-        } else if (comic_x_momentum > 0) {
-            comic_x_momentum--;
-        }
-    }
-    
-    /* Apply horizontal movement only when momentum is non-zero */
-    if (comic_x_momentum < 0) {
-        move_left();
-    } else if (comic_x_momentum > 0) {
-        move_right();
-    }
-    
-    /* Set animation based on current state */
-    if (comic_y_vel == 0 && comic_is_falling_or_jumping == 0) {
-        /* Standing on ground */
-        comic_animation = COMIC_STANDING;
-    } else {
-        /* In air (jumping or falling) */
-        comic_animation = COMIC_JUMPING;
-    }
+    /* Still in air - set jumping animation */
+    comic_animation = COMIC_JUMPING;
 }
 
 void move_left(void)
