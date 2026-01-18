@@ -101,6 +101,8 @@ const level_t *current_level_ptr = NULL;  /* Pointer to current level data */
 static uint8_t comic_hp = MAX_HP;
 static uint8_t comic_hp_pending_increase = 0;
 uint16_t camera_x = 0;
+/* Landing sentinel: set by physics when hitting ground; clears each tick */
+uint8_t landed_this_tick = 0;
 
 /* Input state variables (set by keyboard interrupt handler) */
 uint8_t key_state_esc = 0;
@@ -2037,6 +2039,8 @@ void game_loop(void)
         
         /* Clear the tick flag */
         game_tick_flag = 0;
+        /* Reset landing sentinel for this tick */
+        landed_this_tick = 0;
         
         /* Read keyboard input and update key_state variables */
         update_keyboard_input();
@@ -2115,8 +2119,9 @@ void game_loop(void)
                  * at the top of the next loop iteration. Skip to actor handling. */
                 skip_rendering = 1;
             }
-            /* Handle left/right movement - only if not falling/jumping and not teleporting */
-            else if (comic_is_falling_or_jumping == 0) {
+            /* Handle left/right movement - only if not falling/jumping, not teleporting,
+             * and did NOT just land this tick (assembly jumps to pause after landing). */
+            else if (comic_is_falling_or_jumping == 0 && landed_this_tick == 0) {
                 uint8_t foot_y;
                 uint16_t foot_offset;
                 uint8_t foot_tile;

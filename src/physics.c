@@ -36,6 +36,7 @@ extern void debug_log(const char *format, ...);
 extern uint8_t current_stage_number;
 extern const level_t *current_level_ptr;
 extern uint16_t camera_x;
+extern uint8_t landed_this_tick;
 
 /* External input state (set by keyboard handling in game_main.c) */
 extern uint8_t key_state_jump;
@@ -244,7 +245,9 @@ void handle_fall_or_jump(void)
             comic_y = (uint8_t)((comic_y + 1) & 0xFE);  /* snap to even boundary */
             comic_is_falling_or_jumping = 0;
             comic_y_vel = 0;
-            comic_animation = COMIC_STANDING;  /* Now standing on solid ground */
+            landed_this_tick = 1;  /* Signal main loop to skip ground movement this tick */
+            /* Do NOT update comic_animation here - keep JUMPING to match assembly behavior.
+             * The next tick, input processing will set running or standing animation. */
             return;  /* Exit early after landing */
         }
     }
