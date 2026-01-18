@@ -158,7 +158,7 @@ void handle_fall_or_jump(void)
         return;
     }
     
-    /* STEP 4: Apply gravity IMMEDIATELY after position update (matches assembly) */
+    /* STEP 5: Apply gravity IMMEDIATELY after position update (matches assembly) */
     if (current_level_number == LEVEL_NUMBER_SPACE) {
         comic_y_vel += COMIC_GRAVITY_SPACE;
     } else {
