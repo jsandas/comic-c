@@ -217,7 +217,7 @@ void handle_fall_or_jump(void)
         }
     }
     
-    /* STEP 7: Check ground collision (downward) */
+    /* STEP 8: Check ground collision (downward) */
     if (comic_y_vel > 0) {  /* Moving downward */
         /* Check 1 unit below Comic's feet: comic_y + 5 (matches original logic) */
         foot_y = comic_y + 5;
