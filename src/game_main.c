@@ -32,6 +32,7 @@
 #include "level_data.h"
 #include "physics.h"
 #include "file_loaders.h"
+#include "actors.h"
 
 /* Runtime library symbol for large model code */
 int _big_code_ = 1;
@@ -98,7 +99,7 @@ uint8_t comic_jump_power = JUMP_POWER_DEFAULT;  /* Base jump power (4 default, 5
 uint8_t ceiling_stick_flag = 0;  /* Whether Comic is jumping upward against a ceiling */
 uint8_t comic_fall_delay = 0;  /* Ticks to hover at jump apex */
 const level_t *current_level_ptr = NULL;  /* Pointer to current level data */
-static uint8_t comic_hp = MAX_HP;
+uint8_t comic_hp = MAX_HP;
 static uint8_t comic_hp_pending_increase = 0;
 uint16_t camera_x = 0;
 /* Landing sentinel: set by physics when hitting ground; clears each tick */
@@ -126,6 +127,19 @@ static uint8_t fireball_meter_counter = 2;
 /* Item collection state */
 static uint8_t comic_has_door_key = 0;
 static uint8_t comic_has_teleport_wand = 0;
+uint8_t comic_firepower = 0;           /* Number of active fireball slots (0-5) */
+uint8_t comic_has_corkscrew = 0;       /* 1 if Corkscrew item collected */
+uint8_t comic_has_shield = 0;          /* 1 if Shield item collected */
+
+/* Score */
+uint16_t score = 0;
+
+/* Item collection tracking (per level and stage) */
+uint8_t items_collected[8][16];        /* Bitmap: items_collected[level][stage] */
+uint8_t item_animation_counter = 0;    /* 0 or 1, toggles for item animation */
+
+/* Enemy respawn timer cycle */
+uint8_t enemy_respawn_counter_cycle = 20; /* Cycles: 20→40→60→80→100→20 */
 
 /* Tileset buffer - holds data from .TT2 file */
 uint8_t tileset_last_passable;
@@ -141,9 +155,6 @@ static uint8_t comic_num_lives = 0;
 
 /* Offscreen buffer pointer (0x0000 or 0x2000) - start with A as offscreen when B is displayed */
 static uint16_t offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
-
-/* Item animation counter (0 or 1) */
-static uint8_t item_animation_counter = 0;
 
 /* Default keymap for keyboard configuration */
 static uint8_t keymap[6] = {
@@ -1283,11 +1294,6 @@ static void pause_game(void)
     /* TODO: Implement pause screen */
 }
 
-static void try_to_fire(void)
-{
-    /* TODO: Implement fireball firing logic */
-}
-
 static void decrement_fireball_meter(void)
 {
     if (fireball_meter > 0) {
@@ -1451,21 +1457,6 @@ static void blit_comic_playfield_offscreen(void)
 
     /* Blit 16x32 masked sprite to the offscreen buffers */
     blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
-}
-
-static void handle_enemies(void)
-{
-    /* TODO: Implement enemy AI and rendering */
-}
-
-static void handle_fireballs(void)
-{
-    /* TODO: Implement fireball movement and collision */
-}
-
-static void handle_item(void)
-{
-    /* TODO: Implement item collision and rendering */
 }
 
 static void swap_video_buffers(void)
@@ -1713,6 +1704,47 @@ void load_new_stage(void)
     } else {
         current_tiles_ptr = NULL;
     }
+    
+    /* Initialize enemies from stage data */
+    if (current_stage_number < 3 && current_stage_ptr != NULL) {
+        int i;
+        for (i = 0; i < MAX_NUM_ENEMIES; i++) {
+            const enemy_record_t *enemy_rec = &current_stage_ptr->enemies[i];
+            
+            /* Copy enemy definition data */
+            enemies[i].behavior = enemy_rec->behavior;
+            enemies[i].num_animation_frames = 4; /* TODO: Get from SHP file */
+            enemies[i].animation_frames_ptr = 0; /* TODO: Set from SHP file */
+            
+            /* Initialize spawn state */
+            enemies[i].state = ENEMY_STATE_DESPAWNED;
+            enemies[i].facing = COMIC_FACING_LEFT;
+            enemies[i].spawn_timer_and_animation = 20; /* Spawn after 20 ticks */
+            enemies[i].restraint = 0;
+            
+            /* Clear position and velocity */
+            enemies[i].x = 0;
+            enemies[i].y = 0;
+            enemies[i].x_vel = 0;
+            enemies[i].y_vel = 0;
+        }
+    }
+    
+    /* Clear all fireballs */
+    {
+        int i;
+        for (i = 0; i < MAX_NUM_FIREBALLS; i++) {
+            fireballs[i].x = FIREBALL_DEAD;
+            fireballs[i].y = FIREBALL_DEAD;
+            fireballs[i].vel = 0;
+            fireballs[i].corkscrew_phase = 0;
+            fireballs[i].animation = 0;
+            fireballs[i].num_animation_frames = 2;
+        }
+    }
+    
+    /* Clear teleporting flag */
+    comic_is_teleporting = 0;
     
     /* Pre-render the entire map into RENDERED_MAP_BUFFER */
     render_map();
@@ -2148,6 +2180,15 @@ void game_loop(void)
  */
 int main(void)
 {
+    int i, j;
+    
+    /* Initialize items_collected array */
+    for (i = 0; i < 8; i++) {
+        for (j = 0; j < 16; j++) {
+            items_collected[i][j] = 0;
+        }
+    }
+    
     /* Disable the PC speaker */
     disable_pc_speaker();
     

@@ -55,12 +55,17 @@
     - ✅ Fixed jump counter logic (acceleration now applied correctly for 3 frames, not 2 or 4)
     - ✅ Verified all physics constants match original (GRAVITY=5, POWER=4, ACCELERATION=7)
     - ✅ Jump heights now match original game (confirmed by user testing)
+- ✅ **Implement actor systems in C** - COMPLETED 2026-01-17
+  - ✅ Complete enemy AI with all 5 behavior types
+  - ✅ Fireball spawning, movement, and collision detection
+  - ✅ Item collection and tracking system
+  - ✅ Rendering infrastructure in place (sprite loading pending)
 
 ### Next Priority Items
-1. Implement enemy AI and actor management systems
-2. Develop collision response for enemy interactions
-3. Implement item pickup and door transitions
-4. Test physics in actual game with DOSBox
+1. Implement sprite loading (.SHP files, SYS004.EGA for items)
+2. Complete enemy/item/fireball visual rendering
+3. Implement door system and level transitions
+4. Test all systems in DOSBox with save states
 
 
 ---
@@ -311,167 +316,64 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Fixed critical bugs: double physics call, calculation order, jump counter logic
    - ✅ Verified all physics constants match original assembly (GRAVITY=5, POWER=4, ACCEL=7)
 
-7. **Implement actor systems in C**
-   - [ ] `handle_enemies()` - Enemy AI and rendering
-   - [ ] `handle_fireballs()` - Fireball movement and collision
-   - [ ] `handle_item()` - Item collision and rendering
-   - [ ] `try_to_fire()` - Fireball spawning logic
+7. **Implement actor systems in C** ✅ **COMPLETE** - 2026-01-17
+   - ✅ Created `include/actors.h` with enemy, fireball, and item structures
+   - ✅ Implemented `src/actors.c` with all actor management systems
+   - ✅ `try_to_fire()` - Fireball spawning with meter depletion
+   - ✅ `handle_fireballs()` - Fireball movement, corkscrew motion, collision with enemies
+   - ✅ `handle_item()` - Item animation, collision detection, score awards
+   - ✅ `handle_enemies()` - Enemy spawning, AI execution, collision with player
+   - ✅ `maybe_spawn_enemy()` - Distance-based enemy spawning logic
+   - ✅ All 5 enemy AI behaviors implemented:
+     - ✅ `enemy_behavior_bounce()` - Diagonal bouncing (Fire Ball, Brave Bird)
+     - ✅ `enemy_behavior_leap()` - Jumping with gravity (Bug-eyes, Blind Toad, Beach Ball)
+     - ✅ `enemy_behavior_roll()` - Ground-following (Glow Globe)
+     - ✅ `enemy_behavior_seek()` - Pathfinding toward player (Killer Bee)
+     - ✅ `enemy_behavior_shy()` - Flee when facing Comic (Shy Bird, Spinner)
+   - ✅ Enemy and fireball initialization in `load_new_stage()`
+   - ✅ Item collection tracking with `items_collected[8][16]` array
+   - ✅ Build complete with COMIC-C.EXE successfully generated
    
 8. **Implement special features in C**
    - [ ] `begin_teleport()` - Teleport destination calculation
    - [ ] `handle_teleport()` - Teleport animation and camera movement
    - [ ] `pause_game()` - Pause screen display
+
+9. **Load and render sprites**
+   - [ ] Implement `.SHP` file loading for enemy sprites
+   - [ ] Load item sprites from `SYS004.EGA`
+   - [ ] Load fireball sprites
+   - [ ] Integrate sprite rendering in actor handlers
+   - [ ] Load spark sprites for death animations
    
-9. **Strategy**
+10. **Strategy**
    - Reimplement functions in C when feasible and preferred
    - Consult original assembly as implementation guidance
    - Only interface with original assembly when there is a clear, documented necessity and tests to justify it
-   - Complete remaining 6 level data definitions before full game loop implementation
 
-### Phase 4: Subsystem Migration (IN PROGRESS)
+### Phase 4: Testing and Validation (NOT STARTED)
 
-**Goal**: Convert individual subsystems from assembly to C
+**Goal**: Validate all implemented systems against original game behavior
 
-**Current Focus Areas** (as of 2026-01-04):
-- **Rendering**: Video buffer management, map/sprite rendering
-- **Physics**: Collision detection, player movement, gravity
-- **Actors**: Enemy AI, fireball handling, item collection
+1. **Sprite Loading**
+   - Implement `.SHP` file format parser
+   - Load enemy sprites from level-specific .SHP files
+   - Load item sprites from `SYS004.EGA`
+   - Load spark/explosion sprites
+   - Integrate with rendering system
 
-#### Rendering Subsystem
+2. **Testing Priorities**
+   - Tier 1: Collision detection and physics accuracy
+   - Tier 2: Actor spawning and AI behaviors
+   - Tier 3: Item collection and score tracking
+   - Tier 4: Full level playthroughs
+   - Tier 5: Edge cases and original game bugs
 
-**Goal**: Convert graphics rendering to C
-
-1. **Video buffer management**
-   - `swap_video_buffers()` - switch between 0x0000 and 0x2000
-   - Track `offscreen_video_buffer_ptr` in C
-
-2. **Map rendering**
-   - `blit_map_playfield_offscreen()` - copy visible map tiles
-   - Calculate camera scrolling offsets
-   - Handle 24-game-unit playfield width
-
-3. **Sprite rendering**
-   - `blit_comic_playfield_offscreen()` - draw player character
-   - Handle animation frames and facing direction
-   - Implement transparency masking
-
-4. **Enemy/item rendering**
-   - Draw enemy sprites at their positions
-   - Handle item graphics
-   - Implement explosion/death animations
-
-5. **Validation**
-   - Test with Tier 2 scenarios (data/state manipulation)
-   - Verify pixel-perfect rendering
-   - Confirm no graphical glitches
-
-#### Physics and Collision
-
-**Goal**: Convert movement and collision detection to C
-
-1. **Tile-based collision** ✅ (PARTIALLY COMPLETE)
-   - ✅ `address_of_tile_at_coordinates()` - convert coords to tile offset
-   - ✅ `check_vertical_enemy_map_collision()` - vertical collision
-   - ✅ `check_horizontal_enemy_map_collision()` - horizontal collision
-   - Additional collision helpers as needed
-
-2. **Player physics**
-   - `handle_fall_or_jump()` - gravity and jumping
-   - Implement fixed-point velocity (1/8 game unit per tick)
-   - Terminal velocity handling
-   - Ground detection and landing
-
-3. **Player movement**
-   - `move_left()`, `move_right()` - horizontal movement
-   - Handle `comic_x_momentum` (-5 to +5 range)
-   - Wall collision and stopping
-   - Animation frame progression
-
-4. **Validation**
-   - Test with Tier 1 scenarios (collision detection)
-   - Verify physics matches original (jump height, fall speed)
-   - Confirm pixel-perfect movement
-
-#### Actor Management
-
-**Goal**: Convert enemy AI and projectile handling to C
-
-1. **Fireball system**
-   - `handle_fireballs()` - update all active fireballs
-   - Movement and collision detection
-   - Corkscrew trajectory (sine wave)
-   - Fireball-enemy collision
-   - Animation frames
-
-2. **Item handling**
-   - `handle_item()` - item spawning and collection
-   - Collision with player
-   - Inventory updates
-   - Score and meter adjustments
-
-3. **Enemy spawning**
-   - `maybe_spawn_enemy()` - spawn enemies as player approaches
-   - Distance-based spawning
-   - Despawn when out of range (30 game units)
-   - Initialize enemy state struct
-
-4. **Enemy AI behaviors**
-   - `enemy_behavior_bounce()` - Fire Ball, Brave Bird, etc.
-   - `enemy_behavior_leap()` - Bug-eyes, Blind Toad, Beach Ball
-   - `enemy_behavior_roll()` - Glow Globe
-   - `enemy_behavior_seek()` - Killer Bee
-   - `enemy_behavior_shy()` - Shy Bird, Spinner
-
-5. **Enemy-player collision**
-   - Damage to player (reduce HP)
-   - Shield protection logic
-   - Enemy death (white spark animation)
-   - Comic death sequence
-
-6. **Validation**
-   - Test with Tier 4 scenarios (enemy AI)
-   - Verify each behavior type works correctly
-   - Confirm collision timing matches original
-
-#### Game State Management
-
-**Goal**: Convert level loading, doors, teleportation to C
-
-1. **File loading** ✅ (PARTIALLY COMPLETE - 2026-01-04)
-   - ✅ `load_pt_file()` - load tile map - fully implemented
-   - [ ] `load_tt2_file()` - load tileset graphics
-   - [ ] `load_shp_file()` - load sprites
-   - [ ] `load_ega_file()` - load fullscreen graphics with RLE decompression
-
-2. **Level management** ✅ (PARTIALLY COMPLETE - 2026-01-04)
-   - ✅ `load_new_level()` - set up level data (LAKE, FOREST implemented)
-   - ✅ Level data constants defined in C (LAKE, FOREST complete; 6 more to go)
-   - [ ] `load_new_stage()` - initialize stage (stub defined)
-   - [ ] `render_map()` - pre-render entire map to video buffer
-   - [ ] Level transition logic
-
-3. **Door system**
-   - `activate_door()` - door collision and key check
-   - `enter_door()` - transition to connected stage
-   - Handle door destinations (level, stage, position)
-   - Animation sequence
-
-4. **Teleportation**
-   - `begin_teleport()` - initiate teleport (check wand)
-   - `handle_teleport()` - animation and position update
-   - Move player 6 game units horizontally
-   - `comic_is_teleporting` state management
-
-5. **Special events**
-   - `pause()` - pause menu (ESC key)
-   - `game_over()` - death and continue screen
-   - `game_end_sequence()` - victory sequence
-   - High score management
-
-6. **Validation**
-   - Test with Tier 5 scenarios (level transitions, doors)
-   - Verify door connections work correctly
-   - Confirm teleportation positioning exact
+3. **Remaining Features**
+   - Door system (collision, key requirements, transitions)
+   - Teleportation mechanics
+   - Pause screen
+   - Game over / victory sequences
 
 ### Phase 5: Sound and Input (Optional)
 
