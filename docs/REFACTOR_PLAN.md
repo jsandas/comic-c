@@ -37,7 +37,7 @@
   - ✅ EGA plane management and video buffer infrastructure
   - ✅ Integer overflow/underflow prevention in coordinate calculations
 - ✅ Complete remaining 6 level data definitions (SPACE, BASE, CAVE, SHED, CASTLE, COMP) - COMPLETED 2026-01-11
-- ✅ **Implement physics and collision detection in C** - COMPLETED 2026-01-11
+- ✅ **Implement physics and collision detection in C** - COMPLETED 2026-01-17
   - ✅ Created `include/physics.h` with physics constants and function declarations
   - ✅ Implemented `src/physics.c` with full physics engine
   - ✅ `handle_fall_or_jump()` - Gravity, jumping, velocity integration, collision detection
@@ -49,6 +49,12 @@
   - ✅ Implemented `comic_dies()` function for fall/death handling
   - ✅ Created global `current_level_ptr` for physics stage data access
   - ✅ Build complete with COMIC-C.EXE successfully generated (123KB, 0 errors)
+  - ✅ **Fixed critical physics bugs by comparing C implementation to assembly**:
+    - ✅ Fixed double physics call on jump initiation (was processing twice per frame)
+    - ✅ Corrected physics calculation order to match assembly exactly
+    - ✅ Fixed jump counter logic (acceleration now applied correctly for 3 frames, not 2 or 4)
+    - ✅ Verified all physics constants match original (GRAVITY=5, POWER=4, ACCELERATION=7)
+    - ✅ Jump heights now match original game (confirmed by user testing)
 
 ### Next Priority Items
 1. Implement enemy AI and actor management systems
@@ -296,12 +302,14 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Safe integer arithmetic to prevent overflow/underflow in coordinate calculations
 
 **In Progress / TODO**:  
-6. **Implement physics and collision in C**
-   - [ ] `handle_fall_or_jump()` - Gravity, jumping, terminal velocity
-   - [ ] `face_or_move_left()` - Left movement with wall collision
-   - [ ] `face_or_move_right()` - Right movement with wall collision
-   - [ ] `address_of_tile_at_coordinates()` - Tile map lookup
-   - [ ] Ground detection and landing mechanics
+6. **Implement physics and collision in C** ✅ **COMPLETE** - 2026-01-17
+   - ✅ `handle_fall_or_jump()` - Gravity, jumping, terminal velocity, collision detection
+   - ✅ `move_left()` / `move_right()` - Horizontal movement with wall collision and stage transitions
+   - ✅ `face_or_move_left()` / `face_or_move_right()` - Direction handling with animation
+   - ✅ `address_of_tile_at_coordinates()` - Tile map lookup with bounds checking
+   - ✅ Ground detection and landing mechanics
+   - ✅ Fixed critical bugs: double physics call, calculation order, jump counter logic
+   - ✅ Verified all physics constants match original assembly (GRAVITY=5, POWER=4, ACCEL=7)
 
 7. **Implement actor systems in C**
    - [ ] `handle_enemies()` - Enemy AI and rendering
