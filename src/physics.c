@@ -170,7 +170,7 @@ void handle_fall_or_jump(void)
         comic_y_vel = TERMINAL_VELOCITY;
     }
     
-    /* STEP 5: Handle mid-air momentum and movement (matches assembly order) */
+    /* STEP 6: Handle mid-air momentum and movement (matches assembly order) */
     if (key_state_left) {
         comic_facing = COMIC_FACING_LEFT;
         comic_x_momentum--;
