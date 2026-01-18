@@ -496,6 +496,9 @@ void restore_interrupt_handlers(void)
     }
 }
 
+/* Forward declaration for debug_log_close */
+static void debug_log_close(void);
+
 /*
  * terminate_program - Cleanup and exit the program
  * 
@@ -512,6 +515,9 @@ void terminate_program(void)
     
     /* Restore original interrupt handlers */
     restore_interrupt_handlers();
+    
+    /* Close debug log file */
+    debug_log_close();
     
     /* Mute the sound */
     port_value = inp(0x61);
@@ -1829,24 +1835,28 @@ static void dos_idle(void)
     int86(0x28, &regs, &regs);
 }
 
+/* Module-scope debug file handle, accessible to both debug_log and debug_log_close */
+static int g_debug_file_handle = -1;
+
 /*
  * debug_log - Write debug message to DEBUG.LOG file
  * 
- * Appends formatted text to DEBUG.LOG file. Uses static file handle
+ * Appends formatted text to DEBUG.LOG file. Uses module-level file handle
  * for efficiency (file stays open between calls).
+ * 
+ * Call debug_log_close() before program termination to close the file handle.
  */
 void debug_log(const char *format, ...)
 {
-    static int debug_file = -1;
     va_list args;
     char buffer[256];
     int len;
     
     /* Open DEBUG.LOG on first call (append mode) */
-    if (debug_file == -1) {
-        debug_file = _open("DEBUG.LOG", O_WRONLY | O_CREAT | O_APPEND | O_BINARY, 
+    if (g_debug_file_handle == -1) {
+        g_debug_file_handle = _open("DEBUG.LOG", O_WRONLY | O_CREAT | O_APPEND | O_BINARY, 
                           S_IREAD | S_IWRITE);
-        if (debug_file == -1) {
+        if (g_debug_file_handle == -1) {
             return;  /* Can't open file, silently fail */
         }
     }
@@ -1858,7 +1868,22 @@ void debug_log(const char *format, ...)
     
     /* Write to file */
     if (len > 0) {
-        _write(debug_file, buffer, len);
+        _write(g_debug_file_handle, buffer, len);
+    }
+}
+
+/*
+ * debug_log_close - Close the debug log file handle
+ * 
+ * Closes the DEBUG.LOG file handle opened by debug_log().
+ * Should be called during program termination to properly clean up resources.
+ * Safe to call even if the file was never opened.
+ */
+static void debug_log_close(void)
+{
+    if (g_debug_file_handle != -1) {
+        _close(g_debug_file_handle);
+        g_debug_file_handle = -1;
     }
 }
 
