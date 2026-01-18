@@ -1861,10 +1861,14 @@ void debug_log(const char *format, ...)
         }
     }
     
-    /* Format the message */
+    /* Format the message safely (truncate to buffer size) */
     va_start(args, format);
-    len = vsprintf(buffer, format, args);
+    /* vsnprintf returns the number of characters that would have been written,
+     * excluding the null terminator. The buffer is always null-terminated. */
+    (void)vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
+    /* Compute actual length to write based on the truncated buffer */
+    len = (int)strlen(buffer);
     
     /* Write to file */
     if (len > 0) {
