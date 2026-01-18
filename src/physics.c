@@ -52,7 +52,6 @@ static uint8_t is_tile_solid(uint8_t tile_id)
  * expects tile coordinates (0-127, 0-9). Each tile is 2 game units, so we divide by 2. */
 static uint8_t get_tile_at(uint8_t x, uint8_t y)
 {
-    extern uint8_t *current_tiles_ptr;
     uint16_t offset = address_of_tile_at_coordinates(x / 2, y / 2);
     
     /* Bounds check: if offset exceeds map size, return non-solid */
