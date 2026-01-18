@@ -268,6 +268,11 @@ void move_left(void)
     /* Check if at left edge of stage */
     if (comic_x == 0) {
         /* At left edge: check for stage transition */
+        /* Guard against NULL level pointer */
+        if (current_level_ptr == NULL) {
+            comic_x_momentum = 0;
+            return;
+        }
         stage = &current_level_ptr->stages[current_stage_number];
         if (stage->exit_l == EXIT_UNUSED) {
             /* No exit here, stop moving */
@@ -322,6 +327,11 @@ void move_right(void)
     /* Check if at right edge of stage */
     if (comic_x >= MAP_WIDTH - 2) {
         /* At right edge: check for stage transition */
+        /* Guard against NULL level pointer */
+        if (current_level_ptr == NULL) {
+            comic_x_momentum = 0;
+            return;
+        }
         stage = &current_level_ptr->stages[current_stage_number];
         if (stage->exit_r == EXIT_UNUSED) {
             /* No exit here, stop moving */
