@@ -1804,7 +1804,7 @@ void comic_dies(void)
     comic_is_falling_or_jumping = 0;
     comic_x_momentum = 0;
     comic_y_vel = 0;
-    comic_jump_counter = 4;  /* Bug: hardcoded to 4, not comic_jump_power (matches assembly) */
+    comic_jump_counter = comic_jump_power;  /* Use current jump power (may be 5 if Boots collected) */
     comic_animation = COMIC_STANDING;
 }
 
