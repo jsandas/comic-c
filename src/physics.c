@@ -300,8 +300,11 @@ void move_left(void)
     comic_animation = comic_run_cycle;
     
     /* Move camera left if appropriate */
-    if (camera_x > 0 && (comic_x - camera_x) < PLAYFIELD_WIDTH / 2 - 2) {
-        camera_x--;
+    {
+        int16_t relative_x = (int16_t)comic_x - (int16_t)camera_x;
+        if (camera_x > 0 && relative_x < (int16_t)(PLAYFIELD_WIDTH / 2 - 2)) {
+            camera_x--;
+        }
     }
 }
 
@@ -353,8 +356,11 @@ void move_right(void)
     
     /* Move camera right if appropriate */
     max_camera_x = MAP_WIDTH - PLAYFIELD_WIDTH;
-    if (camera_x < max_camera_x && (comic_x - camera_x) > PLAYFIELD_WIDTH / 2) {
-        camera_x++;
+    {
+        int16_t relative_x = (int16_t)comic_x - (int16_t)camera_x;
+        if (camera_x < max_camera_x && relative_x > (int16_t)(PLAYFIELD_WIDTH / 2)) {
+            camera_x++;
+        }
     }
 }
 
