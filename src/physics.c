@@ -31,8 +31,6 @@ extern uint8_t tileset_last_passable;
 extern uint8_t *current_tiles_ptr;
 extern uint8_t current_level_number;
 
-/* External function - debug logging */
-extern void debug_log(const char *format, ...);
 extern uint8_t current_stage_number;
 extern const level_t *current_level_ptr;
 extern uint16_t camera_x;
@@ -96,10 +94,6 @@ void handle_fall_or_jump(void)
     uint8_t foot_solid;
     uint8_t platform_tile;
     uint8_t tile_row;
-    
-    /* DEBUG: Log jump physics state */
-    debug_log("PHYSICS_DEBUG: falling=%d, counter=%d, jump_key=%d, vel=%d\n",
-              comic_is_falling_or_jumping, comic_jump_counter, key_state_jump, comic_y_vel);
     
     /* If not in air (standing on ground), don't process physics - just return */
     if (comic_is_falling_or_jumping == 0) {
@@ -236,11 +230,6 @@ void handle_fall_or_jump(void)
             }
             /* Hit the ground: position Comic so his feet are just above the solid tile
              * Clamp Comic's feet to an even tile boundary (matches original logic). */
-            
-            /* DEBUG: Log landing info */
-            tile_row = foot_y / 2;
-            debug_log("PHYSICS_LAND: y=%d->%d, foot_y=%d, tile_row=%d, foot_tile=%d, vel=%d\n",
-                    comic_y, comic_y - 2, foot_y, tile_row, foot_tile, comic_y_vel);
             
             comic_y = (uint8_t)((comic_y + 1) & 0xFE);  /* snap to even boundary */
             comic_is_falling_or_jumping = 0;

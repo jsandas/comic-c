@@ -214,7 +214,6 @@ static const char TITLE_SEQUENCE_MESSAGE[] =
     "Exiting...\r\n$";
 
 /* Forward declarations */
-void debug_log(const char *format, ...);
 int load_new_level(void);
 void load_new_stage(void);
 void game_loop(void);
@@ -498,9 +497,6 @@ void restore_interrupt_handlers(void)
     }
 }
 
-/* Forward declaration for debug_log_close */
-static void debug_log_close(void);
-
 /*
  * terminate_program - Cleanup and exit the program
  * 
@@ -517,9 +513,6 @@ void terminate_program(void)
     
     /* Restore original interrupt handlers */
     restore_interrupt_handlers();
-    
-    /* Close debug log file */
-    debug_log_close();
     
     /* Mute the sound */
     port_value = inp(0x61);
@@ -1154,9 +1147,6 @@ int load_new_level(void)
     /* Extract header fields */
     tileset_last_passable = tt2_header.last_passable;
     tileset_flags = tt2_header.flags;
-    
-    debug_log("DEBUG: load_new_level() - TT2 header read: last_passable=%d, flags=%d\n",
-        tileset_last_passable, tileset_flags);
 
     /* The TT2 file format is: 4-byte header + uncompressed tile data (variable size).
      * Each tile is 128 bytes (4 planes × 32 bytes per plane).
@@ -1664,8 +1654,6 @@ void load_new_stage(void)
     const stage_t *current_stage_ptr;
     int cam_x;
     
-    debug_log("DEBUG: load_new_stage() called - level=%d, stage=%d\n", current_level_number, current_stage_number);
-    
     /* Get the current level data pointer */
     if (current_level_number < 8) {
         /* Use the global current_level_ptr, which is accessible to physics.c */
@@ -1676,7 +1664,6 @@ void load_new_stage(void)
     
     /* Ensure the level data pointer is valid before using it */
     if (current_level_ptr == NULL) {
-        debug_log("DEBUG: load_new_stage() - current_level_ptr is NULL\n");
         current_tiles_ptr = NULL;
         return;
     }
@@ -1694,9 +1681,6 @@ void load_new_stage(void)
             current_tiles_ptr = pt2.tiles;
         }
         
-        debug_log("DEBUG: load_new_stage() - stage=%d, current_tiles_ptr=%p, pt0.tiles=%p\n", 
-            current_stage_number, current_tiles_ptr, pt0.tiles);
-        
         /* Initialize Comic's position from the first door in the stage
          * (simplified: using first door's position + 1 to center Comic)
          */
@@ -1708,8 +1692,6 @@ void load_new_stage(void)
             comic_x = 12;
             comic_y = 8;
         }
-        
-        debug_log("DEBUG: load_new_stage() - initial comic_x=%d, comic_y=%d\n", comic_x, comic_y);
         
         /* Initialize Comic's physics state
          * Start with Comic standing (not falling), let the game loop detect if he needs to fall */
@@ -1837,62 +1819,6 @@ static void dos_idle(void)
     int86(0x28, &regs, &regs);
 }
 
-/* Module-scope debug file handle, accessible to both debug_log and debug_log_close */
-static int g_debug_file_handle = -1;
-
-/*
- * debug_log - Write debug message to DEBUG.LOG file
- * 
- * Appends formatted text to DEBUG.LOG file. Uses module-level file handle
- * for efficiency (file stays open between calls).
- * 
- * Call debug_log_close() before program termination to close the file handle.
- */
-void debug_log(const char *format, ...)
-{
-    va_list args;
-    char buffer[256];
-    int len;
-    
-    /* Open DEBUG.LOG on first call (append mode) */
-    if (g_debug_file_handle == -1) {
-        g_debug_file_handle = _open("DEBUG.LOG", O_WRONLY | O_CREAT | O_APPEND | O_BINARY, 
-                          S_IREAD | S_IWRITE);
-        if (g_debug_file_handle == -1) {
-            return;  /* Can't open file, silently fail */
-        }
-    }
-    
-    /* Format the message safely (truncate to buffer size) */
-    va_start(args, format);
-    /* vsnprintf returns the number of characters that would have been written,
-     * excluding the null terminator. The buffer is always null-terminated. */
-    (void)vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-    /* Compute actual length to write based on the truncated buffer */
-    len = (int)strlen(buffer);
-    
-    /* Write to file */
-    if (len > 0) {
-        _write(g_debug_file_handle, buffer, len);
-    }
-}
-
-/*
- * debug_log_close - Close the debug log file handle
- * 
- * Closes the DEBUG.LOG file handle opened by debug_log().
- * Should be called during program termination to properly clean up resources.
- * Safe to call even if the file was never opened.
- */
-static void debug_log_close(void)
-{
-    if (g_debug_file_handle != -1) {
-        _close(g_debug_file_handle);
-        g_debug_file_handle = -1;
-    }
-}
-
 /*
  * update_keyboard_input - Read keyboard state and update key_state variables
  * 
@@ -1918,9 +1844,6 @@ static void update_keyboard_input(void)
     uint8_t code;
     static uint8_t extended_prefix = 0;
     
-    debug_log("KEYS: queue head=%d tail=%d keymap=[0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X]\n",
-              scancode_queue_head, scancode_queue_tail, keymap[0], keymap[1], keymap[2], keymap[3], keymap[4], keymap[5]);
-    
     /* Process all scancodes in the queue */
     while (scancode_queue_head != scancode_queue_tail) {
         /* Get next scancode from queue */
@@ -1928,11 +1851,9 @@ static void update_keyboard_input(void)
         scancode_queue_tail = (scancode_queue_tail + 1) % MAX_SCANCODE_QUEUE;
         
         key_count++;
-        debug_log("  KEY[%d]: scancode=0x%02X ", key_count, scancode);
         
         if (scancode == 0xE0) {
             extended_prefix = 1;
-            debug_log("-> NO MATCH\n");
             continue;
         }
 
@@ -1945,36 +1866,20 @@ static void update_keyboard_input(void)
         /* Compare scancode with configured keymap */
         if (code == keymap[0]) {
             key_state_jump = (uint8_t)(!is_break);  /* SPACE */
-            debug_log("-> JUMP\n");
         } else if (code == keymap[1]) {
             key_state_fire = (uint8_t)(!is_break);  /* INSERT */
-            debug_log("-> FIRE\n");
         } else if (code == keymap[2]) {
             key_state_left = (uint8_t)(!is_break);  /* LEFT ARROW */
-            debug_log("-> LEFT\n");
         } else if (code == keymap[3]) {
             key_state_right = (uint8_t)(!is_break); /* RIGHT ARROW */
-            debug_log("-> RIGHT\n");
         } else if (code == keymap[4]) {
             key_state_open = (uint8_t)(!is_break);  /* ALT */
-            debug_log("-> OPEN\n");
         } else if (code == keymap[5]) {
             key_state_teleport = (uint8_t)(!is_break);  /* CAPSLOCK */
-            debug_log("-> TELEPORT\n");
         } else if (code == 0x01) {
             key_state_esc = (uint8_t)(!is_break);  /* ESCAPE - hardcoded */
-            debug_log("-> ESC\n");
-        } else {
-            debug_log("-> NO MATCH\n");
         }
     }
-    
-    if (key_count == 0) {
-        debug_log("  (no keys in queue)\n");
-    }
-    
-    debug_log("KEYS: After processing: left=%d right=%d jump=%d fire=%d\n",
-              key_state_left, key_state_right, key_state_jump, key_state_fire);
 }
 
 /*
@@ -2058,8 +1963,6 @@ void game_loop(void)
             comic_jump_counter = comic_jump_power;
             comic_is_falling_or_jumping = 1;
             minimum_jump_frames = 0;  /* No forced frames - rely on key press duration only */
-            debug_log("GAME_MAIN_DEBUG: Jump initiated! falling=%d, counter=%d, key=%d\n",
-                      comic_is_falling_or_jumping, comic_jump_counter, key_state_jump);
         }
         
         /* Update previous frame state for edge-triggered input */
@@ -2102,9 +2005,7 @@ void game_loop(void)
         /* Handle falling, jumping, and movement only if not teleporting */
         else {
             /* Call physics to handle gravity and collisions (single call per frame) */
-            debug_log("PHYSICS: Calling handle_fall_or_jump, y=%d, vel=%d, falling=%d\n", comic_y, comic_y_vel, comic_is_falling_or_jumping);
             handle_fall_or_jump();
-            debug_log("PHYSICS: Returned, new y=%d, falling=%d\n", comic_y, comic_is_falling_or_jumping);
             
             /* Check open input (doors) - only if not falling/jumping */
             if (comic_is_falling_or_jumping == 0 && key_state_open == 1) {
@@ -2129,20 +2030,16 @@ void game_loop(void)
                 uint8_t right_foot_solid;
 
                 comic_x_momentum = 0;
-                debug_log("MOVE: falling=%d, left=%d, right=%d, comic_x=%d, comic_y=%d\n",
-                          comic_is_falling_or_jumping, key_state_left, key_state_right, comic_x, comic_y);
                 /* Note: If both left and right keys are pressed simultaneously,
                  * right movement takes priority (momentum is set to -5 then
                  * immediately overwritten to +5). This matches the original
                  * assembly behavior. */
                 if (key_state_left == 1) {
                     comic_x_momentum = -5;
-                    debug_log("MOVE: Moving LEFT\n");
                     face_or_move_left();
                 }
                 if (key_state_right == 1) {
                     comic_x_momentum = +5;
-                    debug_log("MOVE: Moving RIGHT\n");
                     face_or_move_right();
                 }
 
