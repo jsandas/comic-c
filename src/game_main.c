@@ -2012,8 +2012,6 @@ void game_loop(void)
     uint16_t tile_addr;
     uint8_t tile_value;
     uint8_t skip_rendering;
-    uint8_t check_tile_y;
-    uint8_t check_tile_x;
     
     while (1) {
         skip_rendering = 0;
