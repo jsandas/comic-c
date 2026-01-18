@@ -618,8 +618,6 @@ void handle_enemies(void)
     int i;
     int spawned_this_tick = 0;
     
-    debug_log("handle_enemies\n");
-
     /* Update each enemy slot */
     for (i = 0; i < MAX_NUM_ENEMIES; i++) {
         enemy_t *enemy = &enemies[i];
@@ -763,8 +761,8 @@ void handle_enemies(void)
                 /* Calculate screen position relative to camera */
                 rel_x_enemy = (int16_t)((int)enemy->x - (int)camera_x);
                 
-                /* Check if in visible playfield (allow -1 to PLAYFIELD_WIDTH for partial visibility) */
-                if (rel_x_enemy >= -1 && rel_x_enemy < PLAYFIELD_WIDTH + 1) {
+                /* Check if in visible playfield (match assembly bounds: 0 to PLAYFIELD_WIDTH - 2) */
+                if (rel_x_enemy >= 0 && rel_x_enemy <= PLAYFIELD_WIDTH - 2) {
                     /* Convert to pixel coordinates (8 pixels per game unit) + playfield offset */
                     pixel_x = (rel_x_enemy * 8) + 8;
                     pixel_y = (enemy->y * 8) + 8;
@@ -773,6 +771,7 @@ void handle_enemies(void)
                     
                     if (frame_ptr != NULL) {
                         if (frame_size == 160) {
+                            /* Use masked blit for 16x16 .SHP sprites */
                             blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, frame_ptr);
                         } else if (frame_size == 320) {
                             blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, frame_ptr);
