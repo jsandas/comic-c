@@ -134,7 +134,7 @@ void handle_fall_or_jump(void)
         minimum_jump_frames--;
     }
 
-    /* STEP 3: Integrate velocity - move by comic_y_vel / 8 */
+    /* STEP 4: Integrate velocity - move by comic_y_vel / 8 */
     delta_y = comic_y_vel >> 3;  /* Arithmetic shift right by 3 = divide by 8 */
     {
         int16_t new_y = (int16_t)comic_y + (int16_t)delta_y;
