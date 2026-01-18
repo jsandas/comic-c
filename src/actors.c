@@ -644,23 +644,7 @@ void handle_enemies(void)
         
         /* Handle dying state (white spark or red spark) */
         if (enemy->state >= ENEMY_STATE_WHITE_SPARK && enemy->state != ENEMY_STATE_SPAWNED) {
-            /* Advance death animation */
-            enemy->state++;
-            
-            /* Check if animation complete */
-            if (enemy->state == 7 || enemy->state == 13) {
-                /* Death animation complete, despawn */
-                enemy->state = ENEMY_STATE_DESPAWNED;
-                enemy->spawn_timer_and_animation = enemy_respawn_counter_cycle;
-                
-                /* Cycle respawn counter: 20→40→60→80→100→20 */
-                enemy_respawn_counter_cycle += 20;
-                if (enemy_respawn_counter_cycle > 100) {
-                    enemy_respawn_counter_cycle = 20;
-                }
-            }
-            
-            /* Render death animation (spark) */
+            /* Render death animation (spark) - use state BEFORE incrementing */
             {
                 int16_t rel_x_enemy;
                 int16_t pixel_x, pixel_y;
@@ -695,6 +679,22 @@ void handle_enemies(void)
                     if (spark_ptr != NULL) {
                         blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, spark_ptr);
                     }
+                }
+            }
+            
+            /* Advance animation state */
+            enemy->state++;
+            
+            /* Check if animation complete */
+            if (enemy->state == 5 || enemy->state == 11) {
+                /* Death animation complete, despawn */
+                enemy->state = ENEMY_STATE_DESPAWNED;
+                enemy->spawn_timer_and_animation = enemy_respawn_counter_cycle;
+                
+                /* Cycle respawn counter: 20→40→60→80→100→20 */
+                enemy_respawn_counter_cycle += 20;
+                if (enemy_respawn_counter_cycle > 100) {
+                    enemy_respawn_counter_cycle = 20;
                 }
             }
             continue;
