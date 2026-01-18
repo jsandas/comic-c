@@ -3,9 +3,6 @@
  * 
  * Contains the static data for all 8 levels in the game.
  * This data was originally in R3_levels.asm
- * 
- * TODO: Complete migration of all level data from R3_levels.asm
- * Currently only LAKE and FOREST levels are fully defined as examples.
  */
 
 #include "level_data.h"
@@ -93,9 +90,6 @@ const level_t level_data_lake = {
         }
     }
 };
-
-/* TODO: Add remaining 6 levels - SPACE, BASE, CAVE, SHED, CASTLE, COMP */
-/* For now, create stub entries to allow compilation */
 
 const level_t level_data_forest = {
     /* Filenames */

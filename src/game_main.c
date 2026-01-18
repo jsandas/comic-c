@@ -15,12 +15,14 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <io.h>
+#include <sys/stat.h>
 #include "globals.h"
 #include "graphics.h"
 #include "timing.h"
@@ -28,6 +30,7 @@
 #include "sound.h"
 #include "sprite_data.h"
 #include "level_data.h"
+#include "physics.h"
 #include "file_loaders.h"
 
 /* Runtime library symbol for large model code */
@@ -75,35 +78,46 @@ static uint8_t interrupt_handler_install_sentinel = 0;
 static volatile uint8_t game_tick_flag = 0;
 static uint16_t max_joystick_reads = 0;
 static uint16_t saved_video_mode = 0;
-static uint8_t current_level_number = LEVEL_NUMBER_FOREST;
-static uint8_t current_stage_number = 0;
+uint8_t current_level_number = LEVEL_NUMBER_FOREST;
+uint8_t current_stage_number = 0;
 static level_t current_level;
 
 /* Game state variables */
 static uint8_t win_counter = 0;
-static uint8_t comic_x = 0;
-static uint8_t comic_y = 0;
-static uint8_t comic_animation = COMIC_STANDING;
-static uint8_t comic_facing = COMIC_FACING_RIGHT;
-static uint8_t comic_run_cycle = COMIC_RUNNING_1;
-static uint8_t comic_is_falling_or_jumping = 0;
-static uint8_t comic_is_teleporting = 0;
-static int8_t comic_x_momentum = 0;
-static int8_t comic_y_vel = 0;
-static uint8_t comic_jump_counter = 4;
-static uint8_t comic_jump_power = 4;
+uint8_t comic_x = 0;
+uint8_t comic_y = 0;
+uint8_t comic_animation = COMIC_STANDING;
+uint8_t comic_facing = COMIC_FACING_RIGHT;
+uint8_t comic_run_cycle = COMIC_RUNNING_1;
+uint8_t comic_is_falling_or_jumping = 0;
+uint8_t comic_is_teleporting = 0;
+int8_t comic_x_momentum = 0;
+int8_t comic_y_vel = 0;
+uint8_t comic_jump_counter = 0;  /* Current jump countdown (0 when standing) */
+uint8_t comic_jump_power = JUMP_POWER_DEFAULT;  /* Base jump power (4 default, 5 with Boots) */
+uint8_t ceiling_stick_flag = 0;  /* Whether Comic is jumping upward against a ceiling */
+uint8_t comic_fall_delay = 0;  /* Ticks to hover at jump apex */
+const level_t *current_level_ptr = NULL;  /* Pointer to current level data */
 static uint8_t comic_hp = MAX_HP;
 static uint8_t comic_hp_pending_increase = 0;
-static uint16_t camera_x = 0;
+uint16_t camera_x = 0;
+/* Landing sentinel: set by physics when hitting ground; clears each tick */
+uint8_t landed_this_tick = 0;
 
 /* Input state variables (set by keyboard interrupt handler) */
-static uint8_t key_state_esc = 0;
-static uint8_t key_state_jump = 0;
-static uint8_t key_state_fire = 0;
-static uint8_t key_state_left = 0;
-static uint8_t key_state_right = 0;
-static uint8_t key_state_open = 0;
-static uint8_t key_state_teleport = 0;
+uint8_t key_state_esc = 0;
+uint8_t key_state_jump = 0;
+uint8_t key_state_fire = 0;
+uint8_t key_state_left = 0;
+uint8_t key_state_right = 0;
+uint8_t key_state_open = 0;
+uint8_t key_state_teleport = 0;
+
+/* Previous frame input state (used for edge-triggered input like jump) */
+static uint8_t previous_key_state_jump = 0;
+
+/* Minimum jump frames counter - ensures quick taps get at least 2 frames of acceleration */
+uint8_t minimum_jump_frames = 0;
 
 /* Fireball state */
 static uint8_t fireball_meter = 100;
@@ -114,15 +128,15 @@ static uint8_t comic_has_door_key = 0;
 static uint8_t comic_has_teleport_wand = 0;
 
 /* Tileset buffer - holds data from .TT2 file */
-static uint8_t tileset_last_passable;
-static uint8_t tileset_flags;
-static uint8_t tileset_graphics[128 * 128];  /* Up to 128 16x16 tiles */
+uint8_t tileset_last_passable;
+uint8_t tileset_flags;
+uint8_t tileset_graphics[128 * 128];  /* Up to 128 16x16 tiles */
 
 /* Stage data - three .PT files per level */
 static pt_file_t pt0;
 static pt_file_t pt1;
 static pt_file_t pt2;
-static uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
+uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
 static uint8_t comic_num_lives = 0;
 
 /* Offscreen buffer pointer (0x0000 or 0x2000) - start with A as offscreen when B is displayed */
@@ -323,6 +337,12 @@ void calibrate_joystick(void)
 static void (__interrupt *saved_int8_handler)(void);   /* Timer tick handler */
 static void (__interrupt *saved_int9_handler)(void);   /* Keyboard handler */
 
+/* Keyboard scancode capture buffer (direct from INT 9) */
+#define MAX_SCANCODE_QUEUE 16
+static uint8_t scancode_queue[MAX_SCANCODE_QUEUE];
+static uint8_t scancode_queue_head = 0;
+static uint8_t scancode_queue_tail = 0;
+
 /*
  * int8_handler - Timer interrupt (INT 8) handler
  * 
@@ -352,15 +372,22 @@ static void __interrupt int8_handler(void)
 /*
  * int9_handler - Keyboard interrupt (INT 9) handler
  * 
- * Reads the keyboard scancode and calls the original handler.
- * Uses inline assembly to define the interrupt handler.
+ * Reads the keyboard scancode, stores it in a queue, and calls the original handler.
  */
 static void __interrupt int9_handler(void)
 {
     uint8_t scancode;
+    uint8_t next_head;
     
-    /* Read keyboard scancode */
+    /* Read keyboard scancode from port 0x60 */
     scancode = inp(0x60);
+    
+    /* Store scancode in queue if there's room */
+    next_head = (scancode_queue_head + 1) % MAX_SCANCODE_QUEUE;
+    if (next_head != scancode_queue_tail) {
+        scancode_queue[scancode_queue_head] = scancode;
+        scancode_queue_head = next_head;
+    }
     
     /* Call the original keyboard interrupt handler */
     if (saved_int9_handler) {
@@ -1241,33 +1268,15 @@ static void handle_teleport(void)
     comic_is_teleporting = 0;  /* TODO: Remove this and implement full animation */
 }
 
-static void handle_fall_or_jump(void)
-{
-    /* TODO: Implement gravity, jumping, and ground collision */
-}
+/* Physics functions implemented in physics.c */
+/* handle_fall_or_jump is defined in physics.c */
 
 static void begin_teleport(void)
 {
     /* TODO: Implement teleport initiation */
 }
 
-static void face_or_move_left(void)
-{
-    /* TODO: Implement left movement and collision */
-    comic_facing = COMIC_FACING_LEFT;
-    if (comic_is_falling_or_jumping == 0) {
-        comic_animation = comic_run_cycle;
-    }
-}
-
-static void face_or_move_right(void)
-{
-    /* TODO: Implement right movement and collision */
-    comic_facing = COMIC_FACING_RIGHT;
-    if (comic_is_falling_or_jumping == 0) {
-        comic_animation = comic_run_cycle;
-    }
-}
+/* face_or_move_left and face_or_move_right are implemented in game_main.c */
 
 static void pause_game(void)
 {
@@ -1485,25 +1494,7 @@ static void increment_comic_hp(void)
     }
 }
 
-static uint16_t address_of_tile_at_coordinates(uint8_t x, uint8_t y)
-{
-    /* Calculate byte offset into tile map
-     * 
-     * Input coordinates should be valid:
-     *   x: 0-127 (MAP_WIDTH_TILES - 1)
-     *   y: 0-9 (MAP_HEIGHT_TILES - 1)
-     * 
-     * If coordinates are out of bounds, the returned offset will exceed
-     * MAP_WIDTH_TILES * MAP_HEIGHT_TILES (1280). Callers must check the
-     * returned value against this limit before dereferencing the tile map.
-     * 
-     * Map layout: Linear array, row-major order
-     *   tiles[y*128 + x] = tile ID at (x, y)
-     * 
-     * Offset = y * MAP_WIDTH_TILES + x
-     */
-    return (uint16_t)y * MAP_WIDTH_TILES + x;
-}
+/* address_of_tile_at_coordinates is now defined in physics.c */
 
 /*
  * blit_tile_to_map - Blit a single 16x16 tile to the pre-rendered map buffer
@@ -1660,12 +1651,12 @@ static void render_map(void)
  */
 void load_new_stage(void)
 {
-    const level_t *current_level_ptr;
     const stage_t *current_stage_ptr;
     int cam_x;
     
     /* Get the current level data pointer */
     if (current_level_number < 8) {
+        /* Use the global current_level_ptr, which is accessible to physics.c */
         current_level_ptr = level_data_pointers[current_level_number];
     } else {
         return;  /* Invalid level */
@@ -1701,6 +1692,12 @@ void load_new_stage(void)
             comic_x = 12;
             comic_y = 8;
         }
+        
+        /* Initialize Comic's physics state
+         * Start with Comic standing (not falling), let the game loop detect if he needs to fall */
+        comic_is_falling_or_jumping = 0;
+        comic_y_vel = 0;  /* Start at rest */
+        comic_jump_counter = 0;  /* Jump counter will be reinitialized when needed */
         
         /* Initialize camera to center on Comic, clamped to valid range.
          * Formula: camera_x = clamp(comic_x - (PLAYFIELD_WIDTH/2 - 1), 0, MAP_WIDTH - PLAYFIELD_WIDTH)
@@ -1740,7 +1737,60 @@ void load_new_stage(void)
 
 }
 
- /*
+/*
+ * comic_dies - Handle Comic's death
+ * 
+ * This function is called when Comic falls off the bottom of the screen
+ * or when his HP is reduced to zero. It:
+ * 1. Sets Comic's animation to COMIC_JUMPING
+ * 2. Blits Comic and the map to the offscreen buffer
+ * 3. Swaps video buffers to show the death frame
+ * 4. Plays the "Too Bad" sound effect
+ * 5. Either respawns Comic with one less life, or ends the game
+ */
+void comic_dies(void)
+{
+    /* Set Comic's animation to jumping as he falls */
+    comic_animation = COMIC_JUMPING;
+    
+    /* If Comic is still visible on screen (y < PLAYFIELD_HEIGHT), show the death animation */
+    if (comic_y < PLAYFIELD_HEIGHT) {
+        /* Blit the map and Comic's current position */
+        blit_map_playfield_offscreen();
+        blit_comic_playfield_offscreen();
+        swap_video_buffers();
+        
+        /* Wait briefly to show the death frame */
+        wait_n_ticks(1);
+    }
+    
+    /* Blit final frame and swap buffers */
+    blit_map_playfield_offscreen();
+    swap_video_buffers();
+    
+    /* Wait for effect to display */
+    wait_n_ticks(2);
+    
+    /* Play "Too Bad" sound - TODO: implement sound playback
+     * In the assembly, this used: int3 with AX=SOUND_PLAY, BX=SOUND_TOO_BAD address, CX=priority
+     */
+    
+    /* Wait for sound to finish */
+    wait_n_ticks(15);
+    
+    /* Lose a life and respawn, or game over if no lives remain
+     * TODO: Implement lives tracking and respawn logic */
+    
+    /* For now, just reset Comic's state to allow continuing */
+    comic_run_cycle = 0;
+    comic_is_falling_or_jumping = 0;
+    comic_x_momentum = 0;
+    comic_y_vel = 0;
+    comic_jump_counter = comic_jump_power;  /* Use current jump power (may be 5 if Boots collected) */
+    comic_animation = COMIC_STANDING;
+}
+
+/*
  * clear_bios_keyboard_buffer - Clear the BIOS keyboard buffer
  * 
  * Clears the BIOS keyboard buffer by setting the tail pointer equal to the
@@ -1770,6 +1820,91 @@ static void dos_idle(void)
 }
 
 /*
+ * update_keyboard_input - Read keyboard state and update key_state variables
+ * 
+ * Polls the BIOS keyboard buffer and reads scancodes to update the key_state
+ * variables based on the configured keymap.
+ * 
+ * The key_state variables are:
+ * - key_state_jump: Space (jump)
+ * - key_state_fire: Insert (fire)
+ * - key_state_left: Left arrow (move left)
+ * - key_state_right: Right arrow (move right)
+ * - key_state_open: Alt (open door)
+ * - key_state_teleport: CapsLock (teleport)
+ * - key_state_esc: Escape (quit)
+ * 
+ * Keymaps are loaded from KEYS.DEF if present; otherwise defaults are used.
+ */
+static void update_keyboard_input(void)
+{
+    uint8_t scancode;
+    uint8_t key_count = 0;
+    uint8_t is_break;
+    uint8_t code;
+    static uint8_t extended_prefix = 0;
+    
+    /* Process all scancodes in the queue */
+    while (scancode_queue_head != scancode_queue_tail) {
+        /* Get next scancode from queue */
+        scancode = scancode_queue[scancode_queue_tail];
+        scancode_queue_tail = (scancode_queue_tail + 1) % MAX_SCANCODE_QUEUE;
+        
+        key_count++;
+        
+        if (scancode == 0xE0) {
+            extended_prefix = 1;
+            continue;
+        }
+
+        /* Handle break (key release) codes */
+        is_break = (scancode & 0x80) != 0;
+        code = scancode & 0x7F;
+        (void)extended_prefix; /* prefix retained for future use */
+        extended_prefix = 0;
+
+        /* Compare scancode with configured keymap */
+        if (code == keymap[0]) {
+            key_state_jump = (uint8_t)(!is_break);  /* SPACE */
+        } else if (code == keymap[1]) {
+            key_state_fire = (uint8_t)(!is_break);  /* INSERT */
+        } else if (code == keymap[2]) {
+            key_state_left = (uint8_t)(!is_break);  /* LEFT ARROW */
+        } else if (code == keymap[3]) {
+            key_state_right = (uint8_t)(!is_break); /* RIGHT ARROW */
+        } else if (code == keymap[4]) {
+            key_state_open = (uint8_t)(!is_break);  /* ALT */
+        } else if (code == keymap[5]) {
+            key_state_teleport = (uint8_t)(!is_break);  /* CAPSLOCK */
+        } else if (code == 0x01) {
+            key_state_esc = (uint8_t)(!is_break);  /* ESCAPE - hardcoded */
+        }
+    }
+}
+
+/*
+ * face_or_move_left - Face or move Comic left
+ * 
+ * Wrapper that sets facing direction and calls the physics move_left function.
+ */
+static void face_or_move_left(void)
+{
+    comic_facing = COMIC_FACING_LEFT;
+    move_left();
+}
+
+/*
+ * face_or_move_right - Face or move Comic right
+ * 
+ * Wrapper that sets facing direction and calls the physics move_right function.
+ */
+static void face_or_move_right(void)
+{
+    comic_facing = COMIC_FACING_RIGHT;
+    move_right();
+}
+
+/*
  * game_loop - Main game loop
  * 
  * This is the main game loop that runs continuously until the game ends.
@@ -1792,9 +1927,6 @@ void game_loop(void)
     while (1) {
         skip_rendering = 0;
         
-        /* Clear the BIOS keyboard buffer */
-        clear_bios_keyboard_buffer();
-        
         /* Busy-wait until int8_handler sets game_tick_flag */
         while (game_tick_flag != 1) {
             /* While waiting, reinitialize comic_jump_counter if Comic is not
@@ -1812,6 +1944,29 @@ void game_loop(void)
         
         /* Clear the tick flag */
         game_tick_flag = 0;
+        /* Reset landing sentinel for this tick */
+        landed_this_tick = 0;
+        
+        /* Read keyboard input and update key_state variables */
+        update_keyboard_input();
+        
+        /* Initiate jump if conditions are met (matching original assembly):
+         * - Player is standing (not in air)
+         * - Jump key transitioned from released to pressed (edge-triggered, not level-triggered)
+         * - Jump power has been recharged (comic_jump_power > 1)
+         * 
+         * Edge-triggering prevents repeated jumps while the key is continuously held.
+         * The key must transition from 0 (released) to 1 (pressed) to initiate a jump.
+         */
+        if (comic_is_falling_or_jumping == 0 && key_state_jump && !previous_key_state_jump && comic_jump_power > 1) {
+            /* Start a new jump: reset counter to power, mark as in air */
+            comic_jump_counter = comic_jump_power;
+            comic_is_falling_or_jumping = 1;
+            minimum_jump_frames = 0;  /* No forced frames - rely on key press duration only */
+        }
+        
+        /* Update previous frame state for edge-triggered input */
+        previous_key_state_jump = key_state_jump;
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
@@ -1849,27 +2004,8 @@ void game_loop(void)
         }
         /* Handle falling, jumping, and movement only if not teleporting */
         else {
-            /* Handle falling or jumping */
-            if (comic_is_falling_or_jumping != 0) {
-                handle_fall_or_jump();
-            }
-            /* Check jump input (only if not already falling/jumping) */
-            else if (key_state_jump == 1) {
-                /* Only jump if comic_jump_counter is not exhausted
-                 * comic_jump_counter == 1 means "exhausted" (used as a sentinel value)
-                 * This prevents jumping while already in the air */
-                if (comic_jump_counter > 1) {
-                    comic_is_falling_or_jumping = 1;
-                    handle_fall_or_jump();
-                }
-            } else {
-                /* Not pressing jump; recharge jump counter for the next frame.
-                 * Note: The busy-wait loop above also recharges the counter
-                 * continuously while waiting, providing responsive jump timing.
-                 * This recharge ensures the counter is reset after jump key release
-                 * in case the condition was not met during the busy-wait. */
-                comic_jump_counter = comic_jump_power;
-            }
+            /* Call physics to handle gravity and collisions (single call per frame) */
+            handle_fall_or_jump();
             
             /* Check open input (doors) - only if not falling/jumping */
             if (comic_is_falling_or_jumping == 0 && key_state_open == 1) {
@@ -1884,8 +2020,15 @@ void game_loop(void)
                  * at the top of the next loop iteration. Skip to actor handling. */
                 skip_rendering = 1;
             }
-            /* Handle left/right movement - only if not falling/jumping and not teleporting */
-            else if (comic_is_falling_or_jumping == 0) {
+            /* Handle left/right movement - only if not falling/jumping, not teleporting,
+             * and did NOT just land this tick (assembly jumps to pause after landing). */
+            else if (comic_is_falling_or_jumping == 0 && landed_this_tick == 0) {
+                uint8_t foot_y;
+                uint16_t foot_offset;
+                uint8_t foot_tile;
+                uint8_t foot_solid;
+                uint8_t right_foot_solid;
+
                 comic_x_momentum = 0;
                 /* Note: If both left and right keys are pressed simultaneously,
                  * right movement takes priority (momentum is set to -5 then
@@ -1899,52 +2042,35 @@ void game_loop(void)
                     comic_x_momentum = +5;
                     face_or_move_right();
                 }
-                
-                /* Check for floor beneath Comic */
-                /* We check comic_y + 4 to see if there's a solid tile 4 units below Comic.
-                 * Valid comic_y values are 0-9 (can occupy any tile row in a 10-tile map).
-                 * Adding 4 could put us at y=13 if comic_y=9, which is out of bounds.
-                 * The bounds check below (tile_addr < MAP_WIDTH_TILES * MAP_HEIGHT_TILES)
-                 * catches this and treats out-of-bounds as passable (no floor). */
-                tile_addr = address_of_tile_at_coordinates(comic_x, comic_y + 4);
-                /* Look up the tile ID from the current stage's tile map */
-                if (current_tiles_ptr != NULL && tile_addr < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
-                    tile_value = current_tiles_ptr[tile_addr];
-                } else {
-                    tile_value = 0;  /* Treat as passable if no tile map loaded or out of bounds */
+
+                /* Check for floor below Comic (walked off an edge) */
+                foot_y = comic_y + 4;
+                foot_offset = address_of_tile_at_coordinates(comic_x / 2, foot_y / 2);
+                foot_solid = 0;
+                right_foot_solid = 0;
+                if (current_tiles_ptr != NULL && foot_offset < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
+                    foot_tile = current_tiles_ptr[foot_offset];
+                    if (foot_tile > tileset_last_passable) {
+                        foot_solid = 1;
+                    }
+                    if ((comic_x & 1) && (foot_offset + 1) < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
+                        foot_tile = current_tiles_ptr[foot_offset + 1];
+                        if (foot_tile > tileset_last_passable) {
+                            right_foot_solid = 1;
+                        }
+                    }
                 }
-                
-                /* Check if there's solid ground directly beneath Comic */
-                if (tile_value > tileset_last_passable) {
-                    /* Primary tile is solid; we're standing on something */
-                    /* Do nothing - remain on ground */
-                } else {
-                    /* Primary tile is passable. If Comic is halfway between tiles,
-                     * also check the secondary tile (tile to the right) */
-                    uint8_t secondary_tile_solid = 0;
-                    if ((comic_x & 1) && current_tiles_ptr != NULL && tile_addr + 1 < MAP_WIDTH_TILES * MAP_HEIGHT_TILES) {
-                        /* Comic is odd-positioned (halfway between tiles) */
-                        tile_value = current_tiles_ptr[tile_addr + 1];
-                        if (tile_value > tileset_last_passable) {
-                            secondary_tile_solid = 1;
-                        }
+
+                if (!foot_solid && !right_foot_solid) {
+                    /* Start falling after walking off an edge */
+                    comic_y_vel = 8;
+                    if (comic_x_momentum > 0) {
+                        comic_x_momentum = +2;
+                    } else if (comic_x_momentum < 0) {
+                        comic_x_momentum = -2;
                     }
-                    
-                    /* Start falling if both primary and secondary tiles are passable */
-                    if (!secondary_tile_solid) {
-                        comic_y_vel = 8;  /* Initial falling velocity */
-                        
-                        /* After walking off edge, Comic has 2 units of momentum */
-                        if (comic_x_momentum < 0) {
-                            comic_x_momentum = -2;
-                        } else if (comic_x_momentum > 0) {
-                            comic_x_momentum = +2;
-                        }
-                        
-                        comic_is_falling_or_jumping = 1;
-                        /* Set counter to 1 (exhausted) to prevent mid-air jumping */
-                        comic_jump_counter = 1;
-                    }
+                    comic_is_falling_or_jumping = 1;
+                    comic_jump_counter = 1;
                 }
             }
         }
