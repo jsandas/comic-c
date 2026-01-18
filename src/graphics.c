@@ -787,7 +787,7 @@ void blit_sprite_16x8_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *
     mask_data = sprite_data + 64;
 
     for (plane = 0; plane < 4; plane++) {
-        enable_ega_plane_write(plane);
+        enable_ega_plane_read_write(plane);
 
         plane_offset = (uint16_t)(plane * 16);
         plane_data = sprite_data + plane_offset;
