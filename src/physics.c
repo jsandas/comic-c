@@ -37,6 +37,11 @@ extern uint8_t current_stage_number;
 extern const level_t *current_level_ptr;
 extern uint16_t camera_x;
 
+/* External input state (set by keyboard handling in game_main.c) */
+extern uint8_t key_state_jump;
+extern uint8_t key_state_left;
+extern uint8_t key_state_right;
+
 /* External functions */
 extern void comic_dies(void);
 extern void load_new_stage(void);
@@ -79,12 +84,8 @@ void handle_fall_or_jump(void)
      *   key_state_jump, key_state_left, key_state_right - Input flags
      */
     
-    extern uint8_t current_level_number;
-    extern uint8_t ceiling_stick_flag;
-    extern uint8_t key_state_jump;
-    extern uint8_t key_state_left;
-    extern uint8_t key_state_right;
-    extern uint8_t comic_animation;
+    /* Use file-scope externs for current_level_number, ceiling_stick_flag,
+     * comic_animation, and key_state_* declared above */
     
     int8_t delta_y;
     uint8_t skip_vertical_integration;
