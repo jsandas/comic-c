@@ -309,11 +309,6 @@ void move_right(void)
 {
     /* Move Comic right if possible, handling stage edges and collisions */
     
-    extern uint8_t current_stage_number;
-    extern const level_t *current_level_ptr;
-    extern uint16_t camera_x;
-    extern uint8_t comic_run_cycle;
-    
     const stage_t *stage;
     uint8_t new_x;
     uint8_t check_y;
