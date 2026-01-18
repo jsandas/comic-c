@@ -88,16 +88,12 @@ void handle_fall_or_jump(void)
      * comic_animation, and key_state_* declared above */
     
     int8_t delta_y;
-    uint8_t skip_vertical_integration;
     uint8_t head_tile;
     uint8_t head_solid;
     uint8_t foot_y;
     uint8_t foot_tile;
     uint8_t foot_solid;
-    uint8_t on_platform;
-    uint8_t platform_foot_y;
     uint8_t platform_tile;
-    uint8_t platform_solid;
     uint8_t tile_row;
     
     /* DEBUG: Log jump physics state */
