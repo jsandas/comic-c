@@ -158,6 +158,243 @@ JMP game_loop [infinite loop back to top]
 
 ---
 
+## Nonplayer Actor Handling
+
+### handle_enemies (from R5sw1991.asm:4653)
+
+Processes all spawned enemies, handles their behavior, collision detection with Comic, and animation.
+
+```
+handle_enemies:
+- Initialize enemy_spawned_this_tick = 0
+- For each enemy slot (MAX_NUM_ENEMIES total):
+  
+  .despawned (state = ENEMY_STATE_DESPAWNED):
+  - Decrement enemy spawn_timer_and_animation
+  - If timer expired:
+    - Call maybe_spawn_enemy (attempts to spawn this enemy)
+  
+  .spawned (state = ENEMY_STATE_SPAWNED):
+  - Increment spawn_timer_and_animation (animation counter)
+  - If animation counter >= num_animation_frames:
+    - Wrap animation counter back to 0
+  - Branch on enemy.behavior (1-5):
+    - behavior 1: Call enemy_behavior_bounce
+    - behavior 2: Call enemy_behavior_leap
+    - behavior 3: Call enemy_behavior_roll
+    - behavior 4: Call enemy_behavior_seek
+    - behavior 5: Call enemy_behavior_shy
+  - All behavior subroutines jump back to .check_despawn when done
+  
+  .check_despawn:
+  - Compare enemy's distance from Comic
+  - If enemy.x is > ENEMY_DESPAWN_RADIUS away from Comic.x:
+    - Despawn this enemy
+  
+  .check_collision_with_comic:
+  - If horizontal distance (abs(enemy.x - comic.x)) >= 2:
+    - Skip collision check
+  - If enemy.y < comic.y or (enemy.y - comic.y) >= 4:
+    - Skip collision check
+  - Else (collision detected):
+    - Set enemy.state = ENEMY_STATE_RED_SPARK (start red spark animation)
+    - If comic_hp == 0 AND inhibit_death_by_enemy_collision == 0:
+      - Set inhibit_death_by_enemy_collision = 1
+      - Call comic_death_animation
+      - Set inhibit_death_by_enemy_collision = 0
+      - Jump to comic_dies
+    - Else:
+      - Decrement comic_hp
+      - Play SOUND_HIT_BY_ENEMY
+  
+  .blit:
+  - Calculate camera-relative x-coordinate: enemy.x - camera_x
+  - Check playfield bounds:
+    - If camera-relative x < 0: skip to .next_enemy (off left edge)
+    - If camera-relative x >= PLAYFIELD_WIDTH - 2: skip to .next_enemy (off right edge)
+  - Construct graphics pointer:
+    - Get current animation frame index: al = enemy.spawn_timer_and_animation
+    - Add facing direction offset: al += enemy.facing
+    - Look up frame pointer: si = enemy.animation_frames_ptr[al]
+    - Set mask pointer: bp = si + 128 (mask data follows frame data)
+  - Call blit_16xH_with_mask_playfield_offscreen with:
+    - ah = enemy.y (row coordinate)
+    - al = camera-relative x (column coordinate)
+    - si = enemy animation frame graphics pointer
+    - bp = mask pointer (for transparency)
+    - cx = 16 (enemy sprite height in pixels)
+  
+  .dying (state >= ENEMY_STATE_WHITE_SPARK):
+  - Enemy is in a death/spark animation sequence:
+    - States 2-6: white spark animation is playing
+    - State 7: white spark animation finished
+    - States 8-12: red spark animation is playing
+    - State 13: red spark animation finished
+  - Normalize animation counter: bl = enemy.state
+  - Check if white spark animation is complete:
+    - If bl == 7: jump to .despawn
+    - If bl < 7: still in white spark, jump to .advance_spark_animation
+  - Check if red spark animation is complete:
+    - Subtract offset: bl -= (ENEMY_STATE_RED_SPARK - ENEMY_STATE_WHITE_SPARK)
+    - If bl != 7: still in red spark, jump to .advance_spark_animation
+    - If bl == 7: jump to .despawn
+  
+  .advance_spark_animation:
+  - Calculate camera-relative x-coordinate: enemy.x - camera_x
+  - Despawn dying enemies that leave the playfield:
+    - If camera-relative x < 0: jump to .despawn
+    - If camera-relative x >= PLAYFIELD_WIDTH - 2: jump to .despawn
+  - Check animation frame count: if bl <= 4 (first 3 frames):
+    - Blit the enemy sprite under the spark animation (using same procedure as .blit above)
+  
+  .blit_spark:
+  - Construct spark animation graphics pointer:
+    - Get animation state: al = enemy.state
+    - Subtract 2 to 0-index into ANIMATION_TABLE_SPARKS: al -= 2
+    - Look up spark frame pointer: si = ANIMATION_TABLE_SPARKS[al]
+    - Set mask pointer: bp = si + 128
+  - Call blit_16xH_with_mask_playfield_offscreen with spark animation frame (same parameters as regular blit)
+  - Advance spark animation counter: enemy.state++
+  - Jump to .enemy_loop_next
+  
+  .despawn:
+  - Set enemy.state = ENEMY_STATE_DESPAWNED
+  - Initialize respawn timer: enemy.spawn_timer_and_animation = enemy_respawn_counter_cycle
+  - Advance the global respawn counter cycle:
+    - enemy_respawn_counter_cycle += 20
+    - If >= 120: wrap around to 20 (cycles respawn timing)
+  - Jump to .enemy_loop_next
+  
+  .enemy_loop_next:
+  - Restore loop counter: pop cx
+  - Advance to next enemy slot: si += enemy_size
+  - Decrement enemy counter: cx--
+  - If cx == 0: jump to return (all enemies processed)
+  - Else: jump back to .enemy_loop
+```
+
+### handle_fireballs (from R5sw1991.asm:5653)
+
+Manages fireball movement, animation, playfield bounds checking, and collision detection with enemies.
+
+```
+handle_fireballs:
+- If comic_firepower == 0:
+  - Return (no fireballs to process)
+
+.movement_loop: [For each fireball slot, up to comic_firepower slots]
+- Check if fireball slot is active:
+  - If fireball.y == FIREBALL_DEAD AND fireball.x == FIREBALL_DEAD:
+    - Skip to next fireball
+  
+  .moving_left or .moving_right:
+  - If fireball.vel < 0:
+    - Negate fireball.vel and move fireball left: fireball.x += fireball.vel (negative)
+  - Else (fireball.vel > 0):
+    - Move fireball right: fireball.x += fireball.vel
+  
+  .check_playfield_bounds:
+  - Calculate camera-relative x-coordinate
+  - If fireball is off the left edge (camera-relative x < 0):
+    - Deactivate fireball (set to FIREBALL_DEAD)
+  - If fireball is off the right edge (camera-relative x >= PLAYFIELD_WIDTH - 2):
+    - Deactivate fireball
+  
+  .handle_corkscrew:
+  - If comic_has_corkscrew == 1:
+    - Decrement fireball.corkscrew_phase
+    - If phase == 0:
+      - Move fireball down: fireball.y += 1
+      - Set phase = 2
+    - Else:
+      - Move fireball up: fireball.y -= 1
+  
+  .animate:
+  - Store updated fireball.y and fireball.x
+  - Increment fireball.animation (animation frame counter)
+  - If animation >= num_animation_frames:
+    - Wrap animation back to 0
+  - Blit fireball at its current location with current animation frame
+
+.check_collision: [Nested loop checking all fireballs vs all enemies]
+- For each fireball slot:
+  - If fireball is inactive (FIREBALL_DEAD):
+    - Skip to next fireball
+  - For each enemy slot:
+    - If enemy.state != ENEMY_STATE_SPAWNED:
+      - Skip to next enemy
+    - Check vertical collision: (fireball.y - enemy.y) must be 0 or 1
+    - Check horizontal collision: abs(fireball.x - enemy.x) must be <= 1
+    - If collision found:
+      - Set enemy.state = ENEMY_STATE_WHITE_SPARK (white spark animation)
+      - Deactivate fireball (set to FIREBALL_DEAD)
+      - Award 300 points (3 units)
+      - Play SOUND_HIT_ENEMY with priority 1
+      - Continue to next fireball
+```
+
+### handle_item (from R5sw1991.asm:4145)
+
+Manages item collection or rendering in the current stage.
+
+```
+handle_item:
+- Get current_stage_ptr
+- If stage.item_type == ITEM_UNUSED:
+  - Return (no item in this stage)
+
+- Calculate items_collected index for current stage:
+  - index = (current_stage_number << 4) + current_level_number
+  - If items_collected[index] == 1:
+    - Return (item already collected in this stage)
+
+- Get item coordinates from stage data:
+  - item_y = stage.item_y
+  - item_x = stage.item_x
+  
+- Calculate camera-relative x-coordinate:
+  - camera_relative_x = item_x - camera_x
+  - If item is off the left edge (camera_relative_x < 0):
+    - Return (skip rendering)
+  - If item is off the right edge (camera_relative_x >= 22):
+    - Return (skip rendering)
+
+- Call collect_item_or_blit_offscreen(stage.item_type):
+  - Checks if Comic collides with item
+  - If collision detected:
+    - Mark item as collected in items_collected bitmap
+    - Update Comic's power-ups based on item type:
+      - Shield: Increase comic_hp, comic_num_lives
+      - Boots: Increase comic_jump_power
+      - Fireball: Increase comic_firepower
+      - Corkscrew: Set comic_has_corkscrew = 1
+      - Door Key: Set comic_has_door_key = 1
+      - Lantern: Set comic_has_lantern = 1
+      - Teleport Wand: Set comic_has_teleport_wand = 1
+      - Treasure: Increment comic_num_treasures
+      - Extra Life: Award extra life (or refill HP if at max lives)
+    - Award 2000 points for collecting item
+  - Else (no collision):
+    - Blit item to offscreen buffer at its current location with animation
+```
+
+### swap_video_buffers (from R5sw1991.asm:4120)
+
+Swaps the offscreen video buffer to become the visible buffer and vice versa. Updates offscreen_video_buffer_ptr to point to the new offscreen buffer.
+
+```
+swap_video_buffers:
+- Get current offscreen_video_buffer_ptr (0x0000 or 0x2000)
+- Call switch_video_buffer:
+  - Switches which buffer is displayed on screen
+- Toggle offscreen_video_buffer_ptr to the other value:
+  - If was 0x0000, set to 0x2000
+  - If was 0x2000, set to 0x0000
+- Return
+```
+
+---
+
 ## Jump and Fall Handling (`handle_fall_or_jump` from R5sw1991.asm:4274)
 
 This function is called when `comic_is_falling_or_jumping = 1`. It applies upward acceleration from jumping, downward acceleration from gravity, and checks for collisions.

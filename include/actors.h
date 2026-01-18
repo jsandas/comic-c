@@ -75,6 +75,7 @@ typedef struct {
  */
 extern enemy_t enemies[MAX_NUM_ENEMIES];
 extern fireball_t fireballs[MAX_NUM_FIREBALLS];
+extern uint8_t enemy_shp_index[MAX_NUM_ENEMIES];
 
 /* ===== Actor System Functions ===== */
 

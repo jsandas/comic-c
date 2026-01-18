@@ -15,11 +15,11 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <fcntl.h>
 #include <io.h>
 #include <sys/stat.h>
@@ -47,6 +47,56 @@ int _big_code_ = 1;
  * In the large memory model with a single data segment (DGROUP), this
  * extracts the 16-bit offset portion of a pointer for use in DS:DX addressing. */
 #define DOS_OFFSET(ptr) ((uint16_t)(uintptr_t)(ptr))
+
+/* Debug log file handle (opened lazily) */
+static int g_debug_file_handle = -1;
+
+/* Close DEBUG.LOG if open */
+void debug_log_close(void)
+{
+    if (g_debug_file_handle != -1) {
+        _close(g_debug_file_handle);
+        g_debug_file_handle = -1;
+    }
+}
+
+/*
+ * debug_log - Write debug message to DEBUG.LOG file
+ * 
+ * Appends formatted text to DEBUG.LOG file. Uses module-level file handle
+ * for efficiency (file stays open between calls).
+ * 
+ * Call debug_log_close() before program termination to close the file handle.
+ */
+void debug_log(const char *format, ...)
+{
+    va_list args;
+    char buffer[256];
+    int len;
+    
+    /* Open DEBUG.LOG on first call (append mode) */
+    if (g_debug_file_handle == -1) {
+        g_debug_file_handle = _open("DEBUG.LOG", O_WRONLY | O_CREAT | O_APPEND | O_BINARY,
+                          S_IREAD | S_IWRITE);
+        if (g_debug_file_handle == -1) {
+            return;  /* Can't open file, silently fail */
+        }
+    }
+    
+    /* Format the message safely (truncate to buffer size) */
+    va_start(args, format);
+    /* vsnprintf returns the number of characters that would have been written,
+     * excluding the null terminator. The buffer is always null-terminated. */
+    (void)vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    /* Compute actual length to write based on the truncated buffer */
+    len = (int)strlen(buffer);
+    
+    /* Write to file */
+    if (len > 0) {
+        _write(g_debug_file_handle, buffer, len);
+    }
+}
 
 /* Target value for joystick timing calibration weighted average.
  * This represents a baseline for CPU-speed calibration, used in the weighted average
@@ -521,6 +571,9 @@ void terminate_program(void)
 {
     union REGS regs;
     uint8_t port_value;
+
+    /* Close debug log if open */
+    debug_log_close();
     
     /* Restore original interrupt handlers */
     restore_interrupt_handlers();
@@ -1713,7 +1766,11 @@ void load_new_stage(void)
             
             /* Copy enemy definition data */
             enemies[i].behavior = enemy_rec->behavior;
-            enemies[i].num_animation_frames = 4; /* TODO: Get from SHP file */
+            enemy_shp_index[i] = enemy_rec->shp_index;
+            enemies[i].num_animation_frames = shp_get_animation_length(enemy_rec->shp_index);
+            if (enemies[i].num_animation_frames == 0) {
+                enemies[i].num_animation_frames = 1;
+            }
             enemies[i].animation_frames_ptr = 0; /* TODO: Set from SHP file */
             
             /* Initialize spawn state */

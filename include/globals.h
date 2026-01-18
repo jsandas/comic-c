@@ -20,6 +20,10 @@ typedef uint16_t uint16;
 typedef int8_t   int8;
 typedef int16_t  int16;
 
+/* Debug logging (writes to DEBUG.LOG) */
+void debug_log(const char *fmt, ...);
+void debug_log_close(void);
+
 /* ===== Game Map Constants ===== */
 #define MAP_WIDTH_TILES         128     /* Map width in tiles */
 #define MAP_HEIGHT_TILES        10      /* Map height in tiles */

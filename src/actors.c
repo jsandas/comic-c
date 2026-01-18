@@ -14,6 +14,8 @@
 #include "level_data.h"
 #include "globals.h"
 #include "graphics.h"
+#include "file_loaders.h"
+#include "sprite_data.h"
 
 /* ===== External Game State Variables ===== */
 /*
@@ -49,15 +51,20 @@ extern uint8_t item_animation_counter;     /* 0 or 1, toggles for item animation
 /* Respawn timing */
 extern uint8_t enemy_respawn_counter_cycle; /* Cycles: 20→40→60→80→100→20 */
 
+/* Forward declarations for external functions */
+extern void comic_dies(void);               /* Game over sequence from physics.c */
+
 /* ===== Actor Arrays ===== */
 enemy_t enemies[MAX_NUM_ENEMIES];
 fireball_t fireballs[MAX_NUM_FIREBALLS];
+uint8_t enemy_shp_index[MAX_NUM_ENEMIES];
 
 /* ===== Forward Declarations ===== */
 static void comic_takes_damage(void);
 static void award_points(uint16_t points);
 static uint8_t is_tile_solid(uint8_t tile_id);
 static uint8_t get_tile_at(uint8_t x, uint8_t y);
+static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uint8_t facing, uint16_t *out_frame_size);
 
 /* ===== Helper Functions ===== */
 
@@ -65,7 +72,7 @@ static uint8_t get_tile_at(uint8_t x, uint8_t y);
  * comic_takes_damage - Reduce Comic's HP and start shield/death animation
  * 
  * If Comic has shield, remove shield instead of losing HP.
- * If HP reaches 0, trigger death animation.
+ * If HP reaches 0, trigger death sequence.
  */
 static void comic_takes_damage(void)
 {
@@ -75,7 +82,8 @@ static void comic_takes_damage(void)
     } else if (comic_hp > 0) {
         comic_hp--;
         if (comic_hp == 0) {
-            /* TODO: Trigger comic_dies() from physics.c */
+            /* Comic is dead - trigger game over sequence */
+            comic_dies();
         }
     }
 }
@@ -107,8 +115,8 @@ static void award_points(uint16_t points)
  */
 static uint8_t is_tile_solid(uint8_t tile_id)
 {
-    /* Tile IDs 0-63 are solid, 64+ are passable */
-    return (tile_id < 64) ? 1 : 0;
+    /* Match physics behavior: tiles greater than tileset_last_passable are solid */
+    return (tile_id > tileset_last_passable) ? 1 : 0;
 }
 
 /*
@@ -144,6 +152,56 @@ static uint8_t get_tile_at(uint8_t x, uint8_t y)
     
     /* Read tile from map data */
     return current_tiles_ptr[offset];
+}
+
+/*
+ * get_enemy_frame - Resolve enemy sprite frame pointer
+ * 
+ * Uses SHP metadata to map animation index and facing into a frame index.
+ * Returns NULL if the SHP is not loaded or invalid.
+ */
+static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uint8_t facing, uint16_t *out_frame_size)
+{
+    uint8_t distinct = shp_get_num_distinct_frames(shp_index);
+    uint8_t anim_type = shp_get_animation(shp_index);
+    uint8_t horizontal = shp_get_horizontal(shp_index);
+    uint8_t seq_len;
+    uint8_t frame_in_seq;
+    uint8_t base_index;
+
+    if (out_frame_size) {
+        *out_frame_size = shp_get_frame_size(shp_index);
+    }
+
+    if (distinct == 0) {
+        return NULL;
+    }
+
+    seq_len = shp_get_animation_length(shp_index);
+    if (seq_len == 0) {
+        return NULL;
+    }
+
+    anim_index = (uint8_t)(anim_index % seq_len);
+
+    if (anim_type == ENEMY_ANIMATION_ALTERNATE && distinct > 1) {
+        if (anim_index < distinct) {
+            frame_in_seq = anim_index;
+        } else {
+            /* Mirror back: e.g., 0,1,2,1 for distinct=3 */
+            frame_in_seq = (uint8_t)((distinct - 2) - (anim_index - distinct));
+        }
+    } else {
+        frame_in_seq = (uint8_t)(anim_index % distinct);
+    }
+
+    if (horizontal == ENEMY_HORIZONTAL_SEPARATE && facing == COMIC_FACING_RIGHT) {
+        base_index = distinct;
+    } else {
+        base_index = 0;
+    }
+
+    return shp_get_frame(shp_index, (uint8_t)(base_index + frame_in_seq));
 }
 
 /* ===== Fireball System ===== */
@@ -191,7 +249,7 @@ void try_to_fire(void)
 void handle_fireballs(void)
 {
     int i, j;
-    int8_t rel_x;
+    int16_t rel_x;
     
     /* Skip if Comic has no firepower */
     if (comic_firepower == 0) {
@@ -235,7 +293,7 @@ void handle_fireballs(void)
             continue;
         }
         
-        rel_x = (int8_t)(fireballs[i].x - camera_x);
+        rel_x = (int16_t)((int)fireballs[i].x - (int)camera_x);
         if (rel_x > (PLAYFIELD_WIDTH - 2)) {
             /* Off right edge */
             fireballs[i].x = FIREBALL_DEAD;
@@ -277,19 +335,22 @@ void handle_fireballs(void)
         /* Render fireball sprite if still active and in playfield */
         if (fireballs[i].x != FIREBALL_DEAD && fireballs[i].y != FIREBALL_DEAD) {
             int16_t pixel_x, pixel_y;
+            const uint8_t *sprite_ptr;
             
             /* Calculate screen position relative to camera */
-            rel_x = (int8_t)(fireballs[i].x - camera_x);
+            rel_x = (int16_t)((int)fireballs[i].x - (int)camera_x);
             
             /* Check if in visible playfield (0-23 game units) */
             if (rel_x >= 0 && rel_x < PLAYFIELD_WIDTH) {
                 /* Convert to pixel coordinates (8 pixels per game unit) + playfield offset */
                 pixel_x = (rel_x * 8) + 8;
                 pixel_y = (fireballs[i].y * 8) + 8;
-                
-                /* TODO: Blit fireball sprite at (pixel_x, pixel_y) with animation frame */
-                /* This requires loading fireball sprite data from a .SHP file first */
-                /* For now, rendering is deferred until sprite loading is implemented */
+
+                sprite_ptr = (fireballs[i].animation == 0)
+                    ? sprite_fireball_0_16x8m
+                    : sprite_fireball_1_16x8m;
+
+                blit_sprite_16x8_masked((uint16_t)pixel_x, (uint16_t)pixel_y, sprite_ptr);
             }
         }
     }
@@ -304,7 +365,7 @@ void handle_item(void)
 {
     const stage_t *stage;
     uint8_t item_type, item_x, item_y;
-    int8_t rel_x, x_diff, y_diff;
+    int16_t rel_x, x_diff, y_diff;
     uint8_t level_index, stage_index;
     
     if (current_level_ptr == NULL) {
@@ -333,7 +394,7 @@ void handle_item(void)
     item_y = stage->item_y;
     
     /* Check if item is visible in playfield */
-    rel_x = (int8_t)(item_x - camera_x);
+    rel_x = (int16_t)((int)item_x - (int)camera_x);
     if (rel_x < 0 || rel_x > 22) {
         return; /* Off-screen */
     }
@@ -342,8 +403,8 @@ void handle_item(void)
     item_animation_counter = (item_animation_counter == 0) ? 1 : 0;
     
     /* Check collision with Comic */
-    x_diff = (int8_t)(item_x - comic_x);
-    y_diff = (int8_t)(item_y - comic_y);
+    x_diff = (int16_t)((int)item_x - (int)comic_x);
+    y_diff = (int16_t)((int)item_y - (int)comic_y);
     
     /* Horizontal: abs(item.x - comic_x) < 2 */
     if (x_diff >= -1 && x_diff <= 1) {
@@ -379,6 +440,7 @@ void handle_item(void)
     /* Render item sprite */
     {
         int16_t pixel_x, pixel_y;
+        const uint8_t *sprite_ptr = NULL;
         
         /* Calculate screen position relative to camera */
         rel_x = (int8_t)(item_x - camera_x);
@@ -386,10 +448,65 @@ void handle_item(void)
         /* Convert to pixel coordinates (8 pixels per game unit) + playfield offset */
         pixel_x = (rel_x * 8) + 8;
         pixel_y = (item_y * 8) + 8;
-        
-        /* TODO: Blit item sprite at (pixel_x, pixel_y) with animation frame */
-        /* This requires loading item sprite data from SYS004.EGA first */
-        /* For now, rendering is deferred until sprite loading is implemented */
+
+        switch (item_type) {
+            case ITEM_BLASTOLA_COLA:
+                sprite_ptr = (item_animation_counter == 0)
+                    ? sprite_blastola_cola_even_16x16m
+                    : sprite_blastola_cola_odd_16x16m;
+                break;
+            case ITEM_CORKSCREW:
+                sprite_ptr = (item_animation_counter == 0)
+                    ? sprite_corkscrew_even_16x16m
+                    : sprite_corkscrew_odd_16x16m;
+                break;
+            case ITEM_DOOR_KEY:
+                sprite_ptr = (item_animation_counter == 0)
+                    ? sprite_door_key_even_16x16m
+                    : sprite_door_key_odd_16x16m;
+                break;
+            case ITEM_BOOTS:
+                sprite_ptr = (item_animation_counter == 0)
+                    ? sprite_boots_even_16x16m
+                    : sprite_boots_odd_16x16m;
+                break;
+            case ITEM_LANTERN:
+                sprite_ptr = (item_animation_counter == 0)
+                    ? sprite_lantern_even_16x16m
+                    : sprite_lantern_odd_16x16m;
+                break;
+            case ITEM_TELEPORT_WAND:
+                sprite_ptr = (item_animation_counter == 0)
+                    ? sprite_teleport_wand_even_16x16m
+                    : sprite_teleport_wand_odd_16x16m;
+                break;
+            case ITEM_GEMS:
+                sprite_ptr = (item_animation_counter == 0)
+                    ? sprite_gems_even_16x16m
+                    : sprite_gems_odd_16x16m;
+                break;
+            case ITEM_CROWN:
+                sprite_ptr = (item_animation_counter == 0)
+                    ? sprite_crown_even_16x16m
+                    : sprite_crown_odd_16x16m;
+                break;
+            case ITEM_GOLD:
+                sprite_ptr = (item_animation_counter == 0)
+                    ? sprite_gold_even_16x16m
+                    : sprite_gold_odd_16x16m;
+                break;
+            case ITEM_SHIELD:
+                sprite_ptr = (item_animation_counter == 0)
+                    ? sprite_shield_even_16x16m
+                    : sprite_shield_odd_16x16m;
+                break;
+            default:
+                break;
+        }
+
+        if (sprite_ptr != NULL) {
+            blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, sprite_ptr);
+        }
     }
 }
 
@@ -405,11 +522,11 @@ int maybe_spawn_enemy(int enemy_index)
 {
     const stage_t *stage;
     enemy_t *enemy;
-    uint8_t spawn_x_offset;
     uint8_t spawn_x, spawn_y;
     int8_t y_search;
-    uint8_t tile;
-    static uint8_t spawn_offset_cycle = 0; /* Cycles: 0, 2, 4, 6 */
+    static uint8_t spawn_offset_cycle = 0; /* Cycles: 0, 1, 2, 3 */
+    
+    debug_log("SPAWN_ATTEMPT: enemy[%d] state=%d timer=%d\n", enemy_index, enemies[enemy_index].state, enemies[enemy_index].spawn_timer_and_animation);
     
     if (current_level_ptr == NULL) {
         return 0;
@@ -419,42 +536,44 @@ int maybe_spawn_enemy(int enemy_index)
     enemy = &enemies[enemy_index];
     
     /* Calculate spawn X position based on Comic's facing direction
-     * Spawn on the side Comic is facing, outside the playfield */
-    spawn_offset_cycle = (spawn_offset_cycle + 2) & 0x06; /* Cycles: 0, 2, 4, 6 */
-    spawn_x_offset = PLAYFIELD_WIDTH + spawn_offset_cycle;
+     * Spawn at the visible edge of the playfield */
+    spawn_offset_cycle = (spawn_offset_cycle + 1) & 0x03; /* Cycles: 0, 1, 2, 3 */
     
     if (comic_facing == COMIC_FACING_RIGHT) {
-        /* Spawn to the right of camera */
-        spawn_x = camera_x + spawn_x_offset;
+        /* Spawn to the right edge of camera view (near right edge) */
+        spawn_x = camera_x + PLAYFIELD_WIDTH - 2 + spawn_offset_cycle;
     } else {
-        /* Spawn to the left of camera */
-        spawn_x = camera_x - spawn_x_offset;
+        /* Spawn to the left edge of camera view (near left edge) */
+        spawn_x = camera_x + 1 + spawn_offset_cycle;
     }
     
     /* spawn_x is uint8_t (0-255), MAP_WIDTH is 256, so no bounds check needed */
     
-    /* Find valid vertical spawn position: non-solid tile above solid tile
-     * Start at Comic's foot level and search upward */
+    /* Find valid vertical spawn position: search downward from Comic's Y
+     * to find where the ground is (a solid tile or water that acts as ground) */
     spawn_y = comic_y;
+    
+    /* Search downward to find ground */
     for (y_search = 0; y_search < 20; y_search++) {
-        /* Check tile at spawn position */
-        tile = get_tile_at(spawn_x, spawn_y);
+        uint8_t tile_at_y = get_tile_at(spawn_x, spawn_y);
+        uint8_t tile_below = get_tile_at(spawn_x, spawn_y + 1);
         
-        /* Check if current tile is passable */
-        if (!is_tile_solid(tile)) {
-            /* Check if tile below is solid (valid floor) */
-            uint8_t tile_below = get_tile_at(spawn_x, spawn_y + 1);
-            if (is_tile_solid(tile_below)) {
-                /* Found valid spawn position! */
+        /* If current tile is passable but tile below is solid/water, we found ground */
+        if (!is_tile_solid(tile_at_y)) {
+            /* Check if we hit bottom (y=24) or a solid tile below */
+            if (spawn_y >= 24 || is_tile_solid(tile_below) || tile_below == 0) {
+                /* Valid spawn position (on the ground) */
                 goto spawn_enemy;
             }
         }
         
-        /* Move up one game unit */
-        if (spawn_y == 0) {
-            break; /* Reached top of map */
+        /* Move down one game unit */
+        spawn_y++;
+        if (spawn_y >= 24) {
+            /* Reached bottom of map, use y=24 as ground level */
+            spawn_y = 24;
+            goto spawn_enemy;
         }
-        spawn_y--;
     }
     
     /* No valid spawn position found */
@@ -486,6 +605,8 @@ spawn_enemy:
             break;
     }
     
+    enemy->restraint = 0;
+    
     return 1; /* Enemy spawned */
 }
 
@@ -497,10 +618,12 @@ void handle_enemies(void)
     int i;
     int spawned_this_tick = 0;
     
+    debug_log("handle_enemies\n");
+
     /* Update each enemy slot */
     for (i = 0; i < MAX_NUM_ENEMIES; i++) {
         enemy_t *enemy = &enemies[i];
-        int8_t x_diff, y_diff;
+        int16_t x_diff, y_diff;
         
         /* Handle despawned state */
         if (enemy->state == ENEMY_STATE_DESPAWNED) {
@@ -541,21 +664,39 @@ void handle_enemies(void)
             
             /* Render death animation (spark) */
             {
-                int8_t rel_x_enemy;
+                int16_t rel_x_enemy;
                 int16_t pixel_x, pixel_y;
+                const uint8_t *spark_ptr = NULL;
+                uint8_t spark_frame;
                 
                 /* Calculate screen position relative to camera */
-                rel_x_enemy = (int8_t)(enemy->x - camera_x);
+                rel_x_enemy = (int16_t)((int)enemy->x - (int)camera_x);
                 
                 /* Check if in visible playfield */
                 if (rel_x_enemy >= -1 && rel_x_enemy < PLAYFIELD_WIDTH + 1) {
                     /* Convert to pixel coordinates */
                     pixel_x = (rel_x_enemy * 8) + 8;
                     pixel_y = (enemy->y * 8) + 8;
-                    
-                    /* TODO: Blit spark sprite at (pixel_x, pixel_y) */
-                    /* White spark for states 2-6, red spark for states 8-12 */
-                    /* For now, rendering is deferred until sprite loading is implemented */
+
+                    if (enemy->state >= ENEMY_STATE_RED_SPARK) {
+                        spark_frame = (uint8_t)((enemy->state - ENEMY_STATE_RED_SPARK) % 3);
+                        switch (spark_frame) {
+                            case 0: spark_ptr = sprite_red_spark_0_16x16m; break;
+                            case 1: spark_ptr = sprite_red_spark_1_16x16m; break;
+                            default: spark_ptr = sprite_red_spark_2_16x16m; break;
+                        }
+                    } else {
+                        spark_frame = (uint8_t)((enemy->state - ENEMY_STATE_WHITE_SPARK) % 3);
+                        switch (spark_frame) {
+                            case 0: spark_ptr = sprite_white_spark_0_16x16m; break;
+                            case 1: spark_ptr = sprite_white_spark_1_16x16m; break;
+                            default: spark_ptr = sprite_white_spark_2_16x16m; break;
+                        }
+                    }
+
+                    if (spark_ptr != NULL) {
+                        blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, spark_ptr);
+                    }
                 }
             }
             continue;
@@ -589,7 +730,7 @@ void handle_enemies(void)
             }
             
             /* Check despawn distance (30 game units from Comic) */
-            x_diff = (int8_t)(enemy->x - comic_x);
+            x_diff = (int16_t)((int)enemy->x - (int)comic_x);
             if (x_diff < -ENEMY_DESPAWN_RADIUS || x_diff > ENEMY_DESPAWN_RADIUS) {
                 enemy->state = ENEMY_STATE_DESPAWNED;
                 enemy->spawn_timer_and_animation = enemy_respawn_counter_cycle;
@@ -597,7 +738,7 @@ void handle_enemies(void)
             }
             
             /* Check collision with Comic */
-            y_diff = (int8_t)(enemy->y - comic_y);
+            y_diff = (int16_t)((int)enemy->y - (int)comic_y);
             
             /* Horizontal: abs(enemy.x - comic_x) < 2 */
             if (x_diff >= -1 && x_diff <= 1) {
@@ -613,23 +754,32 @@ void handle_enemies(void)
             
             /* Render enemy sprite if in playfield */
             {
-                int8_t rel_x_enemy;
+                int16_t rel_x_enemy;
                 int16_t pixel_x, pixel_y;
+                uint16_t frame_size = 0;
+                const uint8_t *frame_ptr;
+                uint8_t shp_index = enemy_shp_index[i];
                 
                 /* Calculate screen position relative to camera */
-                rel_x_enemy = (int8_t)(enemy->x - camera_x);
+                rel_x_enemy = (int16_t)((int)enemy->x - (int)camera_x);
                 
                 /* Check if in visible playfield (allow -1 to PLAYFIELD_WIDTH for partial visibility) */
                 if (rel_x_enemy >= -1 && rel_x_enemy < PLAYFIELD_WIDTH + 1) {
                     /* Convert to pixel coordinates (8 pixels per game unit) + playfield offset */
                     pixel_x = (rel_x_enemy * 8) + 8;
                     pixel_y = (enemy->y * 8) + 8;
+
+                    frame_ptr = get_enemy_frame(shp_index, enemy->spawn_timer_and_animation, enemy->facing, &frame_size);
                     
-                    /* TODO: Blit enemy sprite at (pixel_x, pixel_y) */
-                    /* This requires loading enemy sprite data from .SHP files first */
-                    /* Animation frame is in enemy->spawn_timer_and_animation */
-                    /* Facing direction is in enemy->facing (0=left, 5=right) */
-                    /* For now, rendering is deferred until sprite loading is implemented */
+                    if (frame_ptr != NULL) {
+                        if (frame_size == 160) {
+                            blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, frame_ptr);
+                        } else if (frame_size == 320) {
+                            blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, frame_ptr);
+                        }
+                    }
+                } else {
+                    /* Enemy is offscreen, skip rendering */
                 }
             }
         }
