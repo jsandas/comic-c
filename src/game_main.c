@@ -15,11 +15,11 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 #include <dos.h>
 #include <conio.h>
 #include <i86.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <fcntl.h>
 #include <io.h>
 #include <sys/stat.h>
@@ -32,6 +32,7 @@
 #include "level_data.h"
 #include "physics.h"
 #include "file_loaders.h"
+#include "actors.h"
 
 /* Runtime library symbol for large model code */
 int _big_code_ = 1;
@@ -46,6 +47,56 @@ int _big_code_ = 1;
  * In the large memory model with a single data segment (DGROUP), this
  * extracts the 16-bit offset portion of a pointer for use in DS:DX addressing. */
 #define DOS_OFFSET(ptr) ((uint16_t)(uintptr_t)(ptr))
+
+/* Debug log file handle (opened lazily) */
+static int g_debug_file_handle = -1;
+
+/* Close DEBUG.LOG if open */
+void debug_log_close(void)
+{
+    if (g_debug_file_handle != -1) {
+        _close(g_debug_file_handle);
+        g_debug_file_handle = -1;
+    }
+}
+
+/*
+ * debug_log - Write debug message to DEBUG.LOG file
+ * 
+ * Appends formatted text to DEBUG.LOG file. Uses module-level file handle
+ * for efficiency (file stays open between calls).
+ * 
+ * Call debug_log_close() before program termination to close the file handle.
+ */
+void debug_log(const char *format, ...)
+{
+    va_list args;
+    char buffer[256];
+    int len;
+    
+    /* Open DEBUG.LOG on first call (append mode) */
+    if (g_debug_file_handle == -1) {
+        g_debug_file_handle = _open("DEBUG.LOG", O_WRONLY | O_CREAT | O_APPEND | O_BINARY,
+                          S_IREAD | S_IWRITE);
+        if (g_debug_file_handle == -1) {
+            return;  /* Can't open file, silently fail */
+        }
+    }
+    
+    /* Format the message safely (truncate to buffer size) */
+    va_start(args, format);
+    /* vsnprintf returns the number of characters that would have been written,
+     * excluding the null terminator. The buffer is always null-terminated. */
+    (void)vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    /* Compute actual length to write based on the truncated buffer */
+    len = (int)strlen(buffer);
+    
+    /* Write to file */
+    if (len > 0) {
+        _write(g_debug_file_handle, buffer, len);
+    }
+}
 
 /* Target value for joystick timing calibration weighted average.
  * This represents a baseline for CPU-speed calibration, used in the weighted average
@@ -82,6 +133,14 @@ uint8_t current_level_number = LEVEL_NUMBER_FOREST;
 uint8_t current_stage_number = 0;
 static level_t current_level;
 
+/* Stage entry tracking (-2=first spawn, -1=boundary, >=0=door from level) */
+static int8_t source_door_level_number = -2;
+static int8_t source_door_stage_number = 0;
+
+/* Checkpoint position (for respawn and boundary crossing) */
+static uint8_t comic_y_checkpoint = 12;
+static uint8_t comic_x_checkpoint = 14;
+
 /* Game state variables */
 static uint8_t win_counter = 0;
 uint8_t comic_x = 0;
@@ -98,7 +157,7 @@ uint8_t comic_jump_power = JUMP_POWER_DEFAULT;  /* Base jump power (4 default, 5
 uint8_t ceiling_stick_flag = 0;  /* Whether Comic is jumping upward against a ceiling */
 uint8_t comic_fall_delay = 0;  /* Ticks to hover at jump apex */
 const level_t *current_level_ptr = NULL;  /* Pointer to current level data */
-static uint8_t comic_hp = MAX_HP;
+uint8_t comic_hp = MAX_HP;
 static uint8_t comic_hp_pending_increase = 0;
 uint16_t camera_x = 0;
 /* Landing sentinel: set by physics when hitting ground; clears each tick */
@@ -126,6 +185,19 @@ static uint8_t fireball_meter_counter = 2;
 /* Item collection state */
 static uint8_t comic_has_door_key = 0;
 static uint8_t comic_has_teleport_wand = 0;
+uint8_t comic_firepower = 0;           /* Number of active fireball slots (0-5) */
+uint8_t comic_has_corkscrew = 0;       /* 1 if Corkscrew item collected */
+uint8_t comic_has_shield = 0;          /* 1 if Shield item collected */
+
+/* Score */
+uint16_t score = 0;
+
+/* Item collection tracking (per level and stage) */
+uint8_t items_collected[8][16];        /* Bitmap: items_collected[level][stage] */
+uint8_t item_animation_counter = 0;    /* 0 or 1, toggles for item animation */
+
+/* Enemy respawn timer cycle */
+uint8_t enemy_respawn_counter_cycle = 20; /* Cycles: 20→40→60→80→100→20 */
 
 /* Tileset buffer - holds data from .TT2 file */
 uint8_t tileset_last_passable;
@@ -141,9 +213,6 @@ static uint8_t comic_num_lives = 0;
 
 /* Offscreen buffer pointer (0x0000 or 0x2000) - start with A as offscreen when B is displayed */
 static uint16_t offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
-
-/* Item animation counter (0 or 1) */
-static uint8_t item_animation_counter = 0;
 
 /* Default keymap for keyboard configuration */
 static uint8_t keymap[6] = {
@@ -510,6 +579,9 @@ void terminate_program(void)
 {
     union REGS regs;
     uint8_t port_value;
+
+    /* Close debug log if open */
+    debug_log_close();
     
     /* Restore original interrupt handlers */
     restore_interrupt_handlers();
@@ -1283,11 +1355,6 @@ static void pause_game(void)
     /* TODO: Implement pause screen */
 }
 
-static void try_to_fire(void)
-{
-    /* TODO: Implement fireball firing logic */
-}
-
 static void decrement_fireball_meter(void)
 {
     if (fireball_meter > 0) {
@@ -1451,21 +1518,6 @@ static void blit_comic_playfield_offscreen(void)
 
     /* Blit 16x32 masked sprite to the offscreen buffers */
     blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
-}
-
-static void handle_enemies(void)
-{
-    /* TODO: Implement enemy AI and rendering */
-}
-
-static void handle_fireballs(void)
-{
-    /* TODO: Implement fireball movement and collision */
-}
-
-static void handle_item(void)
-{
-    /* TODO: Implement item collision and rendering */
 }
 
 static void swap_video_buffers(void)
@@ -1681,17 +1733,41 @@ void load_new_stage(void)
             current_tiles_ptr = pt2.tiles;
         }
         
-        /* Initialize Comic's position from the first door in the stage
-         * (simplified: using first door's position + 1 to center Comic)
-         */
-        if (current_stage_ptr->doors[0].target_level != DOOR_UNUSED) {
-            comic_y = current_stage_ptr->doors[0].y;
-            comic_x = current_stage_ptr->doors[0].x + 1;
+        /* Initialize Comic's position based on entry method */
+        if (source_door_level_number >= 0) {
+            /* Entering via a door: search for reciprocal door and spawn at door.x + 1 */
+            int i;
+            int door_found = 0;
+            
+            for (i = 0; i < 3; i++) {
+                if (current_stage_ptr->doors[i].target_level == source_door_level_number &&
+                    current_stage_ptr->doors[i].target_stage == source_door_stage_number) {
+                    /* Found reciprocal door */
+                    comic_y = current_stage_ptr->doors[i].y;
+                    comic_x = current_stage_ptr->doors[i].x + 1;
+                    
+                    /* Update checkpoint for respawn */
+                    comic_y_checkpoint = comic_y;
+                    comic_x_checkpoint = comic_x;
+                    
+                    door_found = 1;
+                    break;
+                }
+            }
+            
+            if (!door_found) {
+                /* Panic: no reciprocal door found (shouldn't happen) */
+                comic_x = 12;
+                comic_y = 8;
+            }
         } else {
-            /* Default position if no doors found */
-            comic_x = 12;
-            comic_y = 8;
+            /* Entering via left/right boundary or first spawn: use checkpoint */
+            comic_y = comic_y_checkpoint;
+            comic_x = comic_x_checkpoint;
         }
+        
+        /* After loading, set source_door to -1 (normal entry) for future transitions */
+        source_door_level_number = -1;
         
         /* Initialize Comic's physics state
          * Start with Comic standing (not falling), let the game loop detect if he needs to fall */
@@ -1713,6 +1789,51 @@ void load_new_stage(void)
     } else {
         current_tiles_ptr = NULL;
     }
+    
+    /* Initialize enemies from stage data */
+    if (current_stage_number < 3 && current_stage_ptr != NULL) {
+        int i;
+        for (i = 0; i < MAX_NUM_ENEMIES; i++) {
+            const enemy_record_t *enemy_rec = &current_stage_ptr->enemies[i];
+            
+            /* Copy enemy definition data */
+            enemies[i].behavior = enemy_rec->behavior;
+            enemy_shp_index[i] = enemy_rec->shp_index;
+            enemies[i].num_animation_frames = shp_get_animation_length(enemy_rec->shp_index);
+            if (enemies[i].num_animation_frames == 0) {
+                enemies[i].num_animation_frames = 1;
+            }
+            enemies[i].animation_frames_ptr = 0; /* TODO: Set from SHP file */
+            
+            /* Initialize spawn state */
+            enemies[i].state = ENEMY_STATE_DESPAWNED;
+            enemies[i].facing = COMIC_FACING_LEFT;
+            enemies[i].spawn_timer_and_animation = 20; /* Spawn after 20 ticks */
+            enemies[i].restraint = 0;
+            
+            /* Clear position and velocity */
+            enemies[i].x = 0;
+            enemies[i].y = 0;
+            enemies[i].x_vel = 0;
+            enemies[i].y_vel = 0;
+        }
+    }
+    
+    /* Clear all fireballs */
+    {
+        int i;
+        for (i = 0; i < MAX_NUM_FIREBALLS; i++) {
+            fireballs[i].x = FIREBALL_DEAD;
+            fireballs[i].y = FIREBALL_DEAD;
+            fireballs[i].vel = 0;
+            fireballs[i].corkscrew_phase = 0;
+            fireballs[i].animation = 0;
+            fireballs[i].num_animation_frames = 2;
+        }
+    }
+    
+    /* Clear teleporting flag */
+    comic_is_teleporting = 0;
     
     /* Pre-render the entire map into RENDERED_MAP_BUFFER */
     render_map();
@@ -2148,6 +2269,15 @@ void game_loop(void)
  */
 int main(void)
 {
+    int i, j;
+    
+    /* Initialize items_collected array */
+    for (i = 0; i < 8; i++) {
+        for (j = 0; j < 16; j++) {
+            items_collected[i][j] = 0;
+        }
+    }
+    
     /* Disable the PC speaker */
     disable_pc_speaker();
     

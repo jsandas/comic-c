@@ -147,6 +147,40 @@ int load_shp_file(const char* filename, void* buffer)
 /* Runtime cache for up to 4 SHP files referenced by a level */
 static shp_runtime_t loaded_shps[4] = {0};
 
+/* Open a file with a simple case-insensitive fallback (uppercasing). */
+static int open_file_case_insensitive(const char *filename)
+{
+    int fh;
+    char upper_name[14];
+    uint16_t i;
+
+    if (filename == NULL) {
+        return -1;
+    }
+
+    fh = _open(filename, O_RDONLY | O_BINARY);
+    if (fh != -1) {
+        return fh;
+    }
+
+    /* Try uppercase version (8.3 names are typically uppercase in assets). */
+    for (i = 0; i < sizeof(upper_name) - 1; i++) {
+        char c = filename[i];
+        if (c == '\0') {
+            upper_name[i] = '\0';
+            break;
+        }
+        if (c >= 'a' && c <= 'z') {
+            upper_name[i] = (char)(c - ('a' - 'A'));
+        } else {
+            upper_name[i] = c;
+        }
+    }
+    upper_name[sizeof(upper_name) - 1] = '\0';
+
+    return _open(upper_name, O_RDONLY | O_BINARY);
+}
+
 void free_loaded_shp_files(void)
 {
     int i;
@@ -156,6 +190,9 @@ void free_loaded_shp_files(void)
             loaded_shps[i].frames = NULL;
             loaded_shps[i].num_frames = 0;
             loaded_shps[i].frame_size = 0;
+            loaded_shps[i].horizontal = 0;
+            loaded_shps[i].animation = 0;
+            loaded_shps[i].num_distinct = 0;
         }
     }
 }
@@ -175,6 +212,39 @@ uint16_t shp_get_frame_size(uint8_t shp_index)
     return loaded_shps[shp_index].frame_size;
 }
 
+uint8_t shp_get_horizontal(uint8_t shp_index)
+{
+    if (shp_index >= 4) return 0;
+    return loaded_shps[shp_index].horizontal;
+}
+
+uint8_t shp_get_animation(uint8_t shp_index)
+{
+    if (shp_index >= 4) return 0;
+    return loaded_shps[shp_index].animation;
+}
+
+uint8_t shp_get_num_distinct_frames(uint8_t shp_index)
+{
+    if (shp_index >= 4) return 0;
+    return loaded_shps[shp_index].num_distinct;
+}
+
+uint8_t shp_get_animation_length(uint8_t shp_index)
+{
+    uint8_t distinct = shp_get_num_distinct_frames(shp_index);
+
+    if (distinct <= 1) {
+        return distinct;
+    }
+
+    if (shp_get_animation(shp_index) == ENEMY_ANIMATION_ALTERNATE) {
+        return (uint8_t)((distinct * 2) - 2);
+    }
+
+    return distinct;
+}
+
 int load_level_shp_files(const level_t* level)
 {
     int i;
@@ -190,6 +260,7 @@ int load_level_shp_files(const level_t* level)
         int fh;
         long file_len;
         uint16_t frame_size;
+        uint16_t frames_in_file;
         uint8_t *buf;
         long bytes_read_total;
         int r;
@@ -200,9 +271,8 @@ int load_level_shp_files(const level_t* level)
         }
 
         /* Open file and determine size */
-        fh = _open(s->filename, O_RDONLY | O_BINARY);
+        fh = open_file_case_insensitive(s->filename);
         if (fh == -1) {
-            /* Failed to open - skip */
             continue;
         }
 
@@ -218,27 +288,28 @@ int load_level_shp_files(const level_t* level)
             continue;
         }
 
-        if (file_len % s->num_distinct_frames != 0) {
+        if (s->horizontal == ENEMY_HORIZONTAL_SEPARATE) {
+            frames_in_file = (uint16_t)(s->num_distinct_frames * 2);
+        } else {
+            frames_in_file = s->num_distinct_frames;
+        }
+
+        if (frames_in_file == 0 || (file_len % frames_in_file) != 0) {
             /* Unexpected size; skip loading */
-            fprintf(stderr, "WARNING: SHP file '%s' size %ld not divisible by %u frames\n", 
-                    s->filename, file_len, s->num_distinct_frames);
             _close(fh);
             continue;
         }
 
         /* Validate that frame size won't overflow uint16_t */
-        if ((file_len / s->num_distinct_frames) > 65535L) {
-            fprintf(stderr, "WARNING: SHP file '%s' frame size exceeds 65535 bytes\n", s->filename);
+        if ((file_len / frames_in_file) > 65535L) {
             _close(fh);
             continue;
         }
 
-        frame_size = (uint16_t)(file_len / s->num_distinct_frames);
+        frame_size = (uint16_t)(file_len / frames_in_file);
 
         /* Accept only known frame sizes: 80 (16x8), 160 (16x16), 320 (16x32) */
         if (frame_size != 80 && frame_size != 160 && frame_size != 320) {
-            fprintf(stderr, "WARNING: SHP file '%s' has unsupported frame size %u bytes\n", 
-                    s->filename, frame_size);
             _close(fh);
             continue;
         }
@@ -246,8 +317,6 @@ int load_level_shp_files(const level_t* level)
         /* Allocate buffer and read whole file */
         buf = (uint8_t *)malloc(file_len);
         if (!buf) {
-            fprintf(stderr, "ERROR: Failed to allocate %ld bytes for SHP file '%s'\n", 
-                    file_len, s->filename);
             _close(fh);
             continue;
         }
@@ -262,16 +331,17 @@ int load_level_shp_files(const level_t* level)
         _close(fh);
 
         if (bytes_read_total != file_len) {
-            fprintf(stderr, "ERROR: Failed to read SHP file '%s' (got %ld of %ld bytes)\n", 
-                    s->filename, bytes_read_total, file_len);
             free(buf);
             continue;
         }
 
         /* Store into runtime cache */
-        loaded_shps[i].num_frames = s->num_distinct_frames;
+        loaded_shps[i].num_frames = frames_in_file;
         loaded_shps[i].frame_size = frame_size;
         loaded_shps[i].frames = buf;
+        loaded_shps[i].horizontal = s->horizontal;
+        loaded_shps[i].animation = s->animation;
+        loaded_shps[i].num_distinct = s->num_distinct_frames;
         files_loaded++;
     }
 

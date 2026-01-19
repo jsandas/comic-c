@@ -57,6 +57,9 @@ typedef struct {
     uint8_t num_frames;        /* Number of frames loaded */
     uint16_t frame_size;       /* Bytes per frame */
     uint8_t *frames;           /* Contiguous frame data (num_frames * frame_size) */
+    uint8_t horizontal;        /* ENEMY_HORIZONTAL_* */
+    uint8_t animation;         /* ENEMY_ANIMATION_* */
+    uint8_t num_distinct;      /* Distinct frames per facing */
 } shp_runtime_t;
 
 /* Load all SHP files referenced by a level into runtime cache (4 entries) */
@@ -70,6 +73,12 @@ const uint8_t* shp_get_frame(uint8_t shp_index, uint8_t frame_index);
 
 /* Get the frame size (bytes) for a loaded SHP, or 0 if not loaded */
 uint16_t shp_get_frame_size(uint8_t shp_index);
+
+/* SHP metadata accessors */
+uint8_t shp_get_horizontal(uint8_t shp_index);
+uint8_t shp_get_animation(uint8_t shp_index);
+uint8_t shp_get_num_distinct_frames(uint8_t shp_index);
+uint8_t shp_get_animation_length(uint8_t shp_index);
 
 /* Load EGA file (fullscreen graphics with RLE) - CONVERSION TARGET #4 */
 /* Returns 0 on success, non-zero on error */
