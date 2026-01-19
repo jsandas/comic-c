@@ -300,6 +300,8 @@ void game_loop(void);
 static void blit_map_playfield_offscreen(void);
 static void blit_comic_playfield_offscreen(void);
 static void swap_video_buffers(void);
+static void clear_bios_keyboard_buffer(void);
+static void clear_scancode_queue(void);
 
 /*
  * disable_pc_speaker - Disable the PC speaker
@@ -1537,32 +1539,63 @@ finish_teleport:
 
 static void pause_game(void)
 {
-    /* Display pause screen and wait for keypress */
-    uint16_t graphic_x, graphic_y;
-    uint16_t graphic_offset;
-    uint8_t key;
+    /* Display pause screen and wait for keypress
+     * Renders the current game state with a pause graphic overlay, then loops
+     * waiting for keyboard input. If 'Q' or 'q' is pressed, terminates the game.
+     * Any other key returns to gameplay.
+     * Uses the game's own keyboard system (scancode queue from INT 9 handler)
+     * to avoid conflicts with BIOS INT 16h. */
+    uint8_t scancode;
+    uint8_t is_break;
+    uint8_t code;
     
-    /* Render current game state */
-    blit_map_playfield_offscreen();
+    /* Reset key_state_esc so the main loop doesn't get stuck waiting for release */
+    key_state_esc = 0;
     
-    /* Blit pause graphic (128x48 at center of playfield) */
-    graphic_x = 40 * 8;  /* 40 bytes = 320 pixels / 8 */
-    graphic_y = 64;
-    graphic_offset = offscreen_video_buffer_ptr + (graphic_y * (SCREEN_WIDTH / 8)) + (graphic_x / 8);
+    /* Clear both keyboard buffers before entering pause loop */
+    clear_bios_keyboard_buffer();
+    clear_scancode_queue();
     
-    /* Simple unmasked blit of pause graphic - would need proper blit_WxH function
-     * For now, just swap buffers to show current state */
-    /* TODO: Implement proper graphic blitting when blit_WxH is available */
-    
-    swap_video_buffers();
-    wait_n_ticks(1);
-    
-    /* Wait for keypress */
-    key = (uint8_t)getch();
-    
-    /* Check for quit */
-    if (key == 'q' || key == 'Q') {
-        terminate_program();
+    /* Loop until we get a valid key to unpause or quit */
+    while (1) {
+        
+        /* Render current game state to offscreen buffer */
+        blit_map_playfield_offscreen();
+        
+        /* TODO: Blit pause graphic (128x48 pixels centered on screen)
+         * This requires implementing blit_WxH function to blit variable-size graphics.
+         * For now, the pause state is indicated by freezing the game at keyboard input. */
+        
+        /* Swap buffers to display the pause screen */
+        swap_video_buffers();
+        wait_n_ticks(1);
+        
+        /* Check if any scancode is available in the queue */
+        if (scancode_queue_head != scancode_queue_tail) {
+            /* Get next scancode from queue */
+            scancode = scancode_queue[scancode_queue_tail];
+            scancode_queue_tail = (scancode_queue_tail + 1) % MAX_SCANCODE_QUEUE;
+            
+            /* Skip extended key prefix (0xE0) - just like update_keyboard_input() does */
+            if (scancode == 0xE0) {
+                continue;
+            }
+            
+            /* Handle break (key release) codes - skip them */
+            is_break = (scancode & 0x80) != 0;
+            code = scancode & 0x7F;
+            
+            /* Only process key press events (not key releases) */
+            if (!is_break) {
+                /* 0x10 is the scancode for 'Q' key */
+                if (code == 0x10) {
+                    terminate_program();
+                } else {
+                    /* Any other key returns to the game */
+                    return;
+                }
+            }
+        }
     }
 }
 
@@ -2273,6 +2306,18 @@ static void clear_bios_keyboard_buffer(void)
     uint8_t __far *bios_data = (uint8_t __far *)0x00000000L;
     uint16_t head = *(uint16_t __far *)(bios_data + BIOS_KEYBOARD_BUFFER_HEAD);
     *(uint16_t __far *)(bios_data + BIOS_KEYBOARD_BUFFER_TAIL) = head;
+}
+
+/*
+ * clear_scancode_queue - Clear our local scancode queue
+ * 
+ * Clears the scancode_queue by resetting head and tail pointers.
+ * This is used after pausing to discard any scancodes queued while paused.
+ */
+static void clear_scancode_queue(void)
+{
+    scancode_queue_head = 0;
+    scancode_queue_tail = 0;
 }
 
 /*
