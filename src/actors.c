@@ -735,7 +735,7 @@ void handle_enemies(void)
             enemy->state++;
             
             /* Check if animation complete */
-            if (enemy->state == 5 || enemy->state == 11) {
+            if (enemy->state == 7 || enemy->state == 13) {
                 /* Death animation complete, despawn */
                 enemy->state = ENEMY_STATE_DESPAWNED;
                 enemy->spawn_timer_and_animation = enemy_respawn_counter_cycle;
