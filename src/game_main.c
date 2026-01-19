@@ -133,6 +133,14 @@ uint8_t current_level_number = LEVEL_NUMBER_FOREST;
 uint8_t current_stage_number = 0;
 static level_t current_level;
 
+/* Stage entry tracking (-2=first spawn, -1=boundary, >=0=door from level) */
+static int8_t source_door_level_number = -2;
+static int8_t source_door_stage_number = 0;
+
+/* Checkpoint position (for respawn and boundary crossing) */
+static uint8_t comic_y_checkpoint = 12;
+static uint8_t comic_x_checkpoint = 14;
+
 /* Game state variables */
 static uint8_t win_counter = 0;
 uint8_t comic_x = 0;
@@ -1725,17 +1733,41 @@ void load_new_stage(void)
             current_tiles_ptr = pt2.tiles;
         }
         
-        /* Initialize Comic's position from the first door in the stage
-         * (simplified: using first door's position + 1 to center Comic)
-         */
-        if (current_stage_ptr->doors[0].target_level != DOOR_UNUSED) {
-            comic_y = current_stage_ptr->doors[0].y;
-            comic_x = current_stage_ptr->doors[0].x + 1;
+        /* Initialize Comic's position based on entry method */
+        if (source_door_level_number >= 0) {
+            /* Entering via a door: search for reciprocal door and spawn at door.x + 1 */
+            int i;
+            int door_found = 0;
+            
+            for (i = 0; i < 3; i++) {
+                if (current_stage_ptr->doors[i].target_level == source_door_level_number &&
+                    current_stage_ptr->doors[i].target_stage == source_door_stage_number) {
+                    /* Found reciprocal door */
+                    comic_y = current_stage_ptr->doors[i].y;
+                    comic_x = current_stage_ptr->doors[i].x + 1;
+                    
+                    /* Update checkpoint for respawn */
+                    comic_y_checkpoint = comic_y;
+                    comic_x_checkpoint = comic_x;
+                    
+                    door_found = 1;
+                    break;
+                }
+            }
+            
+            if (!door_found) {
+                /* Panic: no reciprocal door found (shouldn't happen) */
+                comic_x = 12;
+                comic_y = 8;
+            }
         } else {
-            /* Default position if no doors found */
-            comic_x = 12;
-            comic_y = 8;
+            /* Entering via left/right boundary or first spawn: use checkpoint */
+            comic_y = comic_y_checkpoint;
+            comic_x = comic_x_checkpoint;
         }
+        
+        /* After loading, set source_door to -1 (normal entry) for future transitions */
+        source_door_level_number = -1;
         
         /* Initialize Comic's physics state
          * Start with Comic standing (not falling), let the game loop detect if he needs to fall */
