@@ -24,12 +24,12 @@ The 16×16 pixel sprite is stored in EGA planar format (4 planes for colors):
 
 **Layout in memory:**
 ```
-Plane 0 (Red):    32 bytes   (4 rows × 2 words per row, 16 pixels = 2 bytes per row)
-Plane 1 (Green):  32 bytes   (4 rows × 2 words per row)
-Plane 2 (Blue):   32 bytes   (4 rows × 2 words per row)
-Plane 3 (Intense):32 bytes   (4 rows × 2 words per row)
+Plane 0 (Blue):    32 bytes   (2 bytes/row × 16 rows)
+Plane 1 (Green):   32 bytes   (2 bytes/row × 16 rows)
+Plane 2 (Red):     32 bytes   (2 bytes/row × 16 rows)
+Plane 3 (Intense): 32 bytes   (2 bytes/row × 16 rows)
 ────────────────────────────
-Total:           128 bytes
+Total:            128 bytes
 ```
 
 **Plane organization:**
