@@ -42,7 +42,8 @@ extern uint16_t offscreen_video_buffer_ptr; /* Current offscreen buffer offset *
 extern uint16_t score;                     /* Current score */
 extern const level_t *current_level_ptr; /* Pointer to current level data */
 extern uint8_t current_stage_number;       /* Current stage (0-based) */
-extern uint8_t current_level_number;       /* Current level (0-based, 0=LAKE, 1=FOREST, etc.) */extern uint8_t *current_tiles_ptr;         /* Pointer to current stage's tile map */
+extern uint8_t current_level_number;       /* Current level (0-based, 0=LAKE, 1=FOREST, etc.) */
+extern uint8_t *current_tiles_ptr;         /* Pointer to current stage's tile map */
 extern uint8_t tileset_last_passable;      /* Last passable tile ID (tiles > this are solid) */
 /* Item tracking */
 extern uint8_t items_collected[8][16];     /* Bitmap: items_collected[level][stage] */
