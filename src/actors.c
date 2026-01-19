@@ -33,7 +33,7 @@ extern uint8_t comic_hp;                   /* Current hit points (0-10) */
 extern uint8_t comic_has_shield;           /* 1 if Shield item collected, 0 otherwise */
 
 /* Camera state */
-extern uint8_t camera_x;                   /* Camera X position (game units) */
+extern uint16_t camera_x;                  /* Camera X position (game units) */
 
 /* Rendering state */
 extern uint16_t offscreen_video_buffer_ptr; /* Current offscreen buffer offset */
