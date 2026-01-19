@@ -512,6 +512,9 @@ void handle_item(void)
 
 /* ===== Enemy System ===== */
 
+/* Global flag to ensure no more than one enemy spawns per tick */
+static int spawned_this_tick = 0;
+
 /*
  * maybe_spawn_enemy - Attempt to spawn one enemy
  * 
@@ -524,9 +527,18 @@ int maybe_spawn_enemy(int enemy_index)
     enemy_t *enemy;
     uint8_t spawn_x, spawn_y;
     int8_t y_search;
-    static uint8_t spawn_offset_cycle = 0; /* Cycles: 0, 1, 2, 3 */
+    static uint8_t spawn_offset_cycle = PLAYFIELD_WIDTH; /* Cycles: 24, 26, 28, 30 */
     
     debug_log("SPAWN_ATTEMPT: enemy[%d] state=%d timer=%d\n", enemy_index, enemies[enemy_index].state, enemies[enemy_index].spawn_timer_and_animation);
+    
+    /* Reset timer to 0 (matches ASM behavior) */
+    enemies[enemy_index].spawn_timer_and_animation = 0;
+    
+    /* Check if another enemy already spawned this tick */
+    if (spawned_this_tick) {
+        debug_log("SPAWN_SKIP: enemy[%d] - already spawned one this tick\n", enemy_index);
+        return 0;
+    }
     
     if (current_level_ptr == NULL) {
         return 0;
@@ -536,50 +548,88 @@ int maybe_spawn_enemy(int enemy_index)
     enemy = &enemies[enemy_index];
     
     /* Calculate spawn X position based on Comic's facing direction
-     * Spawn at the visible edge of the playfield */
-    spawn_offset_cycle = (spawn_offset_cycle + 1) & 0x03; /* Cycles: 0, 1, 2, 3 */
+     * Advance spawn_offset_cycle: cycles through PLAYFIELD_WIDTH, +2, +4, +6
+     * This determines how far outside the playfield the enemy spawns: 0, 2, 4, or 6 units */
+    spawn_offset_cycle += 2;
+    if (spawn_offset_cycle >= PLAYFIELD_WIDTH + 7) {
+        spawn_offset_cycle = PLAYFIELD_WIDTH;
+    }
     
     if (comic_facing == COMIC_FACING_RIGHT) {
-        /* Spawn to the right edge of camera view (near right edge) */
-        spawn_x = camera_x + PLAYFIELD_WIDTH - 2 + spawn_offset_cycle;
+        /* Spawn to the right: camera_x + spawn_offset_cycle */
+        spawn_x = (uint8_t)(camera_x + spawn_offset_cycle);
     } else {
-        /* Spawn to the left edge of camera view (near left edge) */
-        spawn_x = camera_x + 1 + spawn_offset_cycle;
+        /* Spawn to the left: camera_x - (spawn_offset_cycle - PLAYFIELD_WIDTH + 2) */
+        spawn_x = (uint8_t)(camera_x - (spawn_offset_cycle - PLAYFIELD_WIDTH + 2));
     }
     
     /* spawn_x is uint8_t (0-255), MAP_WIDTH is 256, so no bounds check needed */
     
-    /* Find valid vertical spawn position: search downward from Comic's Y
-     * to find where the ground is (a solid tile or water that acts as ground) */
-    spawn_y = comic_y;
+    /* Find valid vertical spawn position: search UPWARD from Comic's feet
+     * to find a non-solid tile above a solid tile (like the ASM does).
+     * Start at Comic's feet (comic_y + 4), clamped to even boundary */
+    spawn_y = (comic_y & 0xFE) + 4;  /* Clamp to even tile boundary, then add 4 (Comic's feet) */
     
-    /* Search downward to find ground */
+    /* First, search upward to find a solid tile */
     for (y_search = 0; y_search < 20; y_search++) {
-        uint8_t tile_at_y = get_tile_at(spawn_x, spawn_y);
-        uint8_t tile_below = get_tile_at(spawn_x, spawn_y + 1);
+        uint8_t tile_at_y;
         
-        /* If current tile is passable but tile below is solid/water, we found ground */
-        if (!is_tile_solid(tile_at_y)) {
-            /* Check if we hit bottom (y=24) or a solid tile below */
-            if (spawn_y >= 24 || is_tile_solid(tile_below) || tile_below == 0) {
-                /* Valid spawn position (on the ground) */
-                goto spawn_enemy;
-            }
+        if (spawn_y == 0) {
+            /* Reached top of map without finding solid tile */
+            return 0;
         }
         
-        /* Move down one game unit */
-        spawn_y++;
-        if (spawn_y >= 24) {
-            /* Reached bottom of map, use y=24 as ground level */
-            spawn_y = 24;
-            goto spawn_enemy;
+        tile_at_y = get_tile_at(spawn_x, spawn_y);
+        
+        if (is_tile_solid(tile_at_y)) {
+            /* Found a solid tile, now search upward for a non-solid tile above it */
+            goto find_nonsolid;
         }
+        
+        /* Move up 2 units (one tile) */
+        spawn_y -= 2;
     }
     
-    /* No valid spawn position found */
+    /* No solid tile found */
+    return 0;
+
+find_nonsolid:
+    /* Now search upward to find a non-solid tile above the solid tile */
+    for (y_search = 0; y_search < 20; y_search++) {
+        uint8_t tile_at_y;
+        
+        if (spawn_y == 0) {
+            /* Reached top of map without finding non-solid tile */
+            return 0;
+        }
+        
+        tile_at_y = get_tile_at(spawn_x, spawn_y);
+        
+        if (!is_tile_solid(tile_at_y)) {
+            /* Found a non-solid tile above solid ground - this is the spawn position */
+            goto spawn_enemy;
+        }
+        
+        /* Move up 2 units (one tile) */
+        spawn_y -= 2;
+    }
+    
+    /* No non-solid tile found */
     return 0;
 
 spawn_enemy:
+    /* Check if this is an unused enemy slot */
+    if ((enemy->behavior & ~ENEMY_BEHAVIOR_FAST) == ENEMY_BEHAVIOR_UNUSED) {
+        /* Undo the spawn - clear the flag and stay despawned */
+        spawned_this_tick = 0;
+        enemy->state = ENEMY_STATE_DESPAWNED;
+        enemy->spawn_timer_and_animation = 100; /* Try again in 100 ticks */
+        return 0;
+    }
+    
+    /* Mark that we spawned an enemy this tick */
+    spawned_this_tick = 1;
+    
     /* Initialize enemy state */
     enemy->x = spawn_x;
     enemy->y = spawn_y;
@@ -616,7 +666,9 @@ spawn_enemy:
 void handle_enemies(void)
 {
     int i;
-    int spawned_this_tick = 0;
+    
+    /* Reset spawn flag for this tick */
+    spawned_this_tick = 0;
     
     /* Update each enemy slot */
     for (i = 0; i < MAX_NUM_ENEMIES; i++) {
@@ -628,16 +680,13 @@ void handle_enemies(void)
             /* Decrement spawn timer */
             if (enemy->spawn_timer_and_animation > 0) {
                 enemy->spawn_timer_and_animation--;
-                
-                /* Attempt to spawn when timer reaches 0 */
-                if (enemy->spawn_timer_and_animation == 0 && !spawned_this_tick) {
-                    if (maybe_spawn_enemy(i)) {
-                        spawned_this_tick = 1; /* Only spawn 1 enemy per tick */
-                    } else {
-                        /* Failed to spawn, reset timer */
-                        enemy->spawn_timer_and_animation = enemy_respawn_counter_cycle;
-                    }
-                }
+            }
+            
+            /* Attempt to spawn when timer reaches 0 */
+            if (enemy->spawn_timer_and_animation == 0) {
+                /* Always try - maybe_spawn_enemy will check the global flag
+                 * If spawn fails, timer stays at 0 and will retry next tick */
+                maybe_spawn_enemy(i);
             }
             continue;
         }
@@ -794,46 +843,122 @@ void enemy_behavior_bounce(enemy_t *enemy)
 {
     uint8_t next_x, next_y;
     uint8_t tile;
+    int16_t camera_rel_x;
     
     /* Check restraint (movement throttle) */
-    if (enemy->restraint > 0) {
-        enemy->restraint--;
+    if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
         return; /* Skip movement this tick */
     }
     
-    /* Calculate next position */
-    next_x = enemy->x + enemy->x_vel;
-    next_y = enemy->y + enemy->y_vel;
-    
-    /* Check horizontal collision (next_x is uint8_t 0-255, MAP_WIDTH is 256) */
-    tile = get_tile_at(next_x, enemy->y);
-    if (is_tile_solid(tile)) {
-        /* Bounce off wall */
-        enemy->x_vel = -enemy->x_vel;
-        next_x = enemy->x; /* Cancel horizontal movement */
+    /* Transition slow enemies from MOVE_THIS_TICK to SKIP_THIS_TICK */
+    if (enemy->restraint == ENEMY_RESTRAINT_MOVE_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_SKIP_THIS_TICK;
     }
     
-    /* Check vertical collision */
-    tile = get_tile_at(enemy->x, next_y);
-    if (is_tile_solid(tile) || next_y >= MAP_HEIGHT) {
-        /* Bounce off ceiling/floor or playfield edge */
-        enemy->y_vel = -enemy->y_vel;
-        next_y = enemy->y; /* Cancel vertical movement */
+    /* Horizontal movement */
+    next_x = enemy->x;
+    if (enemy->x_vel > 0) {
+        /* Moving right */
+        enemy->facing = COMIC_FACING_RIGHT;
+        
+        /* Check tile collision at x+2 */
+        tile = get_tile_at((uint8_t)(enemy->x + 2), enemy->y);
+        if (is_tile_solid(tile)) {
+            /* Hit solid tile, bounce left */
+            enemy->x_vel = -1;
+        } else {
+            /* No tile collision, try to move */
+            next_x = enemy->x + 1;
+            
+            /* Check playfield right edge */
+            camera_rel_x = (int16_t)next_x - (int16_t)camera_x;
+            if (camera_rel_x >= PLAYFIELD_WIDTH - 2) {
+                /* Hit right edge, bounce left */
+                enemy->x_vel = -1;
+                next_x = enemy->x;
+            }
+        }
+    } else {
+        /* Moving left */
+        enemy->facing = COMIC_FACING_LEFT;
+        
+        /* Check left map edge */
+        if (enemy->x == 0) {
+            /* Hit left map edge, bounce right */
+            enemy->x_vel = 1;
+        } else {
+            /* Check tile collision at x-1 */
+            tile = get_tile_at((uint8_t)(enemy->x - 1), enemy->y);
+            if (is_tile_solid(tile)) {
+                /* Hit solid tile, bounce right */
+                enemy->x_vel = 1;
+            } else {
+                /* No tile collision, try to move */
+                next_x = enemy->x - 1;
+                
+                /* Check playfield left edge */
+                camera_rel_x = (int16_t)next_x - (int16_t)camera_x;
+                if (camera_rel_x <= 0) {
+                    /* Hit left edge, bounce right */
+                    enemy->x_vel = 1;
+                    next_x = enemy->x;
+                }
+            }
+        }
+    }
+    
+    /* Vertical movement */
+    next_y = enemy->y;
+    if (enemy->y_vel > 0) {
+        /* Moving down */
+        if (enemy->y >= PLAYFIELD_HEIGHT - 2) {
+            /* At bottom edge, bounce up */
+            enemy->y_vel = -1;
+        } else {
+            /* Check tile collision at y+2 */
+            tile = get_tile_at(enemy->x, (uint8_t)(enemy->y + 2));
+            if (is_tile_solid(tile)) {
+                /* Hit solid tile, bounce up */
+                enemy->y_vel = -1;
+            } else {
+                /* No collision, try to move */
+                next_y = enemy->y + 1;
+                
+                /* Double-check bottom edge */
+                if (next_y >= PLAYFIELD_HEIGHT - 2) {
+                    enemy->y_vel = -1;
+                    next_y = enemy->y;
+                }
+            }
+        }
+    } else {
+        /* Moving up */
+        if (enemy->y == 0) {
+            /* At top edge, bounce down */
+            enemy->y_vel = 1;
+        } else {
+            /* Check tile collision at y-1 */
+            tile = get_tile_at(enemy->x, (uint8_t)(enemy->y - 1));
+            if (is_tile_solid(tile)) {
+                /* Hit solid tile, bounce down */
+                enemy->y_vel = 1;
+            } else {
+                /* No collision, try to move */
+                next_y = enemy->y - 1;
+                
+                /* Double-check top edge */
+                if (next_y == 0) {
+                    enemy->y_vel = 1;
+                    next_y = enemy->y;
+                }
+            }
+        }
     }
     
     /* Update position */
     enemy->x = next_x;
     enemy->y = next_y;
-    
-    /* Update facing direction */
-    enemy->facing = (enemy->x_vel < 0) ? COMIC_FACING_LEFT : COMIC_FACING_RIGHT;
-    
-    /* Reset restraint for fast enemies */
-    if (enemy->behavior & ENEMY_BEHAVIOR_FAST) {
-        enemy->restraint = 0; /* Move every tick */
-    } else {
-        enemy->restraint = 1; /* Move every other tick */
-    }
 }
 
 /*

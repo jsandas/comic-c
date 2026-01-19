@@ -22,6 +22,11 @@
 #define ENEMY_BEHAVIOR_SHY       5    /* Shy Bird, Spinner - flee when facing Comic */
 #define ENEMY_BEHAVIOR_FAST      0x80 /* OR with behavior for fast movement */
 
+/* Enemy restraint (movement throttle) values */
+#define ENEMY_RESTRAINT_MOVE_THIS_TICK   0  /* Move this tick, then skip next tick */
+#define ENEMY_RESTRAINT_SKIP_THIS_TICK   1  /* Skip this tick, then move next tick */
+#define ENEMY_RESTRAINT_MOVE_EVERY_TICK  2  /* Move every tick (fast enemies) */
+
 /* Enemy state values */
 #define ENEMY_STATE_DESPAWNED    0    /* Not spawned */
 #define ENEMY_STATE_SPAWNED      1    /* Active and moving */
