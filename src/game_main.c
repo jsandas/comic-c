@@ -1590,18 +1590,10 @@ static void beam_in(void)
     materialize_sprites[10] = sprite_materialize_10_16x32m;
     materialize_sprites[11] = sprite_materialize_11_16x32m;
     
-    /* Initial delay: 15 ticks with map and items visible */
+    /* Initial delay: 15 ticks with map visible */
     for (frame = 0; frame < 15; frame++) {
         blit_map_playfield_offscreen();
-        handle_item();
-        swap_video_buffers();
-        wait_n_ticks(1);
-    }
-    
-    /* Wait for any sound to finish playing */
-    while (is_sound_playing()) {
-        blit_map_playfield_offscreen();
-        handle_item();
+        handle_item();  /* Render items */
         swap_video_buffers();
         wait_n_ticks(1);
     }
@@ -1614,12 +1606,10 @@ static void beam_in(void)
         /* Render background */
         blit_map_playfield_offscreen();
         
-        /* Show Comic sprite after frame 6 */
-        if (frame <= 6) {
-            blit_comic_playfield_offscreen();
-        }
+        /* Render items */
+        handle_item();
         
-        /* Blit materialize animation frame */
+        /* Blit materialize animation frame - this shows Comic fading in */
         rel_x = (int16_t)((int)comic_x - (int)camera_x);
         if (rel_x >= 0 && rel_x < PLAYFIELD_WIDTH) {
             pixel_x = 8 + (rel_x * 8);
@@ -1628,16 +1618,20 @@ static void beam_in(void)
             blit_sprite_16x32_masked(pixel_x, pixel_y, sprite_ptr);
         }
         
-        /* Handle items and swap buffers */
-        handle_item();
+        /* Show full Comic sprite after frame 6 to make Comic fully visible */
+        if (frame > 6) {
+            blit_comic_playfield_offscreen();
+        }
+        
+        /* Swap buffers and wait */
         swap_video_buffers();
         wait_n_ticks(1);
     }
     
-    /* Final frame with Comic and items */
+    /* Final frame with Comic */
     blit_map_playfield_offscreen();
+    handle_item();  /* Render items */
     blit_comic_playfield_offscreen();
-    handle_item();
     swap_video_buffers();
     wait_n_ticks(1);
 }
@@ -2118,9 +2112,6 @@ void load_new_stage(void)
             comic_x = comic_x_checkpoint;
         }
         
-        /* After loading, set source_door to -1 (normal entry) for future transitions */
-        source_door_level_number = -1;
-        
         /* Initialize Comic's physics state
          * Start with Comic standing (not falling), let the game loop detect if he needs to fall */
         comic_is_falling_or_jumping = 0;
@@ -2193,7 +2184,8 @@ void load_new_stage(void)
     /* Ensure the initial frame is drawn and displayed: replicate the
      * assembly behavior of blitting and swapping buffers at load time. */
     blit_map_playfield_offscreen();
-    blit_comic_playfield_offscreen();
+    /* Skip blitting Comic here - if doing beam_in, Comic should not be visible yet;
+     * if not doing beam_in (entering via door), the game loop will render Comic normally */
     swap_video_buffers();
 
 #ifdef ENABLE_SHP_SMOKE_TEST
@@ -2208,6 +2200,13 @@ void load_new_stage(void)
     }
 #endif
 
+    /* Play beam-in animation on first spawn (source_door_level_number == -2) */
+    if (source_door_level_number == -2) {
+        beam_in();
+    }
+    
+    /* Reset source_door_level_number to -1 (normal entry) for future transitions */
+    source_door_level_number = -1;
 }
 
 /*
