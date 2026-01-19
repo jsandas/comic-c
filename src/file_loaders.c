@@ -252,8 +252,6 @@ int load_level_shp_files(const level_t* level)
 
     if (!level) return -1;
 
-    debug_log("SHP: begin load for level\r\n");
-
     /* Free any existing SHP data first */
     free_loaded_shp_files();
 
@@ -275,7 +273,6 @@ int load_level_shp_files(const level_t* level)
         /* Open file and determine size */
         fh = open_file_case_insensitive(s->filename);
         if (fh == -1) {
-            debug_log("WARNING: SHP file '%s' not found\r\n", s->filename);
             continue;
         }
 
@@ -299,15 +296,12 @@ int load_level_shp_files(const level_t* level)
 
         if (frames_in_file == 0 || (file_len % frames_in_file) != 0) {
             /* Unexpected size; skip loading */
-                debug_log("WARNING: SHP file '%s' size %ld not divisible by %u frames\r\n", 
-                    s->filename, file_len, frames_in_file);
             _close(fh);
             continue;
         }
 
         /* Validate that frame size won't overflow uint16_t */
         if ((file_len / frames_in_file) > 65535L) {
-            debug_log("WARNING: SHP file '%s' frame size exceeds 65535 bytes\r\n", s->filename);
             _close(fh);
             continue;
         }
@@ -316,8 +310,6 @@ int load_level_shp_files(const level_t* level)
 
         /* Accept only known frame sizes: 80 (16x8), 160 (16x16), 320 (16x32) */
         if (frame_size != 80 && frame_size != 160 && frame_size != 320) {
-                debug_log("WARNING: SHP file '%s' has unsupported frame size %u bytes\r\n", 
-                    s->filename, frame_size);
             _close(fh);
             continue;
         }
@@ -325,8 +317,6 @@ int load_level_shp_files(const level_t* level)
         /* Allocate buffer and read whole file */
         buf = (uint8_t *)malloc(file_len);
         if (!buf) {
-                debug_log("ERROR: Failed to allocate %ld bytes for SHP file '%s'\r\n", 
-                    file_len, s->filename);
             _close(fh);
             continue;
         }
@@ -341,8 +331,6 @@ int load_level_shp_files(const level_t* level)
         _close(fh);
 
         if (bytes_read_total != file_len) {
-                debug_log("ERROR: Failed to read SHP file '%s' (got %ld of %ld bytes)\r\n", 
-                    s->filename, bytes_read_total, file_len);
             free(buf);
             continue;
         }
@@ -355,12 +343,9 @@ int load_level_shp_files(const level_t* level)
         loaded_shps[i].animation = s->animation;
         loaded_shps[i].num_distinct = s->num_distinct_frames;
         files_loaded++;
-        debug_log("SHP: loaded '%s' frames=%u frame_size=%u\r\n",
-            s->filename, frames_in_file, frame_size);
     }
 
     /* Return the number of successfully loaded files (0 = all failed, 1-4 = success) */
-    debug_log("SHP: load complete, loaded=%d\r\n", files_loaded);
     return files_loaded;
 }
 

@@ -529,14 +529,11 @@ int maybe_spawn_enemy(int enemy_index)
     int8_t y_search;
     static uint8_t spawn_offset_cycle = PLAYFIELD_WIDTH; /* Cycles: 24, 26, 28, 30 */
     
-    debug_log("SPAWN_ATTEMPT: enemy[%d] state=%d timer=%d\n", enemy_index, enemies[enemy_index].state, enemies[enemy_index].spawn_timer_and_animation);
-    
     /* Reset timer to 0 (matches ASM behavior) */
     enemies[enemy_index].spawn_timer_and_animation = 0;
     
     /* Check if another enemy already spawned this tick */
     if (spawned_this_tick) {
-        debug_log("SPAWN_SKIP: enemy[%d] - already spawned one this tick\n", enemy_index);
         return 0;
     }
     
