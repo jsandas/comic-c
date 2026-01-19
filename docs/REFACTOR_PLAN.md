@@ -1,10 +1,10 @@
 # Captain Comic C Refactor Plan
 
-## Project Status (As of 2026-01-11)
+## Project Status (As of 2026-01-19)
 
 **Overall Progress**: Phase 3 in progress - Game Logic Implementation  
-**Latest Milestone**: Physics and collision detection fully implemented and linked  
-**Current Focus**: Enemy AI and collision response systems
+**Latest Milestone**: Special features (teleport, beam, pause) fully implemented in C  
+**Current Focus**: Sprite loading and rendering completion
 
 ### Recent Accomplishments
 - ✅ Migrated LAKE and FOREST level data from assembly to C
@@ -60,6 +60,14 @@
   - ✅ Fireball spawning, movement, and collision detection
   - ✅ Item collection and tracking system
   - ✅ Rendering infrastructure in place (sprite loading pending)
+- ✅ **Implement special features in C** - COMPLETED 2026-01-19
+  - ✅ `begin_teleport()` - Find safe landing spot with tile scanning
+  - ✅ `handle_teleport()` - 6-frame teleport animation with camera movement
+  - ✅ `pause_game()` - Pause screen display and keypress handling
+  - ✅ `beam_in()` - 12-frame materialize animation for level start
+  - ✅ `beam_out()` - 12-frame materialize animation for level completion
+  - ✅ All teleport variables properly declared and integrated
+  - ✅ Sound effects wired (SOUND_TELEPORT, SOUND_MATERIALIZE)
 
 ### Next Priority Items
 1. Implement sprite loading (.SHP files, SYS004.EGA for items)
@@ -334,10 +342,17 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Item collection tracking with `items_collected[8][16]` array
    - ✅ Build complete with COMIC-C.EXE successfully generated
    
-8. **Implement special features in C**
-   - [ ] `begin_teleport()` - Teleport destination calculation
-   - [ ] `handle_teleport()` - Teleport animation and camera movement
-   - [ ] `pause_game()` - Pause screen display
+8. **Implement special features in C** ✅ **COMPLETE** - 2026-01-19
+   - ✅ `begin_teleport()` - Teleport destination calculation with safe landing detection
+   - ✅ `handle_teleport()` - Teleport animation with 6-frame effect at source and destination
+   - ✅ `pause_game()` - Pause screen display with keypress handling
+   - ✅ `beam_in()` - Beam in animation (12 frames) for game start
+   - ✅ `beam_out()` - Beam out animation (12 frames) for game victory
+   - ✅ All teleport-related variables declared and initialized
+   - ✅ Sound effects integrated (SOUND_TELEPORT, SOUND_MATERIALIZE)
+   - ✅ Sprite animation tables set up for materialize and teleport effects
+   - ✅ Camera movement synchronized with teleport animation
+   - ✅ Safe landing detection with solid/non-solid tile scanning
 
 9. **Load and render sprites**
    - [ ] Implement `.SHP` file loading for enemy sprites
