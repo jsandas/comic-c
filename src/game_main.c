@@ -1562,9 +1562,11 @@ static void pause_game(void)
         /* Render current game state to offscreen buffer */
         blit_map_playfield_offscreen();
         
-        /* TODO: Blit pause graphic (128x48 pixels centered on screen)
-         * This requires implementing blit_WxH function to blit variable-size graphics.
-         * For now, the pause state is indicated by freezing the game at keyboard input. */
+        /* Blit pause graphic (128x48 pixels centered at 40, 64) */
+        blit_WxH(offscreen_video_buffer_ptr + ((64 * 40) + (40 / 8)),
+                 sprite_pause_128x48,
+                 128 / 8,  /* 128 pixels = 16 bytes */
+                 48);
         
         /* Swap buffers to display the pause screen */
         swap_video_buffers();
