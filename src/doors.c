@@ -303,10 +303,7 @@ uint8_t check_door_activation(void)
     const door_t *door;
     int8_t x_offset;
     
-    /* If the open key is not being pressed, no door activation */
-    if (key_state_open != 1) {
-        return 0;
-    }
+    /* Note: Caller ensures key_state_open == 1 before calling this function */
     
     /* Get current stage data */
     if (current_level_ptr == NULL) {

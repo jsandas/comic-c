@@ -2628,8 +2628,8 @@ void game_loop(void)
             /* Call physics to handle gravity and collisions (single call per frame) */
             handle_fall_or_jump();
             
-            /* Check open input (doors) - only if not falling/jumping */
-            if (comic_is_falling_or_jumping == 0) {
+            /* Check open input (doors) - only if not falling/jumping and open key is pressed */
+            if (comic_is_falling_or_jumping == 0 && key_state_open == 1) {
                 check_door_activation();
             }
             
