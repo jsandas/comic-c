@@ -119,6 +119,12 @@ void debug_log(const char *format, ...)
 #define MAX_HP                  7
 #define TELEPORT_DISTANCE       6   /* How many game units a teleport moves Comic horizontally */
 
+/*
+ * CHEAT CODES (for testing/debugging)
+ * ------------------------------------
+ * W key - Grant teleport wand (allows testing teleportation without finding item)
+ */
+
 /* EGA video memory segment address */
 #define VIDEO_MEMORY_BASE       0xa000
 
@@ -307,6 +313,9 @@ static void blit_comic_playfield_offscreen(void);
 static void swap_video_buffers(void);
 static void clear_bios_keyboard_buffer(void);
 static void clear_scancode_queue(void);
+static void update_keyboard_input(void);
+static void handle_cheat_codes(void);
+static void handle_cheat_codes(void);
 
 /*
  * disable_pc_speaker - Disable the PC speaker
@@ -2344,6 +2353,32 @@ static void dos_idle(void)
 }
 
 /*
+ * handle_cheat_codes - Process cheat code inputs
+ * 
+ * Checks for cheat code key presses and grants appropriate items/abilities.
+ * Provides audio feedback when a cheat is activated.
+ * 
+ * Current cheats:
+ *   W key - Grant teleport wand for testing teleportation feature
+ */
+static void handle_cheat_codes(void)
+{
+    /* W key: Grant teleport wand */
+    if (key_state_cheat_wand == 1) {
+        if (comic_has_teleport_wand == 0) {
+            comic_has_teleport_wand = 1;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+        /* Wait for key release to prevent repeated activation */
+        while (key_state_cheat_wand == 1) {
+            update_keyboard_input();
+            dos_idle();
+        }
+    }
+}
+
+/*
  * update_keyboard_input - Read keyboard state and update key_state variables
  * 
  * Polls the BIOS keyboard buffer and reads scancodes to update the key_state
@@ -2483,18 +2518,8 @@ void game_loop(void)
         /* Read keyboard input and update key_state variables */
         update_keyboard_input();
         
-        /* Cheat code: Press W to get the teleport wand */
-        if (key_state_cheat_wand == 1) {
-            if (comic_has_teleport_wand == 0) {
-                comic_has_teleport_wand = 1;
-                /* TODO: Display feedback message or play sound */
-            }
-            /* Wait for key release to prevent repeated activation */
-            while (key_state_cheat_wand == 1) {
-                update_keyboard_input();
-                dos_idle();
-            }
-        }
+        /* Process cheat codes (for testing/debugging) */
+        handle_cheat_codes();
         
         /* Initiate jump if conditions are met (matching original assembly):
          * - Player is standing (not in air)
