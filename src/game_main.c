@@ -132,6 +132,11 @@ void debug_log(const char *format, ...)
 #define BIOS_KEYBOARD_BUFFER_HEAD  0x041A
 #define BIOS_KEYBOARD_BUFFER_TAIL  0x041C
 
+/* Keyboard scancodes */
+#define SCANCODE_ESC    0x01
+#define SCANCODE_Q      0x10
+#define SCANCODE_W      0x11
+
 /* Global variables for initialization and game state */
 static uint8_t interrupt_handler_install_sentinel = 0;
 static volatile uint8_t game_tick_flag = 0;
@@ -1611,8 +1616,7 @@ static void pause_game(void)
             
             /* Only process key press events (not key releases) */
             if (!is_break) {
-                /* 0x10 is the scancode for 'Q' key */
-                if (code == 0x10) {
+                if (code == SCANCODE_Q) {
                     terminate_program();
                 } else {
                     /* Any other key returns to the game */
@@ -2443,9 +2447,9 @@ static void update_keyboard_input(void)
             if (!is_break && !previous_key_state_teleport) {
                 teleport_key_pressed = 1;  /* Flag for game loop to process */
             }
-        } else if (code == 0x01) {
+        } else if (code == SCANCODE_ESC) {
             key_state_esc = (uint8_t)(!is_break);  /* ESCAPE - hardcoded */
-        } else if (code == 0x11) {
+        } else if (code == SCANCODE_W) {
             key_state_cheat_wand = (uint8_t)(!is_break);  /* W key - cheat code */
         }
     }
