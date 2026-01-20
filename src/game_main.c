@@ -154,8 +154,8 @@ int8_t source_door_level_number = -2;
 int8_t source_door_stage_number = 0;
 
 /* Checkpoint position (for respawn and boundary crossing) */
-static uint8_t comic_y_checkpoint = 12;
-static uint8_t comic_x_checkpoint = 14;
+uint8_t comic_y_checkpoint = 12;
+uint8_t comic_x_checkpoint = 14;
 
 /* Game state variables */
 static uint8_t win_counter = 0;
