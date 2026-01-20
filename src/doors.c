@@ -383,7 +383,7 @@ uint8_t check_door_activation(void)
  */
 void activate_door(const door_t *door)
 {
-    /* Play door entry animation (stub for now) */
+    /* Play door entry animation/sound */
     enter_door(door->x, door->y);
     
     /* Save the source level and stage so the destination can find the
