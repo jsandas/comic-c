@@ -2589,13 +2589,9 @@ void game_loop(void)
                  * at the top of the next loop iteration. Skip to actor handling. */
                 skip_rendering = 1;
             }
-            
-            /* Clear the teleport flag after checking */
-            teleport_key_pressed = 0;
-            
             /* Handle left/right movement - only if not falling/jumping, not teleporting,
              * and did NOT just land this tick (assembly jumps to pause after landing). */
-            if (comic_is_falling_or_jumping == 0 && landed_this_tick == 0) {
+            else if (comic_is_falling_or_jumping == 0 && landed_this_tick == 0) {
                 uint8_t foot_y;
                 uint16_t foot_offset;
                 uint8_t foot_tile;
@@ -2646,6 +2642,9 @@ void game_loop(void)
                     comic_jump_counter = 1;
                 }
             }
+            
+            /* Clear the teleport flag after checking */
+            teleport_key_pressed = 0;
         }
         
         /* Check escape key (pause) */
