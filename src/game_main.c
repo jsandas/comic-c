@@ -2468,9 +2468,6 @@ static void face_or_move_right(void)
     move_right();
 }
 
-/* Track last teleport key state for change detection */
-static uint8_t last_teleport_key = 0;
-
 /*
  * game_loop - Main game loop
  * 
