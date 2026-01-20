@@ -2460,23 +2460,43 @@ static void update_keyboard_input(void)
 /*
  * face_or_move_left - Face or move Comic left
  * 
- * Wrapper that sets facing direction and calls the physics move_left function.
+ * Implements the original assembly behavior:
+ * - If Comic is already facing left, move left
+ * - If Comic is facing right, only change facing direction (don't move)
+ * 
+ * This creates the effect where pressing the opposite direction first changes
+ * the sprite, then movement happens on the next frame.
  */
 static void face_or_move_left(void)
 {
-    comic_facing = COMIC_FACING_LEFT;
-    move_left();
+    if (comic_facing == COMIC_FACING_LEFT) {
+        /* Already facing left, so move left */
+        move_left();
+    } else {
+        /* Facing right, so just change facing direction */
+        comic_facing = COMIC_FACING_LEFT;
+    }
 }
 
 /*
  * face_or_move_right - Face or move Comic right
  * 
- * Wrapper that sets facing direction and calls the physics move_right function.
+ * Implements the original assembly behavior:
+ * - If Comic is already facing right, move right
+ * - If Comic is facing left, only change facing direction (don't move)
+ * 
+ * This creates the effect where pressing the opposite direction first changes
+ * the sprite, then movement happens on the next frame.
  */
 static void face_or_move_right(void)
 {
-    comic_facing = COMIC_FACING_RIGHT;
-    move_right();
+    if (comic_facing == COMIC_FACING_RIGHT) {
+        /* Already facing right, so move right */
+        move_right();
+    } else {
+        /* Facing left, so just change facing direction */
+        comic_facing = COMIC_FACING_RIGHT;
+    }
 }
 
 /*
