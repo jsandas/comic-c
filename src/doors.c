@@ -326,15 +326,13 @@ uint8_t check_door_activation(void)
         }
         
         /* Check Y coordinate: must be exact match
-         * comic_y is in game units, door.y is in tile coordinates
-         * One tile = 2 game units, so door tile Y maps to game Y = door.y * 2 */
+         * Both comic_y and door.y are in game units (same coordinate system) */
         if (comic_y != door->y) {
             continue;
         }
         
         /* Check X coordinate: must be within 3 units
-         * comic_x is in game units (half-tiles), door.x is in tile coordinates
-         * One tile = 2 game units, so door tile X maps to game X = door.x * 2
+         * Both comic_x and door.x are in game units (same coordinate system)
          * We allow comic_x - door.x to be 0, 1, or 2 */
         x_offset = comic_x - door->x;
         if (x_offset < 0 || x_offset > 2) {

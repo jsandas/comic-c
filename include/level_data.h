@@ -56,8 +56,8 @@ typedef struct {
  * door - Door descriptor (connects stages/levels)
  */
 typedef struct {
-    uint8_t y;                      /* Y coordinate in tiles */
-    uint8_t x;                      /* X coordinate in tiles */
+    uint8_t y;                      /* Y coordinate in game units */
+    uint8_t x;                      /* X coordinate in game units */
     uint8_t target_level;           /* Target level number */
     uint8_t target_stage;           /* Target stage number within level */
 } door_t;
