@@ -314,7 +314,6 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Palette management for title sequence fades
    - ✅ Safe integer arithmetic to prevent overflow/underflow in coordinate calculations
 
-**In Progress / TODO**:  
 6. **Implement physics and collision in C** ✅ **COMPLETE** - 2026-01-17
    - ✅ `handle_fall_or_jump()` - Gravity, jumping, terminal velocity, collision detection
    - ✅ `move_left()` / `move_right()` - Horizontal movement with wall collision and stage transitions
@@ -361,11 +360,6 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Integrate sprite rendering in actor handlers (enemies, items, fireballs)
    - ✅ Load and render spark sprites for death animations
    - ℹ️ **Note**: `SYS004.EGA` is title-sequence only; gameplay uses compiled embedded sprite data
-   
-10. **Strategy**
-   - Reimplement functions in C when feasible and preferred
-   - Consult original assembly as implementation guidance
-   - Only interface with original assembly when there is a clear, documented necessity and tests to justify it
 
 ### Phase 4: Remaining Game Features (NOT STARTED)
 
