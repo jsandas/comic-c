@@ -12,6 +12,8 @@
 #include "physics.h"
 #include "globals.h"
 #include "level_data.h"
+#include "sound.h"
+#include "sound_data.h"
 
 /* External variables - game state */
 extern uint8_t comic_x;
@@ -272,6 +274,7 @@ void move_left(void)
         }
         
         /* Stage transition to the left */
+        play_sound(SOUND_STAGE_EDGE_TRANSITION, 4);
         current_stage_number = stage->exit_l;
         comic_y_vel = 0;
         /* Update checkpoint for spawn position on new stage */
@@ -334,6 +337,7 @@ void move_right(void)
         }
         
         /* Stage transition to the right */
+        play_sound(SOUND_STAGE_EDGE_TRANSITION, 4);
         current_stage_number = stage->exit_r;
         comic_y_vel = 0;
         /* Update checkpoint for spawn position on new stage */
