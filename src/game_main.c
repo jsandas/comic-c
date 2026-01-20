@@ -601,6 +601,7 @@ void restore_interrupt_handlers(void)
  * 
  * Performs cleanup operations before exiting:
  * - Restore original interrupt handlers
+ * - Clear keyboard buffers to prevent key leakage
  * - Mutes the PC speaker
  * - Restores the saved video mode
  * - Exits to DOS
@@ -615,6 +616,10 @@ void terminate_program(void)
     
     /* Restore original interrupt handlers */
     restore_interrupt_handlers();
+    
+    /* Clear keyboard buffers to prevent key leakage to terminal */
+    clear_bios_keyboard_buffer();
+    clear_scancode_queue();
     
     /* Mute the sound */
     port_value = inp(0x61);
