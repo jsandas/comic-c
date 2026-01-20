@@ -51,4 +51,13 @@ uint8_t check_door_activation(void);
  */
 void activate_door(const door_t *door);
 
+/**
+ * exit_door_animation - Play the door exit animation
+ * 
+ * Called when Comic arrives at a new stage via a door. Plays a 5-frame
+ * animation showing the door opening, Comic stepping out, and the door
+ * closing again.
+ */
+void exit_door_animation(void);
+
 #endif /* DOORS_H */

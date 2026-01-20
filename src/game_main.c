@@ -147,7 +147,7 @@ static uint16_t max_joystick_reads = 0;
 static uint16_t saved_video_mode = 0;
 uint8_t current_level_number = LEVEL_NUMBER_FOREST;
 uint8_t current_stage_number = 0;
-static level_t current_level;
+level_t current_level;
 
 /* Stage entry tracking (-2=first spawn, -1=boundary, >=0=door from level) */
 int8_t source_door_level_number = -2;
@@ -245,7 +245,7 @@ uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
 static uint8_t comic_num_lives = 0;
 
 /* Offscreen buffer pointer (0x0000 or 0x2000) - start with A as offscreen when B is displayed */
-static uint16_t offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
+uint16_t offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
 
 /* Default keymap for keyboard configuration */
 static uint8_t keymap[6] = {
@@ -319,9 +319,9 @@ static const char TITLE_SEQUENCE_MESSAGE[] =
 int load_new_level(void);
 void load_new_stage(void);
 void game_loop(void);
-static void blit_map_playfield_offscreen(void);
-static void blit_comic_playfield_offscreen(void);
-static void swap_video_buffers(void);
+void blit_map_playfield_offscreen(void);
+void blit_comic_playfield_offscreen(void);
+void swap_video_buffers(void);
 static void clear_bios_keyboard_buffer(void);
 static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
@@ -1783,7 +1783,7 @@ static void increment_fireball_meter(void)
     }
 }
 
-static void blit_map_playfield_offscreen(void)
+void blit_map_playfield_offscreen(void)
 {
     /* Blit the visible playfield region from the rendered map buffer
      * into the offscreen video buffer, plane by plane.
@@ -1853,7 +1853,7 @@ static void blit_map_playfield_offscreen(void)
     }
 }
 
-static void blit_comic_playfield_offscreen(void)
+void blit_comic_playfield_offscreen(void)
 {
     /* Choose the correct 16x32 sprite based on animation and facing */
     const uint8_t __far *sprite_ptr = NULL;
@@ -1934,7 +1934,7 @@ static void blit_comic_playfield_offscreen(void)
     blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
 }
 
-static void swap_video_buffers(void)
+void swap_video_buffers(void)
 {
     /* Display the offscreen buffer and then toggle which buffer is offscreen */
     switch_video_buffer(offscreen_video_buffer_ptr);
@@ -2271,6 +2271,9 @@ void load_new_stage(void)
     /* Play beam-in animation on first spawn (source_door_level_number == -2) */
     if (source_door_level_number == -2) {
         beam_in();
+    } else if (source_door_level_number >= 0) {
+        /* Entered via door: play exit door animation */
+        exit_door_animation();
     }
     
     /* Reset source_door_level_number to -1 (normal entry) for future transitions */
