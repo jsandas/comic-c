@@ -812,3 +812,48 @@ void blit_sprite_16x8_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *
     }
 }
 
+/*
+ * blit_wxh - Blit a variable-size graphic to video memory
+ * 
+ * Renders a graphic of arbitrary width and height to video memory at the
+ * specified offset within the video segment. This function writes to the
+ * buffer offset provided (which should include any double-buffering offset).
+ * 
+ * The graphic data is organized as 4 planes (blue, green, red, intensity),
+ * with each plane containing width_bytes * height bytes.
+ * 
+ * Input:
+ *   dest_offset = offset within video memory segment 0xA000 (including buffer offset)
+ *   graphic = pointer to graphic data (4 planes sequentially)
+ *   width_bytes = width in bytes (pixels/8)
+ *   height = height in pixels
+ */
+void blit_wxh(uint16_t dest_offset, const uint8_t __far *graphic, uint16_t width_bytes, uint16_t height)
+{
+    uint16_t plane_size = width_bytes * height;
+    uint16_t row, col;
+    const uint8_t __far *plane_ptr;
+    uint8_t __far *dest_ptr;
+    uint8_t plane;
+    uint8_t plane_mask;
+    
+    /* Blit each plane */
+    for (plane = 0; plane < 4; plane++) {
+        plane_mask = 1 << plane;
+        
+        /* Select write plane */
+        outp(0x3C4, 0x02);  /* Map Mask register */
+        outp(0x3C5, plane_mask);
+        
+        /* Point to this plane's data */
+        plane_ptr = graphic + (plane * plane_size);
+        
+        /* Blit all rows */
+        for (row = 0; row < height; row++) {
+            dest_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, dest_offset + (row * 40));
+            for (col = 0; col < width_bytes; col++) {
+                *dest_ptr++ = *plane_ptr++;
+            }
+        }
+    }
+}

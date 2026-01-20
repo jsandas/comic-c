@@ -28,6 +28,7 @@
 #include "timing.h"
 #include "music.h"
 #include "sound.h"
+#include "sound_data.h"
 #include "sprite_data.h"
 #include "level_data.h"
 #include "physics.h"
@@ -116,6 +117,13 @@ void debug_log(const char *format, ...)
 /* Game constants */
 #define MAX_NUM_LIVES           5
 #define MAX_HP                  7
+#define TELEPORT_DISTANCE       6   /* How many game units a teleport moves Comic horizontally */
+
+/*
+ * CHEAT CODES (for testing/debugging)
+ * ------------------------------------
+ * W key - Grant teleport wand (allows testing teleportation without finding item)
+ */
 
 /* EGA video memory segment address */
 #define VIDEO_MEMORY_BASE       0xa000
@@ -123,6 +131,11 @@ void debug_log(const char *format, ...)
 /* BIOS keyboard buffer addresses */
 #define BIOS_KEYBOARD_BUFFER_HEAD  0x041A
 #define BIOS_KEYBOARD_BUFFER_TAIL  0x041C
+
+/* Keyboard scancodes */
+#define SCANCODE_ESC    0x01
+#define SCANCODE_Q      0x10
+#define SCANCODE_W      0x11
 
 /* Global variables for initialization and game state */
 static uint8_t interrupt_handler_install_sentinel = 0;
@@ -163,6 +176,15 @@ uint16_t camera_x = 0;
 /* Landing sentinel: set by physics when hitting ground; clears each tick */
 uint8_t landed_this_tick = 0;
 
+/* Teleport state */
+static uint8_t teleport_animation = 0;
+static uint8_t teleport_source_x = 0;
+static uint8_t teleport_source_y = 0;
+static uint8_t teleport_destination_x = 0;
+static uint8_t teleport_destination_y = 0;
+static uint8_t teleport_camera_counter = 0;
+static int8_t teleport_camera_vel = 0;
+
 /* Input state variables (set by keyboard interrupt handler) */
 uint8_t key_state_esc = 0;
 uint8_t key_state_jump = 0;
@@ -171,9 +193,15 @@ uint8_t key_state_left = 0;
 uint8_t key_state_right = 0;
 uint8_t key_state_open = 0;
 uint8_t key_state_teleport = 0;
+static uint8_t key_state_cheat_wand = 0;  /* W key for cheat */
 
 /* Previous frame input state (used for edge-triggered input like jump) */
 static uint8_t previous_key_state_jump = 0;
+static uint8_t previous_key_state_teleport = 0;
+static uint8_t previous_key_state_cheat_wand = 0;
+
+/* Flag set when teleport key edge is detected in update_keyboard_input() */
+static uint8_t teleport_key_pressed = 0;
 
 /* Minimum jump frames counter - ensures quick taps get at least 2 frames of acceleration */
 uint8_t minimum_jump_frames = 0;
@@ -183,8 +211,8 @@ static uint8_t fireball_meter = 100;
 static uint8_t fireball_meter_counter = 2;
 
 /* Item collection state */
-static uint8_t comic_has_door_key = 0;
-static uint8_t comic_has_teleport_wand = 0;
+uint8_t comic_has_door_key = 0;
+uint8_t comic_has_teleport_wand = 0;
 uint8_t comic_firepower = 0;           /* Number of active fireball slots (0-5) */
 uint8_t comic_has_corkscrew = 0;       /* 1 if Corkscrew item collected */
 uint8_t comic_has_shield = 0;          /* 1 if Shield item collected */
@@ -286,6 +314,13 @@ static const char TITLE_SEQUENCE_MESSAGE[] =
 int load_new_level(void);
 void load_new_stage(void);
 void game_loop(void);
+static void blit_map_playfield_offscreen(void);
+static void blit_comic_playfield_offscreen(void);
+static void swap_video_buffers(void);
+static void clear_bios_keyboard_buffer(void);
+static void clear_scancode_queue(void);
+static void update_keyboard_input(void);
+static void handle_cheat_codes(void);
 
 /*
  * disable_pc_speaker - Disable the PC speaker
@@ -571,6 +606,7 @@ void restore_interrupt_handlers(void)
  * 
  * Performs cleanup operations before exiting:
  * - Restore original interrupt handlers
+ * - Clear keyboard buffers to prevent key leakage
  * - Mutes the PC speaker
  * - Restores the saved video mode
  * - Exits to DOS
@@ -585,6 +621,10 @@ void terminate_program(void)
     
     /* Restore original interrupt handlers */
     restore_interrupt_handlers();
+    
+    /* Clear keyboard buffers to prevent key leakage to terminal */
+    clear_bios_keyboard_buffer();
+    clear_scancode_queue();
     
     /* Mute the sound */
     port_value = inp(0x61);
@@ -1316,28 +1356,75 @@ int load_new_level(void)
 
 static void handle_teleport(void)
 {
-    /* TODO: Implement full teleportation animation and logic
-     * 
-     * Teleportation is a 6-frame animation (0-5) with special behavior:
-     * 1. Frames 0-5: Animate at source position
-     * 2. Frames 1-5: Animate at destination position (delayed by 1 frame)
-     * 3. Frame 3: Actual position change (collision with enemies uses new position)
-     * 4. Camera movement: Controlled by teleport_camera_counter/teleport_camera_vel
-     *    - Camera moves for first teleport_camera_counter ticks
-     *    - Amount per tick is teleport_camera_vel
-     * 5. Frame 6: Animation complete, set comic_is_teleporting = 0
-     * 
-     * Current behavior:
-     * - Immediately ends teleportation (WRONG - should animate for 6 frames)
-     * 
-     * Required variables (from begin_teleport):
-     * - teleport_source_y/x: Position where teleport started
-     * - teleport_destination_y/x: Position where teleport ends
-     * - teleport_animation: Current frame (0-6)
-     * - teleport_camera_counter: Frames during which camera should move
-     * - teleport_camera_vel: Camera movement per frame
-     */
-    comic_is_teleporting = 0;  /* TODO: Remove this and implement full animation */
+    /* Teleportation animation handler - 6 frames (0-5)
+     * Draws teleport effect at both source and destination positions
+     * with a 1-frame delay at destination. Camera moves during early frames. */
+    const uint8_t *teleport_sprites[5];
+    const uint8_t *sprite_ptr;
+    uint8_t anim_frame;
+    int16_t rel_x;
+    uint16_t pixel_x, pixel_y;
+    
+    /* Teleport animation sprite table (5 frames) */
+    teleport_sprites[0] = sprite_teleport_0_16x32m;
+    teleport_sprites[1] = sprite_teleport_1_16x32m;
+    teleport_sprites[2] = sprite_teleport_2_16x32m;
+    teleport_sprites[3] = sprite_teleport_1_16x32m;  /* Frame 1 repeated */
+    teleport_sprites[4] = sprite_teleport_0_16x32m;  /* Frame 0 repeated */
+    
+    /* Move camera if counter is non-zero */
+    if (teleport_camera_counter > 0) {
+        /* Use signed arithmetic to prevent underflow, then clamp to valid range */
+        int16_t new_camera_x = (int16_t)camera_x + teleport_camera_vel;
+        camera_x = (new_camera_x < 0) ? 0 : (uint8_t)new_camera_x;
+        teleport_camera_counter--;
+    }
+    
+    /* Render map background */
+    blit_map_playfield_offscreen();
+    
+    /* Update Comic's actual position at frame 3 */
+    if (teleport_animation == 3) {
+        comic_y = teleport_destination_y;
+        comic_x = teleport_destination_x;
+    }
+    
+    /* Blit Comic sprite */
+    blit_comic_playfield_offscreen();
+    
+    /* Blit teleport animation at source position (frames 0-4) */
+    anim_frame = teleport_animation;
+    if (anim_frame < 5) {
+        rel_x = (int16_t)((int)teleport_source_x - (int)camera_x);
+        if (rel_x >= 0 && rel_x < PLAYFIELD_WIDTH) {
+            pixel_x = 8 + (rel_x * 8);
+            pixel_y = 8 + (teleport_source_y * 8);
+            sprite_ptr = teleport_sprites[anim_frame];
+            blit_sprite_16x32_masked(pixel_x, pixel_y, sprite_ptr);
+        }
+    }
+    
+    /* Blit teleport animation at destination (frames 1-5, delayed by 1) */
+    if (teleport_animation >= 1) {
+        anim_frame = teleport_animation - 1;  /* Delayed by 1 frame */
+        if (anim_frame < 5) {
+            rel_x = (int16_t)((int)teleport_destination_x - (int)camera_x);
+            if (rel_x >= 0 && rel_x < PLAYFIELD_WIDTH) {
+                pixel_x = 8 + (rel_x * 8);
+                pixel_y = 8 + (teleport_destination_y * 8);
+                sprite_ptr = teleport_sprites[anim_frame];
+                blit_sprite_16x32_masked(pixel_x, pixel_y, sprite_ptr);
+            }
+        }
+    }
+    
+    /* Advance animation frame */
+    teleport_animation++;
+    
+    /* End teleport at frame 6 */
+    if (teleport_animation >= 6) {
+        comic_is_teleporting = 0;
+    }
 }
 
 /* Physics functions implemented in physics.c */
@@ -1345,14 +1432,336 @@ static void handle_teleport(void)
 
 static void begin_teleport(void)
 {
-    /* TODO: Implement teleport initiation */
+    /* Find teleport destination and initiate teleport animation
+     * Teleports 6 units in facing direction, finds safe landing spot */
+    uint8_t dest_x, dest_y;
+    int16_t camera_rel_x;
+    int16_t dest_camera_rel;
+    int16_t camera_movement;
+    uint8_t search_y;
+    uint8_t solid_found;
+    uint8_t nonsolid_count;
+    uint8_t max_camera_x;
+    
+    /* Initialize destination to Comic's current position */
+    dest_x = comic_x;
+    dest_y = comic_y;
+    
+    /* Calculate camera-relative position of Comic */
+    camera_rel_x = (int16_t)((int)comic_x - (int)camera_x);
+    
+    /* Initialize camera movement */
+    teleport_camera_counter = 0;
+    
+    /* Determine destination based on facing direction */
+    if (comic_facing == COMIC_FACING_LEFT) {
+        teleport_camera_vel = -1;  /* Move camera left */
+        
+        /* Check if too close to left edge */
+        if (camera_rel_x < TELEPORT_DISTANCE) {
+            goto remain_in_place;
+        }
+        
+        dest_x -= TELEPORT_DISTANCE;
+        
+        /* Calculate camera movement needed */
+        dest_camera_rel = camera_rel_x - TELEPORT_DISTANCE;
+        if (dest_camera_rel < (PLAYFIELD_WIDTH / 2 - 2)) {
+            /* Destination is left of center, need to move camera */
+            camera_movement = (PLAYFIELD_WIDTH / 2 - 2) - dest_camera_rel;
+            if (camera_x >= camera_movement) {
+                teleport_camera_counter = (uint8_t)camera_movement;
+            } else {
+                teleport_camera_counter = camera_x;
+            }
+        }
+    } else {
+        /* Facing right */
+        teleport_camera_vel = 1;  /* Move camera right */
+        
+        /* Check if too close to right edge */
+        if (camera_rel_x >= (PLAYFIELD_WIDTH - TELEPORT_DISTANCE - 1)) {
+            goto remain_in_place;
+        }
+        
+        dest_x += TELEPORT_DISTANCE;
+        
+        /* Calculate camera movement needed */
+        dest_camera_rel = camera_rel_x + TELEPORT_DISTANCE;
+        if (dest_camera_rel > (PLAYFIELD_WIDTH / 2)) {
+            /* Destination is right of center, need to move camera */
+            max_camera_x = MAP_WIDTH - PLAYFIELD_WIDTH;
+            camera_movement = dest_camera_rel - (PLAYFIELD_WIDTH / 2);
+            if ((camera_x + camera_movement) <= max_camera_x) {
+                teleport_camera_counter = (uint8_t)camera_movement;
+            } else {
+                teleport_camera_counter = (uint8_t)(max_camera_x - camera_x);
+            }
+        }
+    }
+    
+    /* Round destination x to even tile boundary */
+    dest_x &= 0xFE;
+    
+    /* Search for safe landing spot (solid tile with 2 empty tiles above) */
+    search_y = PLAYFIELD_HEIGHT - 2;  /* Start from bottom */
+    solid_found = 0;
+    
+    while (search_y > 0 && !solid_found) {
+        uint16_t tile_offset = address_of_tile_at_coordinates(dest_x / 2, search_y / 2);
+        uint8_t tile_id = current_tiles_ptr[tile_offset];
+        
+        if (tile_id > tileset_last_passable) {
+            /* Found solid tile, now check for 2 non-solid tiles above */
+            uint8_t check_y = search_y;
+            nonsolid_count = 0;
+            
+            while (check_y >= 2 && nonsolid_count < 2) {
+                check_y -= 2;
+                tile_offset = address_of_tile_at_coordinates(dest_x / 2, check_y / 2);
+                tile_id = current_tiles_ptr[tile_offset];
+                if (tile_id > tileset_last_passable) {
+                    /* Hit another solid tile, insufficient clearance */
+                    break;
+                } else {
+                    nonsolid_count++;
+                }
+            }
+            
+            if (nonsolid_count == 2) {
+                /* Found safe landing - 2 empty tiles above solid */
+                dest_y = check_y;
+                solid_found = 1;
+                break;
+            }
+            /* If insufficient clearance, continue searching downward */
+        }
+        search_y -= 2;
+    }
+    
+    if (!solid_found) {
+        goto remain_in_place;
+    }
+    
+    goto finish_teleport;
+    
+remain_in_place:
+    /* No safe destination found, teleport to current position */
+    dest_x = comic_x;
+    dest_y = comic_y;
+    teleport_camera_counter = 0;
+    
+finish_teleport:
+    /* Initialize teleport state */
+    teleport_animation = 0;
+    teleport_source_x = comic_x;
+    teleport_source_y = comic_y;
+    teleport_destination_x = dest_x;
+    teleport_destination_y = dest_y;
+    comic_is_teleporting = 1;
+    
+    /* Play teleport sound */
+    play_sound(SOUND_TELEPORT, 2);
 }
 
 /* face_or_move_left and face_or_move_right are implemented in game_main.c */
 
 static void pause_game(void)
 {
-    /* TODO: Implement pause screen */
+    /* Display pause screen and wait for keypress
+     * Renders the current game state with a pause graphic overlay, then loops
+     * waiting for keyboard input. If 'Q' or 'q' is pressed, terminates the game.
+     * Any other key returns to gameplay.
+     * Uses the game's own keyboard system (scancode queue from INT 9 handler)
+     * to avoid conflicts with BIOS INT 16h. */
+    uint8_t scancode;
+    uint8_t is_break;
+    uint8_t code;
+    
+    /* Reset key_state_esc so the main loop doesn't get stuck waiting for release */
+    key_state_esc = 0;
+    
+    /* Clear both keyboard buffers before entering pause loop */
+    clear_bios_keyboard_buffer();
+    clear_scancode_queue();
+    
+    /* Loop until we get a valid key to unpause or quit */
+    while (1) {
+        
+        /* Render current game state to offscreen buffer */
+        blit_map_playfield_offscreen();
+        
+        /* Blit pause graphic (128x48 pixels positioned at X=40, Y=64) */
+        blit_wxh(offscreen_video_buffer_ptr + ((64 * 40) + (40 / 8)),
+                 sprite_pause_128x48,
+                 128 / 8,  /* 128 pixels = 16 bytes */
+                 48);
+        
+        /* Swap buffers to display the pause screen */
+        swap_video_buffers();
+        wait_n_ticks(1);
+        
+        /* Check if any scancode is available in the queue */
+        if (scancode_queue_head != scancode_queue_tail) {
+            /* Get next scancode from queue */
+            scancode = scancode_queue[scancode_queue_tail];
+            scancode_queue_tail = (scancode_queue_tail + 1) % MAX_SCANCODE_QUEUE;
+            
+            /* Skip extended key prefix (0xE0) - just like update_keyboard_input() does */
+            if (scancode == 0xE0) {
+                continue;
+            }
+            
+            /* Handle break (key release) codes - skip them */
+            is_break = (scancode & 0x80) != 0;
+            code = scancode & 0x7F;
+            
+            /* Only process key press events (not key releases) */
+            if (!is_break) {
+                if (code == SCANCODE_Q) {
+                    terminate_program();
+                } else {
+                    /* Any other key returns to the game */
+                    return;
+                }
+            }
+        }
+    }
+}
+
+static void beam_in(void)
+{
+    /* Beam-in animation when Comic starts the game
+     * 12-frame materialize animation, Comic appears after frame 6 */
+    const uint8_t *materialize_sprites[12];
+    uint8_t frame;
+    int16_t rel_x;
+    uint16_t pixel_x, pixel_y;
+    const uint8_t *sprite_ptr;
+    
+    /* Materialize animation sprite table (12 frames) */
+    materialize_sprites[0] = sprite_materialize_0_16x32m;
+    materialize_sprites[1] = sprite_materialize_1_16x32m;
+    materialize_sprites[2] = sprite_materialize_2_16x32m;
+    materialize_sprites[3] = sprite_materialize_3_16x32m;
+    materialize_sprites[4] = sprite_materialize_4_16x32m;
+    materialize_sprites[5] = sprite_materialize_5_16x32m;
+    materialize_sprites[6] = sprite_materialize_6_16x32m;
+    materialize_sprites[7] = sprite_materialize_7_16x32m;
+    materialize_sprites[8] = sprite_materialize_8_16x32m;
+    materialize_sprites[9] = sprite_materialize_9_16x32m;
+    materialize_sprites[10] = sprite_materialize_10_16x32m;
+    materialize_sprites[11] = sprite_materialize_11_16x32m;
+    
+    /* Initial delay: 15 ticks with map visible */
+    for (frame = 0; frame < 15; frame++) {
+        blit_map_playfield_offscreen();
+        handle_item();  /* Render items */
+        swap_video_buffers();
+        wait_n_ticks(1);
+    }
+    
+    /* Play materialize sound */
+    play_sound(SOUND_MATERIALIZE, 4);
+    
+    /* Animate materialize effect (12 frames) */
+    for (frame = 0; frame < 12; frame++) {
+        /* Render background */
+        blit_map_playfield_offscreen();
+        
+        /* Render items */
+        handle_item();
+        
+        /* Blit materialize animation frame - this shows Comic fading in */
+        rel_x = (int16_t)((int)comic_x - (int)camera_x);
+        if (rel_x >= 0 && rel_x < PLAYFIELD_WIDTH) {
+            pixel_x = 8 + (rel_x * 8);
+            pixel_y = 8 + (comic_y * 8);
+            sprite_ptr = materialize_sprites[frame];
+            blit_sprite_16x32_masked(pixel_x, pixel_y, sprite_ptr);
+        }
+        
+        /* Show full Comic sprite after frame 6 to make Comic fully visible */
+        if (frame > 6) {
+            blit_comic_playfield_offscreen();
+        }
+        
+        /* Swap buffers and wait */
+        swap_video_buffers();
+        wait_n_ticks(1);
+    }
+    
+    /* Final frame with Comic */
+    blit_map_playfield_offscreen();
+    handle_item();  /* Render items */
+    blit_comic_playfield_offscreen();
+    swap_video_buffers();
+    wait_n_ticks(1);
+}
+
+static void beam_out(void)
+{
+    /* Beam-out animation when Comic wins the game
+     * 12-frame materialize animation with inverted Comic visibility (Comic disappears after frame 6) */
+    const uint8_t *materialize_sprites[12];
+    uint8_t frame;
+    int16_t rel_x;
+    uint16_t pixel_x, pixel_y;
+    const uint8_t *sprite_ptr;
+    
+    /* Materialize animation sprite table (12 frames) */
+    materialize_sprites[0] = sprite_materialize_0_16x32m;
+    materialize_sprites[1] = sprite_materialize_1_16x32m;
+    materialize_sprites[2] = sprite_materialize_2_16x32m;
+    materialize_sprites[3] = sprite_materialize_3_16x32m;
+    materialize_sprites[4] = sprite_materialize_4_16x32m;
+    materialize_sprites[5] = sprite_materialize_5_16x32m;
+    materialize_sprites[6] = sprite_materialize_6_16x32m;
+    materialize_sprites[7] = sprite_materialize_7_16x32m;
+    materialize_sprites[8] = sprite_materialize_8_16x32m;
+    materialize_sprites[9] = sprite_materialize_9_16x32m;
+    materialize_sprites[10] = sprite_materialize_10_16x32m;
+    materialize_sprites[11] = sprite_materialize_11_16x32m;
+    
+    /* Play materialize sound */
+    play_sound(SOUND_MATERIALIZE, 4);
+    
+    /* Initial frame with Comic */
+    blit_map_playfield_offscreen();
+    blit_comic_playfield_offscreen();
+    swap_video_buffers();
+    wait_n_ticks(1);
+    
+    /* Animate materialize effect (12 frames) */
+    for (frame = 0; frame < 12; frame++) {
+        /* Render background */
+        blit_map_playfield_offscreen();
+        
+        /* Show Comic sprite for first 6 frames */
+        if (frame < 6) {
+            blit_comic_playfield_offscreen();
+        }
+        
+        /* Blit materialize animation frame */
+        rel_x = (int16_t)((int)comic_x - (int)camera_x);
+        if (rel_x >= 0 && rel_x < PLAYFIELD_WIDTH) {
+            pixel_x = 8 + (rel_x * 8);
+            pixel_y = 8 + (comic_y * 8);
+            sprite_ptr = materialize_sprites[frame];
+            blit_sprite_16x32_masked(pixel_x, pixel_y, sprite_ptr);
+        }
+        
+        /* Swap buffers and wait */
+        swap_video_buffers();
+        wait_n_ticks(1);
+    }
+    
+    /* Final frame without Comic */
+    blit_map_playfield_offscreen();
+    swap_video_buffers();
+    
+    /* Wait 6 additional ticks */
+    wait_n_ticks(6);
 }
 
 static void decrement_fireball_meter(void)
@@ -1766,9 +2175,6 @@ void load_new_stage(void)
             comic_x = comic_x_checkpoint;
         }
         
-        /* After loading, set source_door to -1 (normal entry) for future transitions */
-        source_door_level_number = -1;
-        
         /* Initialize Comic's physics state
          * Start with Comic standing (not falling), let the game loop detect if he needs to fall */
         comic_is_falling_or_jumping = 0;
@@ -1841,7 +2247,8 @@ void load_new_stage(void)
     /* Ensure the initial frame is drawn and displayed: replicate the
      * assembly behavior of blitting and swapping buffers at load time. */
     blit_map_playfield_offscreen();
-    blit_comic_playfield_offscreen();
+    /* Skip blitting Comic here - if doing beam_in, Comic should not be visible yet;
+     * if not doing beam_in (entering via door), the game loop will render Comic normally */
     swap_video_buffers();
 
 #ifdef ENABLE_SHP_SMOKE_TEST
@@ -1856,6 +2263,13 @@ void load_new_stage(void)
     }
 #endif
 
+    /* Play beam-in animation on first spawn (source_door_level_number == -2) */
+    if (source_door_level_number == -2) {
+        beam_in();
+    }
+    
+    /* Reset source_door_level_number to -1 (normal entry) for future transitions */
+    source_door_level_number = -1;
 }
 
 /*
@@ -1925,6 +2339,18 @@ static void clear_bios_keyboard_buffer(void)
 }
 
 /*
+ * clear_scancode_queue - Clear our local scancode queue
+ * 
+ * Clears the scancode_queue by resetting head and tail pointers.
+ * This is used after pausing to discard any scancodes queued while paused.
+ */
+static void clear_scancode_queue(void)
+{
+    scancode_queue_head = 0;
+    scancode_queue_tail = 0;
+}
+
+/*
  * dos_idle - Yield CPU time to other processes
  * 
  * Calls DOS idle interrupt (INT 28h) to allow other processes to run.
@@ -1938,6 +2364,28 @@ static void dos_idle(void)
     memset(&regs, 0, sizeof(regs));
     /* INT 28h: DOS idle interrupt - yields CPU time */
     int86(0x28, &regs, &regs);
+}
+
+/*
+ * handle_cheat_codes - Process cheat code inputs
+ * 
+ * Checks for cheat code key presses and grants appropriate items/abilities.
+ * Uses edge-triggered detection (0→1 transition) to activate once per key press
+ * without blocking the game loop.
+ * 
+ * Current cheats:
+ *   W key - Grant teleport wand for testing teleportation feature
+ */
+static void handle_cheat_codes(void)
+{
+    /* W key: Grant teleport wand (edge-triggered on press) */
+    if (key_state_cheat_wand && !previous_key_state_cheat_wand) {
+        if (comic_has_teleport_wand == 0) {
+            comic_has_teleport_wand = 1;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
 }
 
 /*
@@ -1983,7 +2431,7 @@ static void update_keyboard_input(void)
         code = scancode & 0x7F;
         (void)extended_prefix; /* prefix retained for future use */
         extended_prefix = 0;
-
+        
         /* Compare scancode with configured keymap */
         if (code == keymap[0]) {
             key_state_jump = (uint8_t)(!is_break);  /* SPACE */
@@ -1997,8 +2445,14 @@ static void update_keyboard_input(void)
             key_state_open = (uint8_t)(!is_break);  /* ALT */
         } else if (code == keymap[5]) {
             key_state_teleport = (uint8_t)(!is_break);  /* CAPSLOCK */
-        } else if (code == 0x01) {
+            /* Detect edge transition: key pressed (break=0) and was previously released */
+            if (!is_break && !previous_key_state_teleport) {
+                teleport_key_pressed = 1;  /* Flag for game loop to process */
+            }
+        } else if (code == SCANCODE_ESC) {
             key_state_esc = (uint8_t)(!is_break);  /* ESCAPE - hardcoded */
+        } else if (code == SCANCODE_W) {
+            key_state_cheat_wand = (uint8_t)(!is_break);  /* W key - cheat code */
         }
     }
 }
@@ -2071,6 +2525,9 @@ void game_loop(void)
         /* Read keyboard input and update key_state variables */
         update_keyboard_input();
         
+        /* Process cheat codes (for testing/debugging) */
+        handle_cheat_codes();
+        
         /* Initiate jump if conditions are met (matching original assembly):
          * - Player is standing (not in air)
          * - Jump key transitioned from released to pressed (edge-triggered, not level-triggered)
@@ -2088,6 +2545,8 @@ void game_loop(void)
         
         /* Update previous frame state for edge-triggered input */
         previous_key_state_jump = key_state_jump;
+        previous_key_state_teleport = key_state_teleport;
+        previous_key_state_cheat_wand = key_state_cheat_wand;
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
@@ -2134,8 +2593,8 @@ void game_loop(void)
                 /* This requires stage data structures to be implemented */
             }
             
-            /* Check teleport input - only if not falling/jumping */
-            if (comic_is_falling_or_jumping == 0 && key_state_teleport == 1 && comic_has_teleport_wand != 0) {
+            /* Check teleport input - only if not falling/jumping and teleport key was pressed this frame */
+            if (comic_is_falling_or_jumping == 0 && teleport_key_pressed && comic_has_teleport_wand != 0) {
                 begin_teleport();
                 /* begin_teleport sets comic_is_teleporting, which will be handled
                  * at the top of the next loop iteration. Skip to actor handling. */
@@ -2194,6 +2653,9 @@ void game_loop(void)
                     comic_jump_counter = 1;
                 }
             }
+            
+            /* Clear the teleport flag after checking */
+            teleport_key_pressed = 0;
         }
         
         /* Check escape key (pause) */
