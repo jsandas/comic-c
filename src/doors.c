@@ -311,6 +311,11 @@ uint8_t check_door_activation(void)
         return 0;  /* No level loaded */
     }
     
+    /* Validate stage number is within bounds (0-2) */
+    if (current_stage_number >= 3) {
+        return 0;  /* Invalid stage number */
+    }
+    
     /* Check all doors in the current stage */
     for (i = 0; i < 3; i++) {  /* MAX_NUM_DOORS */
         door = &current_level_ptr->stages[current_stage_number].doors[i];

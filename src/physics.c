@@ -266,6 +266,11 @@ void move_left(void)
             comic_x_momentum = 0;
             return;
         }
+        /* Validate stage number is within bounds (0-2) */
+        if (current_stage_number >= 3) {
+            comic_x_momentum = 0;
+            return;
+        }
         stage = &current_level_ptr->stages[current_stage_number];
         if (stage->exit_l == EXIT_UNUSED) {
             /* No exit here, stop moving */
@@ -326,6 +331,11 @@ void move_right(void)
         /* At right edge: check for stage transition */
         /* Guard against NULL level pointer */
         if (current_level_ptr == NULL) {
+            comic_x_momentum = 0;
+            return;
+        }
+        /* Validate stage number is within bounds (0-2) */
+        if (current_stage_number >= 3) {
             comic_x_momentum = 0;
             return;
         }

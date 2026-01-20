@@ -375,6 +375,11 @@ void handle_item(void)
         return;
     }
     
+    /* Validate stage number is within bounds (0-2) */
+    if (current_stage_number >= 3) {
+        return;
+    }
+    
     /* Get current stage data */
     stage = &current_level_ptr->stages[current_stage_number];
     
@@ -545,6 +550,11 @@ int maybe_spawn_enemy(int enemy_index)
     }
     
     if (current_level_ptr == NULL) {
+        return 0;
+    }
+    
+    /* Validate stage number is within bounds (0-2) */
+    if (current_stage_number >= 3) {
         return 0;
     }
     
