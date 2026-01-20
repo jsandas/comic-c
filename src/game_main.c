@@ -1374,7 +1374,9 @@ static void handle_teleport(void)
     
     /* Move camera if counter is non-zero */
     if (teleport_camera_counter > 0) {
-        camera_x = (int)camera_x + (int)teleport_camera_vel;
+        /* Use signed arithmetic to prevent underflow, then clamp to valid range */
+        int16_t new_camera_x = (int16_t)camera_x + teleport_camera_vel;
+        camera_x = (new_camera_x < 0) ? 0 : (uint8_t)new_camera_x;
         teleport_camera_counter--;
     }
     
