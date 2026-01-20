@@ -1584,7 +1584,7 @@ static void pause_game(void)
         /* Render current game state to offscreen buffer */
         blit_map_playfield_offscreen();
         
-        /* Blit pause graphic (128x48 pixels centered at 40, 64) */
+        /* Blit pause graphic (128x48 pixels positioned at X=40, Y=64) */
         blit_WxH(offscreen_video_buffer_ptr + ((64 * 40) + (40 / 8)),
                  sprite_pause_128x48,
                  128 / 8,  /* 128 pixels = 16 bytes */
