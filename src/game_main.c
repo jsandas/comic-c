@@ -205,8 +205,8 @@ static uint8_t fireball_meter = 100;
 static uint8_t fireball_meter_counter = 2;
 
 /* Item collection state */
-static uint8_t comic_has_door_key = 0;
-static uint8_t comic_has_teleport_wand = 0;
+uint8_t comic_has_door_key = 0;
+uint8_t comic_has_teleport_wand = 0;
 uint8_t comic_firepower = 0;           /* Number of active fireball slots (0-5) */
 uint8_t comic_has_corkscrew = 0;       /* 1 if Corkscrew item collected */
 uint8_t comic_has_shield = 0;          /* 1 if Shield item collected */

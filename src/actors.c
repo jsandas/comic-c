@@ -31,6 +31,8 @@ extern uint8_t comic_firepower;            /* Number of active fireball slots (0
 extern uint8_t comic_has_corkscrew;        /* 1 if Corkscrew item collected, 0 otherwise */
 extern uint8_t comic_hp;                   /* Current hit points (0-10) */
 extern uint8_t comic_has_shield;           /* 1 if Shield item collected, 0 otherwise */
+extern uint8_t comic_has_door_key;         /* 1 if door key collected, 0 otherwise */
+extern uint8_t comic_has_teleport_wand;    /* 1 if teleport wand collected, 0 otherwise */
 
 /* Camera state */
 extern uint16_t camera_x;                  /* Camera X position (game units) */
@@ -430,8 +432,8 @@ void handle_item(void)
                     comic_has_shield = 1;
                     break;
                 case ITEM_TELEPORT_WAND:
-                    /* Set the wand flag (from game_main.c) */
-                    /* TODO: Implement comic_has_teleport_wand access */
+                    /* Grant teleport ability */
+                    comic_has_teleport_wand = 1;
                     break;
                 /* TODO: Implement other item types */
                 default:
