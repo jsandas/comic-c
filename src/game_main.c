@@ -1696,7 +1696,7 @@ static void beam_in(void)
 static void beam_out(void)
 {
     /* Beam-out animation when Comic wins the game
-     * 12-frame materialize animation in reverse, Comic disappears after frame 6 */
+     * 12-frame materialize animation with inverted Comic visibility (Comic disappears after frame 6) */
     const uint8_t *materialize_sprites[12];
     uint8_t frame;
     int16_t rel_x;
