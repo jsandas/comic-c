@@ -1500,14 +1500,16 @@ static void begin_teleport(void)
         
         if (tile_id > tileset_last_passable) {
             /* Found solid tile, now check for 2 non-solid tiles above */
+            uint8_t check_y = search_y;
             nonsolid_count = 0;
-            while (search_y >= 2 && nonsolid_count < 2) {
-                search_y -= 2;
-                tile_offset = address_of_tile_at_coordinates(dest_x / 2, search_y / 2);
+            
+            while (check_y >= 2 && nonsolid_count < 2) {
+                check_y -= 2;
+                tile_offset = address_of_tile_at_coordinates(dest_x / 2, check_y / 2);
                 tile_id = current_tiles_ptr[tile_offset];
                 if (tile_id > tileset_last_passable) {
-                    /* Hit another solid tile, restart search */
-                    nonsolid_count = 0;
+                    /* Hit another solid tile, insufficient clearance */
+                    break;
                 } else {
                     nonsolid_count++;
                 }
@@ -1515,10 +1517,11 @@ static void begin_teleport(void)
             
             if (nonsolid_count == 2) {
                 /* Found safe landing - 2 empty tiles above solid */
-                dest_y = search_y;
+                dest_y = check_y;
                 solid_found = 1;
+                break;
             }
-            break;
+            /* If insufficient clearance, continue searching downward */
         }
         search_y -= 2;
     }
