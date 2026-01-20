@@ -354,43 +354,53 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Camera movement synchronized with teleport animation
    - ✅ Safe landing detection with solid/non-solid tile scanning
 
-9. **Load and render sprites**
-   - [ ] Implement `.SHP` file loading for enemy sprites
-   - [ ] Load item sprites from `SYS004.EGA`
-   - [ ] Load fireball sprites
-   - [ ] Integrate sprite rendering in actor handlers
-   - [ ] Load spark sprites for death animations
+9. **Load and render sprites** ✅ **COMPLETE** - 2026-01-19
+   - ✅ Implement `.SHP` file loading for enemy sprites
+   - ✅ Load and render embedded sprite data for items and effects
+   - ✅ Load and render fireball sprites
+   - ✅ Integrate sprite rendering in actor handlers (enemies, items, fireballs)
+   - ✅ Load and render spark sprites for death animations
+   - ℹ️ **Note**: `SYS004.EGA` is title-sequence only; gameplay uses compiled embedded sprite data
    
 10. **Strategy**
    - Reimplement functions in C when feasible and preferred
    - Consult original assembly as implementation guidance
    - Only interface with original assembly when there is a clear, documented necessity and tests to justify it
 
-### Phase 4: Testing and Validation (NOT STARTED)
+### Phase 4: Remaining Game Features (NOT STARTED)
+
+**Goal**: Implement missing systems for complete gameplay
+
+1. **Door System**
+   - Door collision detection and activation
+   - Key requirement checking and tracking
+   - Level transition logic
+   - Exit/entry animations
+
+2. **Game Over and Victory Sequences**
+   - Game over screen rendering and input handling
+   - Victory animation and level transition
+   - Score display and next level progression
+
+3. **Title Sequence and Menus** (if refactoring from assembly)
+   - `SYS004.EGA` loading and RLE decompression
+   - Menu navigation and input handling
+   - Story/intro sequence display
+
+### Phase 5: Testing and Validation (NOT STARTED)
 
 **Goal**: Validate all implemented systems against original game behavior
 
-1. **Sprite Loading**
-   - Implement `.SHP` file format parser
-   - Load enemy sprites from level-specific .SHP files
-   - Load item sprites from `SYS004.EGA`
-   - Load spark/explosion sprites
-   - Integrate with rendering system
-
-2. **Testing Priorities**
+1. **Testing Priorities**
    - Tier 1: Collision detection and physics accuracy
    - Tier 2: Actor spawning and AI behaviors
    - Tier 3: Item collection and score tracking
    - Tier 4: Full level playthroughs
    - Tier 5: Edge cases and original game bugs
 
-3. **Remaining Features**
-   - Door system (collision, key requirements, transitions)
-   - Teleportation mechanics
-   - Pause screen
-   - Game over / victory sequences
+2. **Test Methodology**
 
-### Phase 5: Sound and Input (Optional)
+### Phase 6: Sound and Input (Optional)
 
 **Goal**: Convert remaining subsystems (lower priority)
 
