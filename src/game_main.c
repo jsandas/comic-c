@@ -1364,7 +1364,7 @@ static void handle_teleport(void)
     
     /* Move camera if counter is non-zero */
     if (teleport_camera_counter > 0) {
-        camera_x = (uint8_t)((int)camera_x + (int)teleport_camera_vel);
+        camera_x = (int)camera_x + (int)teleport_camera_vel;
         teleport_camera_counter--;
     }
     
