@@ -813,7 +813,7 @@ void blit_sprite_16x8_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *
 }
 
 /*
- * blit_WxH - Blit a variable-size graphic to video memory
+ * blit_wxh - Blit a variable-size graphic to video memory
  * 
  * Renders a graphic of arbitrary width and height to video memory at the
  * specified offset within the video segment. This function writes to the
@@ -828,7 +828,7 @@ void blit_sprite_16x8_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *
  *   width_bytes = width in bytes (pixels/8)
  *   height = height in pixels
  */
-void blit_WxH(uint16_t dest_offset, const uint8_t __far *graphic, uint16_t width_bytes, uint16_t height)
+void blit_wxh(uint16_t dest_offset, const uint8_t __far *graphic, uint16_t width_bytes, uint16_t height)
 {
     uint16_t plane_size = width_bytes * height;
     uint16_t row, col;
