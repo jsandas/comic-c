@@ -182,9 +182,14 @@ uint8_t key_state_left = 0;
 uint8_t key_state_right = 0;
 uint8_t key_state_open = 0;
 uint8_t key_state_teleport = 0;
+static uint8_t key_state_cheat_wand = 0;  /* W key for cheat */
 
 /* Previous frame input state (used for edge-triggered input like jump) */
 static uint8_t previous_key_state_jump = 0;
+static uint8_t previous_key_state_teleport = 0;
+
+/* Flag set when teleport key edge is detected in update_keyboard_input() */
+static uint8_t teleport_key_pressed = 0;
 
 /* Minimum jump frames counter - ensures quick taps get at least 2 frames of acceleration */
 uint8_t minimum_jump_frames = 0;
@@ -2381,7 +2386,7 @@ static void update_keyboard_input(void)
         code = scancode & 0x7F;
         (void)extended_prefix; /* prefix retained for future use */
         extended_prefix = 0;
-
+        
         /* Compare scancode with configured keymap */
         if (code == keymap[0]) {
             key_state_jump = (uint8_t)(!is_break);  /* SPACE */
@@ -2395,8 +2400,14 @@ static void update_keyboard_input(void)
             key_state_open = (uint8_t)(!is_break);  /* ALT */
         } else if (code == keymap[5]) {
             key_state_teleport = (uint8_t)(!is_break);  /* CAPSLOCK */
+            /* Detect edge transition: key pressed (break=0) and was previously released */
+            if (!is_break && !previous_key_state_teleport) {
+                teleport_key_pressed = 1;  /* Flag for game loop to process */
+            }
         } else if (code == 0x01) {
             key_state_esc = (uint8_t)(!is_break);  /* ESCAPE - hardcoded */
+        } else if (code == 0x11) {
+            key_state_cheat_wand = (uint8_t)(!is_break);  /* W key - cheat code */
         }
     }
 }
@@ -2422,6 +2433,9 @@ static void face_or_move_right(void)
     comic_facing = COMIC_FACING_RIGHT;
     move_right();
 }
+
+/* Track last teleport key state for change detection */
+static uint8_t last_teleport_key = 0;
 
 /*
  * game_loop - Main game loop
@@ -2469,6 +2483,19 @@ void game_loop(void)
         /* Read keyboard input and update key_state variables */
         update_keyboard_input();
         
+        /* Cheat code: Press W to get the teleport wand */
+        if (key_state_cheat_wand == 1) {
+            if (comic_has_teleport_wand == 0) {
+                comic_has_teleport_wand = 1;
+                /* TODO: Display feedback message or play sound */
+            }
+            /* Wait for key release to prevent repeated activation */
+            while (key_state_cheat_wand == 1) {
+                update_keyboard_input();
+                dos_idle();
+            }
+        }
+        
         /* Initiate jump if conditions are met (matching original assembly):
          * - Player is standing (not in air)
          * - Jump key transitioned from released to pressed (edge-triggered, not level-triggered)
@@ -2486,6 +2513,7 @@ void game_loop(void)
         
         /* Update previous frame state for edge-triggered input */
         previous_key_state_jump = key_state_jump;
+        previous_key_state_teleport = key_state_teleport;
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
@@ -2532,16 +2560,20 @@ void game_loop(void)
                 /* This requires stage data structures to be implemented */
             }
             
-            /* Check teleport input - only if not falling/jumping */
-            if (comic_is_falling_or_jumping == 0 && key_state_teleport == 1 && comic_has_teleport_wand != 0) {
+            /* Check teleport input - only if not falling/jumping and teleport key was pressed this frame */
+            if (comic_is_falling_or_jumping == 0 && teleport_key_pressed && comic_has_teleport_wand != 0) {
                 begin_teleport();
                 /* begin_teleport sets comic_is_teleporting, which will be handled
                  * at the top of the next loop iteration. Skip to actor handling. */
                 skip_rendering = 1;
             }
+            
+            /* Clear the teleport flag after checking */
+            teleport_key_pressed = 0;
+            
             /* Handle left/right movement - only if not falling/jumping, not teleporting,
              * and did NOT just land this tick (assembly jumps to pause after landing). */
-            else if (comic_is_falling_or_jumping == 0 && landed_this_tick == 0) {
+            if (comic_is_falling_or_jumping == 0 && landed_this_tick == 0) {
                 uint8_t foot_y;
                 uint16_t foot_offset;
                 uint8_t foot_tile;

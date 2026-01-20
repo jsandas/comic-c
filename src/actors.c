@@ -429,6 +429,10 @@ void handle_item(void)
                 case ITEM_SHIELD:
                     comic_has_shield = 1;
                     break;
+                case ITEM_TELEPORT_WAND:
+                    /* Set the wand flag (from game_main.c) */
+                    /* TODO: Implement comic_has_teleport_wand access */
+                    break;
                 /* TODO: Implement other item types */
                 default:
                     break;
