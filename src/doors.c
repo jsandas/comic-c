@@ -224,10 +224,12 @@ void exit_door_animation(void)
     uint16_t pixel_offset;
     
     /* Calculate camera-relative position and pixel offset for door
-     * Comic is at door position (having just arrived through it) */
-    camera_relative_x = comic_x - 1 - camera_x;  /* door.x = comic_x - 1 */
+     * Comic is at door position (having just arrived through it)
+     * door.x = comic_x - 1 (both in game units) */
+    camera_relative_x = comic_x - 1 - camera_x;
     
-    /* Convert game coordinates to pixel offset in video memory */
+    /* Convert game coordinates to pixel offset in video memory
+     * comic_x and comic_y are in game units (8 pixels each) */
     pixel_offset = (PLAYFIELD_OFFSET_Y + comic_y * 8) * (SCREEN_WIDTH / 8) + 
                    (PLAYFIELD_OFFSET_X / 8) + camera_relative_x;
     door_blit_offset = pixel_offset;
