@@ -193,6 +193,7 @@ static uint8_t key_state_cheat_wand = 0;  /* W key for cheat */
 /* Previous frame input state (used for edge-triggered input like jump) */
 static uint8_t previous_key_state_jump = 0;
 static uint8_t previous_key_state_teleport = 0;
+static uint8_t previous_key_state_cheat_wand = 0;
 
 /* Flag set when teleport key edge is detected in update_keyboard_input() */
 static uint8_t teleport_key_pressed = 0;
@@ -2358,24 +2359,20 @@ static void dos_idle(void)
  * handle_cheat_codes - Process cheat code inputs
  * 
  * Checks for cheat code key presses and grants appropriate items/abilities.
- * Provides audio feedback when a cheat is activated.
+ * Uses edge-triggered detection (0→1 transition) to activate once per key press
+ * without blocking the game loop.
  * 
  * Current cheats:
  *   W key - Grant teleport wand for testing teleportation feature
  */
 static void handle_cheat_codes(void)
 {
-    /* W key: Grant teleport wand */
-    if (key_state_cheat_wand == 1) {
+    /* W key: Grant teleport wand (edge-triggered on press) */
+    if (key_state_cheat_wand && !previous_key_state_cheat_wand) {
         if (comic_has_teleport_wand == 0) {
             comic_has_teleport_wand = 1;
             /* Play item collection sound for feedback */
             play_sound(SOUND_COLLECT_ITEM, 3);
-        }
-        /* Wait for key release to prevent repeated activation */
-        while (key_state_cheat_wand == 1) {
-            update_keyboard_input();
-            dos_idle();
         }
     }
 }
@@ -2538,6 +2535,7 @@ void game_loop(void)
         /* Update previous frame state for edge-triggered input */
         previous_key_state_jump = key_state_jump;
         previous_key_state_teleport = key_state_teleport;
+        previous_key_state_cheat_wand = key_state_cheat_wand;
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
