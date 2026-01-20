@@ -315,7 +315,6 @@ static void clear_bios_keyboard_buffer(void);
 static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
 static void handle_cheat_codes(void);
-static void handle_cheat_codes(void);
 
 /*
  * disable_pc_speaker - Disable the PC speaker
