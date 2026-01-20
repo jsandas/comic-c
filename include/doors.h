@@ -21,14 +21,14 @@
  * When the player presses the open key:
  * 1. Iterate through all doors in the current stage
  * 2. For each door, check:
- *    - Comic's Y coordinate matches door Y coordinate (exact match)
+ *    - Comic's Y coordinate matches door Y coordinate exactly (both in game units)
  *    - Comic's X coordinate is within 3 units of door X (0, 1, or 2 units offset)
  * 3. If a door matches and the player has the Door Key, activate the door
  * 
- * Door positioning uses Comic's coordinates in game units:
- * - Comic is 16 pixels (2 game units) wide and tall
- * - Door X/Y are tile coordinates (16 pixels = 1 tile = 2 game units)
- * - Check against the left-most position of Comic (comic_x = door.x * 2)
+ * Door positioning uses game units (same as Comic's position):
+ * - Both comic_x, comic_y and door.x, door.y are in game units
+ * - No coordinate conversion is needed; direct comparison is used
+ * - Comic is 2 game units wide
  * 
  * Output:
  *   Returns 1 if a door was activated, 0 otherwise
