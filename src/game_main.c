@@ -158,7 +158,7 @@ uint8_t comic_y_checkpoint = 12;
 uint8_t comic_x_checkpoint = 14;
 
 /* Game state variables */
-static uint8_t win_counter = 0;
+uint8_t win_counter = 0;
 uint8_t comic_x = 0;
 uint8_t comic_y = 0;
 uint8_t comic_animation = COMIC_STANDING;
@@ -266,7 +266,7 @@ static pt_file_t pt1;
 static pt_file_t pt2;
 uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
 static uint8_t comic_num_lives = 0;
-static uint8_t comic_num_treasures = 0;  /* Number of treasures collected (Crown, Gold, Diamond) */
+uint8_t comic_num_treasures = 0;  /* Number of treasures collected (CROWN, GOLD, GEMS - 0-3). When == 3, triggers victory sequence */
 
 /* Offscreen buffer pointer (0x0000 or 0x2000) - start with A as offscreen when B is displayed */
 uint16_t offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
