@@ -224,32 +224,7 @@ uint8_t comic_has_shield = 0;          /* 1 if Shield item collected */
 
 /* Score - 3 bytes (24-bit value) to store up to 999,999 points */
 uint8_t score_bytes[3] = {0, 0, 0};  /* Little-endian: byte 0 is LSB, byte 2 is MSB */
-
-/* score_get_value - Reconstruct a 32-bit score from three bytes
- * 
- * Combines the three score_bytes into a single 32-bit unsigned integer by:
- * 1. Shifting byte[2] (MSB) left 16 bits to the high byte position
- * 2. Shifting byte[1] (middle) left 8 bits to the middle byte position
- * 3. Using byte[0] (LSB) as-is in the low byte position
- * 4. ORing all three values together
- * 
- * Example: score_bytes = [0x12, 0x34, 0x56] produces 0x563412 (5,649,426 decimal)
- * 
- * The (uint32_t) casts ensure proper 32-bit arithmetic during shifts.
- */
-#define score_get_value() (((uint32_t)score_bytes[2] << 16) | ((uint32_t)score_bytes[1] << 8) | (uint32_t)score_bytes[0])
-
-/* score_set_value - Store a 32-bit value into three bytes (little-endian)
- * 
- * Decomposes a 32-bit unsigned integer into three bytes:
- * - byte[0] = low byte (value & 0xFF)
- * - byte[1] = middle byte ((value >> 8) & 0xFF)
- * - byte[2] = high byte ((value >> 16) & 0xFF)
- * 
- * Wrapped in do-while(0) to safely use in all contexts, including
- * after if statements without braces.
- */
-#define score_set_value(v) do { score_bytes[0] = (v) & 0xFF; score_bytes[1] = ((v) >> 8) & 0xFF; score_bytes[2] = ((v) >> 16) & 0xFF; } while(0)
+/* Score macros (score_get_value and score_set_value) are defined in globals.h */
 
 /* Item collection tracking (per level and stage) */
 uint8_t items_collected[8][16];        /* Bitmap: items_collected[level][stage] */
