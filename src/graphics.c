@@ -40,9 +40,7 @@
 /* Video memory base address in segment 0xa000 */
 #define VIDEO_MEMORY_BASE       0xa000
 
-/* Screen dimensions */
-#define SCREEN_WIDTH            320
-#define SCREEN_HEIGHT           200
+/* Screen dimensions (both SCREEN_WIDTH and SCREEN_HEIGHT are defined in globals.h) */
 
 /* Buffer for loading fullscreen graphics from disk (32KB max for uncompressed EGA data) */
 #define GRAPHICS_LOAD_BUFFER_SIZE 0x8000  /* 32KB */

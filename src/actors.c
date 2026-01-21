@@ -41,7 +41,8 @@ extern uint16_t camera_x;                  /* Camera X position (game units) */
 extern uint16_t offscreen_video_buffer_ptr; /* Current offscreen buffer offset */
 
 /* Game state */
-extern uint16_t score;                     /* Current score */
+extern uint8_t score_bytes[3];             /* Current score (3-byte little-endian value) */
+/* Score macros (score_get_value and score_set_value) are defined in globals.h */
 extern const level_t *current_level_ptr; /* Pointer to current level data */
 extern uint8_t current_stage_number;       /* Current stage (0-based) */
 extern uint8_t current_level_number;       /* Current level (0-based, 0=LAKE, 1=FOREST, etc.) */
@@ -50,12 +51,15 @@ extern uint8_t tileset_last_passable;      /* Last passable tile ID (tiles > thi
 /* Item tracking */
 extern uint8_t items_collected[8][16];     /* Bitmap: items_collected[level][stage] */
 extern uint8_t item_animation_counter;     /* 0 or 1, toggles for item animation */
+extern uint8_t comic_num_treasures;        /* Number of treasures collected (0-3) */
+extern uint8_t win_counter;                /* Win countdown counter; set to 200 when treasures == 3 */
 
 /* Respawn timing */
 extern uint8_t enemy_respawn_counter_cycle; /* Cycles: 20→40→60→80→100→20 */
 
 /* Forward declarations for external functions */
 extern void comic_dies(void);               /* Game over sequence from physics.c */
+extern void award_points(uint16_t points);  /* Award points from game_main.c */
 
 /* ===== Actor Arrays ===== */
 enemy_t enemies[MAX_NUM_ENEMIES];
@@ -64,7 +68,6 @@ uint8_t enemy_shp_index[MAX_NUM_ENEMIES];
 
 /* ===== Forward Declarations ===== */
 static void comic_takes_damage(void);
-static void award_points(uint16_t points);
 static uint8_t is_tile_solid(uint8_t tile_id);
 static uint8_t get_tile_at(uint8_t x, uint8_t y);
 static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uint8_t facing, uint16_t *out_frame_size);
@@ -88,22 +91,6 @@ static void comic_takes_damage(void)
             /* Comic is dead - trigger game over sequence */
             comic_dies();
         }
-    }
-}
-
-/*
- * award_points - Add points to score
- * 
- * Parameters:
- *   points - Number of points to add
- */
-static void award_points(uint16_t points)
-{
-    /* Prevent overflow */
-    if (score > 65535U - points) {
-        score = 65535U;
-    } else {
-        score += points;
     }
 }
 
@@ -439,6 +426,22 @@ void handle_item(void)
                 case ITEM_TELEPORT_WAND:
                     /* Grant teleport ability */
                     comic_has_teleport_wand = 1;
+                    break;
+                case ITEM_CROWN:
+                case ITEM_GOLD:
+                case ITEM_GEMS:
+                    /* Treasure collection and victory condition check:
+                     * Collecting the three treasures (Crown, Gold, Gems) triggers the win condition.
+                     * When comic_num_treasures reaches 3, set win_counter to 200.
+                     * The game loop decrements win_counter each tick, and when it reaches 1,
+                     * it triggers game_end_sequence() for the victory animation. */
+                    if (comic_num_treasures < 3) {
+                        comic_num_treasures++;
+                        /* If all three treasures collected, trigger victory sequence */
+                        if (comic_num_treasures == 3) {
+                            win_counter = 200;  /* Set countdown to begin victory sequence when counter reaches 1 */
+                        }
+                    }
                     break;
                 /* TODO: Implement other item types */
                 default:

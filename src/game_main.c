@@ -158,7 +158,7 @@ uint8_t comic_y_checkpoint = 12;
 uint8_t comic_x_checkpoint = 14;
 
 /* Game state variables */
-static uint8_t win_counter = 0;
+uint8_t win_counter = 0;
 uint8_t comic_x = 0;
 uint8_t comic_y = 0;
 uint8_t comic_animation = COMIC_STANDING;
@@ -222,8 +222,9 @@ uint8_t comic_firepower = 0;           /* Number of active fireball slots (0-5) 
 uint8_t comic_has_corkscrew = 0;       /* 1 if Corkscrew item collected */
 uint8_t comic_has_shield = 0;          /* 1 if Shield item collected */
 
-/* Score */
-uint16_t score = 0;
+/* Score - 3 bytes (24-bit value) to store up to 999,999 points */
+uint8_t score_bytes[3] = {0, 0, 0};  /* Little-endian: byte 0 is LSB, byte 2 is MSB */
+/* Score macros (score_get_value and score_set_value) are defined in globals.h */
 
 /* Item collection tracking (per level and stage) */
 uint8_t items_collected[8][16];        /* Bitmap: items_collected[level][stage] */
@@ -243,6 +244,7 @@ static pt_file_t pt1;
 static pt_file_t pt2;
 uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
 static uint8_t comic_num_lives = 0;
+uint8_t comic_num_treasures = 0;  /* Number of treasures collected (CROWN, GOLD, GEMS - 0-3). When == 3, triggers victory sequence */
 
 /* Offscreen buffer pointer (0x0000 or 0x2000) - start with A as offscreen when B is displayed */
 uint16_t offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
@@ -326,6 +328,9 @@ static void clear_bios_keyboard_buffer(void);
 static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
 static void handle_cheat_codes(void);
+static void game_over(void);
+static void game_end_sequence(void);
+void award_points(uint16_t points);  /* Exported for use by actors.c */
 
 /*
  * disable_pc_speaker - Disable the PC speaker
@@ -2321,16 +2326,238 @@ void comic_dies(void)
     /* Wait for sound to finish */
     wait_n_ticks(15);
     
-    /* Lose a life and respawn, or game over if no lives remain
-     * TODO: Implement lives tracking and respawn logic */
+    /* Lose a life */
+    lose_a_life();
     
-    /* For now, just reset Comic's state to allow continuing */
+    /* Check if any lives remain */
+    if (comic_num_lives == 0) {
+        /* No lives left - show game over screen */
+        game_over();
+    }
+    
+    /* Respawn Comic at the checkpoint position for this level/stage */
+    comic_x = comic_x_checkpoint;
+    comic_y = comic_y_checkpoint;
     comic_run_cycle = 0;
     comic_is_falling_or_jumping = 0;
     comic_x_momentum = 0;
     comic_y_vel = 0;
     comic_jump_counter = comic_jump_power;  /* Use current jump power (may be 5 if Boots collected) */
     comic_animation = COMIC_STANDING;
+}
+
+/*
+ * blit_game_over_graphic - Blit the GAME OVER graphic to offscreen buffer
+ * 
+ * Blits the 128x48 GAME OVER sprite using plane-by-plane rendering.
+ * The sprite data is organized as 4 sequential planes of 768 bytes each.
+ * 
+ * Parameters:
+ *   pixel_offset - Offset in video memory where graphic should be blitted
+ */
+static void blit_game_over_graphic(uint16_t pixel_offset)
+{
+    uint8_t plane;
+    
+    /* Blit the game over graphic using the plane-by-plane method
+     * The graphic is 16 bytes wide (128 pixels / 8) and 48 pixels tall
+     * Sprite data layout: 768 bytes per plane (128 pixels × 48 pixels / 8)
+     * Blue plane (0-767) + Green plane (768-1535) + Red plane (1536-2303) + Intensity plane (2304-3071) */
+    for (plane = 1; plane <= 8; plane *= 2) {
+        uint16_t src_offset = 0;
+        uint16_t dst_offset = pixel_offset;
+        uint8_t row;
+        uint8_t col;
+        uint8_t plane_index;
+        const uint8_t *src;
+        uint8_t __far *video_mem = (uint8_t __far *)0xa0000000L;
+        
+        /* Calculate plane index from plane mask (1->0, 2->1, 4->2, 8->3) */
+        if (plane == 1) plane_index = 0;
+        else if (plane == 2) plane_index = 1;
+        else if (plane == 4) plane_index = 2;
+        else plane_index = 3;  /* plane == 8 */
+        
+        /* Offset source pointer to correct plane (768 bytes per plane) */
+        src = (const uint8_t *)sprite_R4_game_over_128x48 + (plane_index * 768);
+        
+        /* Set plane write mask */
+        _outp(0x3CE, 0x05);     /* GC Index: Graphics Mode */
+        _outp(0x3CF, 0x02);     /* Graphics Mode: Write Mode 2 */
+        _outp(0x3CE, 0x08);     /* GC Index: Bit Mask */
+        _outp(0x3CF, 0xFF);     /* Bit Mask: all bits */
+        _outp(0x3C4, 0x02);     /* SC Index: Map Mask */
+        _outp(0x3C5, plane);    /* Map Mask: current plane */
+        
+        /* Blit the graphic */
+        for (row = 0; row < 48; row++) {
+            for (col = 0; col < 16; col++) {
+                video_mem[offscreen_video_buffer_ptr + dst_offset + col] = src[src_offset + col];
+            }
+            src_offset += 16;
+            dst_offset += SCREEN_WIDTH / 8;
+        }
+    }
+    
+    /* Restore graphics mode */
+    _outp(0x3CE, 0x05);
+    _outp(0x3CF, 0x00);
+    _outp(0x3C4, 0x02);
+    _outp(0x3C5, 0x0F);
+}
+
+/*
+ * game_over - Display game over screen and end game
+ * 
+ * Displays the "GAME OVER" graphic on screen, plays the game over sound,
+ * then waits for a keystroke before terminating. This is called when the
+ * player runs out of lives and falls off the bottom of a stage.
+ */
+static void game_over(void)
+{
+    uint16_t pixel_offset;
+    
+    /* Render the map to the offscreen buffer */
+    blit_map_playfield_offscreen();
+    
+    /* Blit the GAME OVER graphic to the offscreen buffer
+     * GRAPHIC_GAME_OVER is 128x48 pixels at screen position (40, 64)
+     * pixel_coords(40, 64) = 40/8 + 64*40 = 5 + 2560 = 2565 */
+    pixel_offset = 40 / 8 + (64 * (SCREEN_WIDTH / 8));
+    blit_game_over_graphic(pixel_offset);
+    
+    /* Swap video buffers and wait */
+    wait_n_ticks(1);
+    swap_video_buffers();
+    
+    /* Play game over sound effect
+     * TODO: implement sound_play() call
+     * int3 with AX=SOUND_PLAY, BX=SOUND_GAME_OVER address, CX=priority 2
+     */
+    
+    /* Clear the BIOS keyboard buffer and wait for a keystroke */
+    clear_bios_keyboard_buffer();
+    
+    /* Wait for keystroke using BIOS interrupt 0x16 (INT 16h, AH=0x00: get keystroke) */
+    {
+        union REGS regs;
+        regs.h.ah = 0x00;  /* Get keystroke */
+        int86(0x16, &regs, &regs);
+    }
+    
+    /* Jump to terminate program (original calls do_high_scores then terminate) */
+    terminate_program();
+}
+
+/*
+ * game_end_sequence - Play victory sequence when player wins
+ * 
+ * Called when all three treasures have been collected. This function:
+ * 1. Plays the beam-out animation (Comic disappears)
+ * 2. Awards 20,000 base points
+ * 3. Awards 10,000 points for each remaining life
+ * 4. Plays the title theme
+ * 5. Shows the win graphic (sys002.ega)
+ * 6. Waits for a keystroke
+ * 7. Returns to main menu or terminates
+ */
+static void game_end_sequence(void)
+{
+    uint8_t life_counter;
+    uint16_t points_awarded;
+    uint16_t pixel_offset;
+    
+    /* Play the beam-out animation */
+    beam_out();
+    
+    /* Award 20,000 points for winning (20 x 1,000 points) */
+    for (points_awarded = 0; points_awarded < 20; points_awarded++) {
+        /* Play score tally sound
+         * TODO: int3 with AX=SOUND_PLAY, BX=SOUND_SCORE_TALLY address, CX=priority 3
+         */
+        award_points(1000);
+        wait_n_ticks(1);
+    }
+    
+    /* Award points for remaining lives (10,000 points per life) */
+    life_counter = comic_num_lives;
+    while (life_counter > 0) {
+        /* Award 10,000 points for this life (10 x 1,000 points) */
+        for (points_awarded = 0; points_awarded < 10; points_awarded++) {
+            /* Play score tally sound
+             * TODO: int3 with AX=SOUND_PLAY, BX=SOUND_SCORE_TALLY address, CX=priority 3
+             */
+            award_points(1000);
+            wait_n_ticks(1);
+        }
+        
+        life_counter--;
+        wait_n_ticks(3);  /* Brief pause between lives */
+    }
+    
+    /* Play the title theme
+     * TODO: int3 with AX=SOUND_PLAY, BX=SOUND_TITLE address, CX=priority 4
+     */
+    
+    /* Load and display the win graphic (sys002.ega)
+     * TODO: Implement RLE decompression and display of win graphic
+     * For now, just show the map */
+    blit_map_playfield_offscreen();
+    swap_video_buffers();
+    
+    /* Wait for graphic display and fade in */
+    wait_n_ticks(20);
+    
+    /* Clear keyboard buffer and wait for keystroke */
+    clear_bios_keyboard_buffer();
+    {
+        union REGS regs;
+        regs.h.ah = 0x00;  /* Get keystroke */
+        int86(0x16, &regs, &regs);
+    }
+    
+    /* Show the game over screen (same as loss, per assembly code) */
+    blit_map_playfield_offscreen();
+    
+    /* Blit the GAME OVER graphic (same 128x48 at position 40,64) */
+    pixel_offset = 40 / 8 + (64 * (SCREEN_WIDTH / 8));
+    blit_game_over_graphic(pixel_offset);
+    
+    swap_video_buffers();
+    
+    /* Clear keyboard buffer and wait for keystroke before high scores */
+    clear_bios_keyboard_buffer();
+    {
+        union REGS regs;
+        regs.h.ah = 0x00;  /* Get keystroke */
+        int86(0x16, &regs, &regs);
+    }
+    
+    /* Call do_high_scores and then terminate */
+    /* TODO: implement do_high_scores() if needed */
+    terminate_program();
+}
+
+/*
+ * award_points - Award points to the player's score
+ * 
+ * Adds the specified number of points to the player's score, with overflow
+ * protection (max score is 999,999).
+ * 
+ * Parameters:
+ *   points - Number of points to add
+ */
+void award_points(uint16_t points)
+{
+    uint32_t current_score = score_get_value();
+    uint32_t new_score = current_score + points;
+    
+    /* Prevent score overflow (cap at 999,999) */
+    if (new_score > 999999U) {
+        score_set_value(999999U);
+    } else {
+        score_set_value(new_score);
+    }
 }
 
 /*
@@ -2597,7 +2824,8 @@ void game_loop(void)
         if (win_counter != 0) {
             win_counter--;
             if (win_counter == 1) {
-                /* TODO: implement game_end_sequence() */
+                /* Player has won - play victory sequence and exit game loop */
+                game_end_sequence();
                 return;
             }
         }
