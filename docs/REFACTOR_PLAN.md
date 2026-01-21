@@ -1,33 +1,24 @@
 # Captain Comic C Refactor Plan
 
-## Project Status (As of 2026-01-19)
+## Project Status (As of 2026-01-20)
 
-**Overall Progress**: Phase 3 in progress - Game Logic Implementation  
-**Latest Milestone**: Special features (teleport, beam, pause) fully implemented in C  
-**Current Focus**: Sprite loading and rendering completion
+**Overall Progress**: Phase 4 in progress - Remaining Game Features  
+**Latest Milestone**: Game Over and Victory Sequences fully implemented in C  
+**Current Focus**: Title Sequence and remaining systems (optional)
 
 ### Recent Accomplishments
-- ✅ Migrated LAKE and FOREST level data from assembly to C
-- ✅ Implemented complete `load_pt_file()` for tile map loading  
-- ✅ Implemented `load_new_level()` in pure C
-- ✅ Created comprehensive level data structures with type definitions
-- ✅ Established error handling for file I/O operations
-- ✅ **Implemented main game loop with tick synchronization**
-- ✅ **Added input state tracking (all keyboard inputs)**
-- ✅ **Implemented game state management (HP, lives, win counter, fireball meter)**
-- ✅ **Refactored control flow to eliminate goto statements**
-- ✅ **Created stub functions for all subsystems (physics, rendering, actors)**
-- ✅ **Code review: Fixed simultaneous left/right key handling**
-- ✅ **Code review: Clarified jump counter exhaustion logic**
-- ✅ **Code review: Removed redundant forward declarations**
-- ✅ **Code review: Consolidated fireball meter counter logic**
-- ✅ **Code review: Fixed null pointer checks in tile access**
-- ✅ **Code review: Fixed teleportation control flow (skip rendering instead of continue)**
-- ✅ **Code review: Fixed fireball meter increment condition (only when not firing)**
-- ✅ **Code review: Initialized registers in dos_idle()**
-- ✅ **Code review: Clarified Y coordinate bounds in floor detection**
-- ✅ **Code review: Refactored nested floor detection logic for clarity**
-- ✅ **Code review: Enhanced documentation for address_of_tile_at_coordinates()**
+- ✅ Implemented game over screen with GAME OVER graphic overlay
+- ✅ Implemented victory sequence with score tallying animation
+- ✅ Added 3-byte (24-bit) score storage system (supports 0-999,999 points)
+- ✅ Integrated game over/victory sequences into main game loop
+- ✅ Respawn logic with checkpoint positions
+- ✅ Lives tracking and game over condition detection
+- ✅ All 8 level data definitions complete (LAKE, FOREST, SPACE, BASE, CAVE, SHED, CASTLE, COMP)
+- ✅ Physics and collision detection fully implemented in C
+- ✅ Actor systems (enemies, fireballs, items) fully implemented in C
+- ✅ Special features (teleportation, beam in/out, pause) fully implemented in C
+- ✅ Door system implemented with level transitions
+- ✅ Sprite loading and rendering for enemies, items, and effects
 - ✅ **Code review: Documented load_new_stage() implementation requirements**
 - ✅ **Code review: Enhanced handle_teleport() with complete implementation spec**
 - ✅ **Implemented rendering subsystem in C**
@@ -377,10 +368,17 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Integrated door checking into main game loop
    - ✅ Successfully compiled with zero warnings/errors
 
-2. **Game Over and Victory Sequences**
-   - Game over screen rendering and input handling
-   - Victory animation and level transition
-   - Score display and next level progression
+2. **Game Over and Victory Sequences** ✅ **COMPLETE** - 2026-01-20
+   - ✅ Added `comic_num_treasures` variable for treasure tracking
+   - ✅ Implemented `game_over()` - Display game over screen with graphic overlay
+   - ✅ Implemented `game_end_sequence()` - Victory animation with score tallying
+   - ✅ Implemented `award_points()` - Points system with 3-byte (24-bit) score storage (0-999,999)
+   - ✅ Updated `comic_dies()` - Integrated game over check and respawn logic
+   - ✅ Updated game loop - Call `game_end_sequence()` when win_counter reaches 1
+   - ✅ Fixed `lose_a_life()` - Properly decrements lives and checks game over condition
+   - ✅ Score overflow protection - Prevents score exceeding 999,999 points
+   - ✅ Keyboard input handling - Clear buffer and wait for keystroke on game over/victory
+   - ✅ Successfully compiled with zero warnings/errors
 
 3. **Title Sequence and Menus** (if refactoring from assembly)
    - `SYS004.EGA` loading and RLE decompression
