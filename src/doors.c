@@ -383,6 +383,17 @@ void activate_door(const door_t *door)
     /* Play door entry animation/sound */
     enter_door(door->x, door->y);
     
+    /* Validate door target values before proceeding */
+    if (door->target_stage >= 3) {
+        /* Invalid target stage - cannot proceed */
+        return;
+    }
+    
+    if (door->target_level >= 8) {
+        /* Invalid target level - cannot proceed */
+        return;
+    }
+    
     /* Save the source level and stage so the destination can find the
      * reciprocal door (for proper positioning when exiting) */
     source_door_level_number = current_level_number;
