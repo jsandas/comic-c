@@ -330,7 +330,7 @@ static void update_keyboard_input(void);
 static void handle_cheat_codes(void);
 static void game_over(void);
 static void game_end_sequence(void);
-static void award_points(uint16_t points);
+void award_points(uint16_t points);  /* Exported for use by actors.c */
 
 /*
  * disable_pc_speaker - Disable the PC speaker
@@ -2580,7 +2580,7 @@ static void game_end_sequence(void)
  * Parameters:
  *   points - Number of points to add
  */
-static void award_points(uint16_t points)
+void award_points(uint16_t points)
 {
     uint32_t current_score = score_get_value();
     uint32_t new_score = current_score + points;

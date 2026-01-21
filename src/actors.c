@@ -59,6 +59,7 @@ extern uint8_t enemy_respawn_counter_cycle; /* Cycles: 20→40→60→80→100�
 
 /* Forward declarations for external functions */
 extern void comic_dies(void);               /* Game over sequence from physics.c */
+extern void award_points(uint16_t points);  /* Award points from game_main.c */
 
 /* ===== Actor Arrays ===== */
 enemy_t enemies[MAX_NUM_ENEMIES];
@@ -67,7 +68,6 @@ uint8_t enemy_shp_index[MAX_NUM_ENEMIES];
 
 /* ===== Forward Declarations ===== */
 static void comic_takes_damage(void);
-static void award_points(uint16_t points);
 static uint8_t is_tile_solid(uint8_t tile_id);
 static uint8_t get_tile_at(uint8_t x, uint8_t y);
 static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uint8_t facing, uint16_t *out_frame_size);
@@ -91,25 +91,6 @@ static void comic_takes_damage(void)
             /* Comic is dead - trigger game over sequence */
             comic_dies();
         }
-    }
-}
-
-/*
- * award_points - Add points to score
- * 
- * Parameters:
- *   points - Number of points to add
- */
-static void award_points(uint16_t points)
-{
-    uint32_t current_score = score_get_value();
-    uint32_t new_score = current_score + points;
-    
-    /* Prevent score overflow (cap at 999,999) */
-    if (new_score > 999999U) {
-        score_set_value(999999U);
-    } else {
-        score_set_value(new_score);
     }
 }
 
