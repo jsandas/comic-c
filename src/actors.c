@@ -43,7 +43,7 @@ extern uint16_t offscreen_video_buffer_ptr; /* Current offscreen buffer offset *
 /* Game state */
 extern uint8_t score_bytes[3];             /* Current score (3-byte little-endian value) */
 #define score_get_value() (((uint32_t)score_bytes[2] << 16) | ((uint32_t)score_bytes[1] << 8) | (uint32_t)score_bytes[0])
-#define score_set_value(v) { score_bytes[0] = (v) & 0xFF; score_bytes[1] = ((v) >> 8) & 0xFF; score_bytes[2] = ((v) >> 16) & 0xFF; }
+#define score_set_value(v) do { score_bytes[0] = (v) & 0xFF; score_bytes[1] = ((v) >> 8) & 0xFF; score_bytes[2] = ((v) >> 16) & 0xFF; } while(0)
 extern const level_t *current_level_ptr; /* Pointer to current level data */
 extern uint8_t current_stage_number;       /* Current stage (0-based) */
 extern uint8_t current_level_number;       /* Current level (0-based, 0=LAKE, 1=FOREST, etc.) */

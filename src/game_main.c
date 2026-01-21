@@ -245,8 +245,11 @@ uint8_t score_bytes[3] = {0, 0, 0};  /* Little-endian: byte 0 is LSB, byte 2 is 
  * - byte[0] = low byte (value & 0xFF)
  * - byte[1] = middle byte ((value >> 8) & 0xFF)
  * - byte[2] = high byte ((value >> 16) & 0xFF)
+ * 
+ * Wrapped in do-while(0) to safely use in all contexts, including
+ * after if statements without braces.
  */
-#define score_set_value(v) { score_bytes[0] = (v) & 0xFF; score_bytes[1] = ((v) >> 8) & 0xFF; score_bytes[2] = ((v) >> 16) & 0xFF; }
+#define score_set_value(v) do { score_bytes[0] = (v) & 0xFF; score_bytes[1] = ((v) >> 8) & 0xFF; score_bytes[2] = ((v) >> 16) & 0xFF; } while(0)
 
 /* Item collection tracking (per level and stage) */
 uint8_t items_collected[8][16];        /* Bitmap: items_collected[level][stage] */
