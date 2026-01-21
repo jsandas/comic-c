@@ -12,6 +12,8 @@
 #include "physics.h"
 #include "globals.h"
 #include "level_data.h"
+#include "sound.h"
+#include "sound_data.h"
 
 /* External variables - game state */
 extern uint8_t comic_x;
@@ -35,6 +37,8 @@ extern uint8_t current_stage_number;
 extern const level_t *current_level_ptr;
 extern uint16_t camera_x;
 extern uint8_t landed_this_tick;
+extern uint8_t comic_y_checkpoint;
+extern uint8_t comic_x_checkpoint;
 
 /* External input state (set by keyboard handling in game_main.c) */
 extern uint8_t key_state_jump;
@@ -262,6 +266,11 @@ void move_left(void)
             comic_x_momentum = 0;
             return;
         }
+        /* Validate stage number is within bounds (0-2) */
+        if (current_stage_number >= 3) {
+            comic_x_momentum = 0;
+            return;
+        }
         stage = &current_level_ptr->stages[current_stage_number];
         if (stage->exit_l == EXIT_UNUSED) {
             /* No exit here, stop moving */
@@ -270,9 +279,13 @@ void move_left(void)
         }
         
         /* Stage transition to the left */
-        comic_x = MAP_WIDTH - 2;
+        play_sound(SOUND_STAGE_EDGE_TRANSITION, 4);
         current_stage_number = stage->exit_l;
         comic_y_vel = 0;
+        /* Update checkpoint for spawn position on new stage */
+        comic_y_checkpoint = comic_y;
+        comic_x_checkpoint = MAP_WIDTH - 2;
+        comic_x = MAP_WIDTH - 2;
         load_new_stage();
         return;
     }
@@ -321,6 +334,11 @@ void move_right(void)
             comic_x_momentum = 0;
             return;
         }
+        /* Validate stage number is within bounds (0-2) */
+        if (current_stage_number >= 3) {
+            comic_x_momentum = 0;
+            return;
+        }
         stage = &current_level_ptr->stages[current_stage_number];
         if (stage->exit_r == EXIT_UNUSED) {
             /* No exit here, stop moving */
@@ -329,9 +347,13 @@ void move_right(void)
         }
         
         /* Stage transition to the right */
-        comic_x = 0;
+        play_sound(SOUND_STAGE_EDGE_TRANSITION, 4);
         current_stage_number = stage->exit_r;
         comic_y_vel = 0;
+        /* Update checkpoint for spawn position on new stage */
+        comic_y_checkpoint = comic_y;
+        comic_x_checkpoint = 0;
+        comic_x = 0;
         load_new_stage();
         return;
     }

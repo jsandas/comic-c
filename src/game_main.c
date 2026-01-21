@@ -34,6 +34,7 @@
 #include "physics.h"
 #include "file_loaders.h"
 #include "actors.h"
+#include "doors.h"
 
 /* Runtime library symbol for large model code */
 int _big_code_ = 1;
@@ -123,6 +124,7 @@ void debug_log(const char *format, ...)
  * CHEAT CODES (for testing/debugging)
  * ------------------------------------
  * W key - Grant teleport wand (allows testing teleportation without finding item)
+ * K key - Grant door key (allows testing door opening without finding item)
  */
 
 /* EGA video memory segment address */
@@ -136,6 +138,7 @@ void debug_log(const char *format, ...)
 #define SCANCODE_ESC    0x01
 #define SCANCODE_Q      0x10
 #define SCANCODE_W      0x11
+#define SCANCODE_K      0x25
 
 /* Global variables for initialization and game state */
 static uint8_t interrupt_handler_install_sentinel = 0;
@@ -144,15 +147,15 @@ static uint16_t max_joystick_reads = 0;
 static uint16_t saved_video_mode = 0;
 uint8_t current_level_number = LEVEL_NUMBER_FOREST;
 uint8_t current_stage_number = 0;
-static level_t current_level;
+level_t current_level;
 
 /* Stage entry tracking (-2=first spawn, -1=boundary, >=0=door from level) */
-static int8_t source_door_level_number = -2;
-static int8_t source_door_stage_number = 0;
+int8_t source_door_level_number = -2;
+int8_t source_door_stage_number = 0;
 
 /* Checkpoint position (for respawn and boundary crossing) */
-static uint8_t comic_y_checkpoint = 12;
-static uint8_t comic_x_checkpoint = 14;
+uint8_t comic_y_checkpoint = 12;
+uint8_t comic_x_checkpoint = 14;
 
 /* Game state variables */
 static uint8_t win_counter = 0;
@@ -193,12 +196,14 @@ uint8_t key_state_left = 0;
 uint8_t key_state_right = 0;
 uint8_t key_state_open = 0;
 uint8_t key_state_teleport = 0;
-static uint8_t key_state_cheat_wand = 0;  /* W key for cheat */
+static uint8_t key_state_cheat_wand = 0;  /* W key for teleport wand cheat */
+static uint8_t key_state_cheat_key = 0;   /* K key for door key cheat */
 
 /* Previous frame input state (used for edge-triggered input like jump) */
 static uint8_t previous_key_state_jump = 0;
 static uint8_t previous_key_state_teleport = 0;
 static uint8_t previous_key_state_cheat_wand = 0;
+static uint8_t previous_key_state_cheat_key = 0;
 
 /* Flag set when teleport key edge is detected in update_keyboard_input() */
 static uint8_t teleport_key_pressed = 0;
@@ -240,7 +245,7 @@ uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
 static uint8_t comic_num_lives = 0;
 
 /* Offscreen buffer pointer (0x0000 or 0x2000) - start with A as offscreen when B is displayed */
-static uint16_t offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
+uint16_t offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
 
 /* Default keymap for keyboard configuration */
 static uint8_t keymap[6] = {
@@ -314,9 +319,9 @@ static const char TITLE_SEQUENCE_MESSAGE[] =
 int load_new_level(void);
 void load_new_stage(void);
 void game_loop(void);
-static void blit_map_playfield_offscreen(void);
-static void blit_comic_playfield_offscreen(void);
-static void swap_video_buffers(void);
+void blit_map_playfield_offscreen(void);
+void blit_comic_playfield_offscreen(void);
+void swap_video_buffers(void);
 static void clear_bios_keyboard_buffer(void);
 static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
@@ -1778,7 +1783,7 @@ static void increment_fireball_meter(void)
     }
 }
 
-static void blit_map_playfield_offscreen(void)
+void blit_map_playfield_offscreen(void)
 {
     /* Blit the visible playfield region from the rendered map buffer
      * into the offscreen video buffer, plane by plane.
@@ -1848,7 +1853,7 @@ static void blit_map_playfield_offscreen(void)
     }
 }
 
-static void blit_comic_playfield_offscreen(void)
+void blit_comic_playfield_offscreen(void)
 {
     /* Choose the correct 16x32 sprite based on animation and facing */
     const uint8_t __far *sprite_ptr = NULL;
@@ -1929,7 +1934,7 @@ static void blit_comic_playfield_offscreen(void)
     blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
 }
 
-static void swap_video_buffers(void)
+void swap_video_buffers(void)
 {
     /* Display the offscreen buffer and then toggle which buffer is offscreen */
     switch_video_buffer(offscreen_video_buffer_ptr);
@@ -2266,6 +2271,9 @@ void load_new_stage(void)
     /* Play beam-in animation on first spawn (source_door_level_number == -2) */
     if (source_door_level_number == -2) {
         beam_in();
+    } else if (source_door_level_number >= 0) {
+        /* Entered via door: play exit door animation */
+        exit_door_animation();
     }
     
     /* Reset source_door_level_number to -1 (normal entry) for future transitions */
@@ -2375,6 +2383,7 @@ static void dos_idle(void)
  * 
  * Current cheats:
  *   W key - Grant teleport wand for testing teleportation feature
+ *   K key - Grant door key for testing door opening feature
  */
 static void handle_cheat_codes(void)
 {
@@ -2382,6 +2391,15 @@ static void handle_cheat_codes(void)
     if (key_state_cheat_wand && !previous_key_state_cheat_wand) {
         if (comic_has_teleport_wand == 0) {
             comic_has_teleport_wand = 1;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
+    
+    /* K key: Grant door key (edge-triggered on press) */
+    if (key_state_cheat_key && !previous_key_state_cheat_key) {
+        if (comic_has_door_key == 0) {
+            comic_has_door_key = 1;
             /* Play item collection sound for feedback */
             play_sound(SOUND_COLLECT_ITEM, 3);
         }
@@ -2453,6 +2471,8 @@ static void update_keyboard_input(void)
             key_state_esc = (uint8_t)(!is_break);  /* ESCAPE - hardcoded */
         } else if (code == SCANCODE_W) {
             key_state_cheat_wand = (uint8_t)(!is_break);  /* W key - cheat code */
+        } else if (code == SCANCODE_K) {
+            key_state_cheat_key = (uint8_t)(!is_break);  /* K key - cheat code */
         }
     }
 }
@@ -2567,6 +2587,7 @@ void game_loop(void)
         previous_key_state_jump = key_state_jump;
         previous_key_state_teleport = key_state_teleport;
         previous_key_state_cheat_wand = key_state_cheat_wand;
+        previous_key_state_cheat_key = key_state_cheat_key;
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
@@ -2607,10 +2628,9 @@ void game_loop(void)
             /* Call physics to handle gravity and collisions (single call per frame) */
             handle_fall_or_jump();
             
-            /* Check open input (doors) - only if not falling/jumping */
+            /* Check open input (doors) - only if not falling/jumping and open key is pressed */
             if (comic_is_falling_or_jumping == 0 && key_state_open == 1) {
-                /* TODO: Check if in front of door and activate it */
-                /* This requires stage data structures to be implemented */
+                check_door_activation();
             }
             
             /* Check teleport input - only if not falling/jumping and teleport key was pressed this frame */

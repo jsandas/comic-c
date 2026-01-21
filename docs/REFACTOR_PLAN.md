@@ -361,15 +361,21 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Load and render spark sprites for death animations
    - ℹ️ **Note**: `SYS004.EGA` is title-sequence only; gameplay uses compiled embedded sprite data
 
-### Phase 4: Remaining Game Features (NOT STARTED)
+### Phase 4: Remaining Game Features (IN PROGRESS - 2026-01-19)
 
 **Goal**: Implement missing systems for complete gameplay
 
-1. **Door System**
-   - Door collision detection and activation
-   - Key requirement checking and tracking
-   - Level transition logic
-   - Exit/entry animations
+1. **Door System** ✅ **COMPLETE** - 2026-01-19
+   - ✅ Created `include/doors.h` with door system declarations
+   - ✅ Implemented `src/doors.c` with door mechanics:
+     - ✅ `check_door_activation()` - Check if Comic is in front of a door and open key is pressed
+     - ✅ Collision detection with 3-unit tolerance for X coordinate alignment
+     - ✅ Door Key requirement checking
+     - ✅ `activate_door()` - Transition to target level/stage via door
+     - ✅ Save source level/stage for reciprocal door positioning
+     - ✅ Conditional load: `load_new_level()` for different levels, `load_new_stage()` for same level
+   - ✅ Integrated door checking into main game loop
+   - ✅ Successfully compiled with zero warnings/errors
 
 2. **Game Over and Victory Sequences**
    - Game over screen rendering and input handling
