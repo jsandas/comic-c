@@ -14,9 +14,8 @@
 #include "sound.h"
 #include "sound_data.h"
 
-/* Video memory segment */
+/* Video memory segment (SCREEN_WIDTH is defined in globals.h) */
 #define VIDEO_MEMORY_BASE 0xa000
-#define SCREEN_WIDTH 320
 #define PLAYFIELD_OFFSET_X 8
 #define PLAYFIELD_OFFSET_Y 8
 

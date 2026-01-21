@@ -34,7 +34,9 @@ void debug_log_close(void);
 #define PLAYFIELD_WIDTH         24      /* in game units */
 #define PLAYFIELD_HEIGHT        20      /* in game units (MAP_HEIGHT) */
 
-#define SCREEN_WIDTH            320     /* in pixels */
+/* Video display constants (used by game_main.c, graphics.c, doors.c, physics.c) */
+#define SCREEN_WIDTH            320     /* in pixels - EGA mode 0x0D */
+#define SCREEN_HEIGHT           200     /* in pixels - EGA mode 0x0D: 320x200 */
 #define RENDERED_MAP_BUFFER     0x4000  /* offset in video segment 0xa000 */
 
 /* ===== Level Numbers ===== */
