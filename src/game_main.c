@@ -2389,14 +2389,26 @@ static void game_over(void)
     pixel_offset = 40 / 8 + (64 * (SCREEN_WIDTH / 8));
     
     /* Blit the game over graphic using the plane-by-plane method
-     * The graphic is 16 bytes wide (128 pixels / 8) and 48 pixels tall */
+     * The graphic is 16 bytes wide (128 pixels / 8) and 48 pixels tall
+     * Sprite data layout: 768 bytes per plane (128 pixels × 48 pixels / 8)
+     * Blue plane (0-767) + Green plane (768-1535) + Red plane (1536-2303) + Intensity plane (2304-3071) */
     for (plane = 1; plane <= 8; plane *= 2) {
         uint16_t src_offset = 0;
         uint16_t dst_offset = pixel_offset;
         uint8_t row;
         uint8_t col;
-        const uint8_t *src = (const uint8_t *)sprite_R4_game_over_128x48;
+        uint8_t plane_index;
+        const uint8_t *src;
         uint8_t __far *video_mem = (uint8_t __far *)0xa0000000L;
+        
+        /* Calculate plane index from plane mask (1->0, 2->1, 4->2, 8->3) */
+        if (plane == 1) plane_index = 0;
+        else if (plane == 2) plane_index = 1;
+        else if (plane == 4) plane_index = 2;
+        else plane_index = 3;  /* plane == 8 */
+        
+        /* Offset source pointer to correct plane (768 bytes per plane) */
+        src = (const uint8_t *)sprite_R4_game_over_128x48 + (plane_index * 768);
         
         /* Set plane write mask */
         _outp(0x3CE, 0x05);     /* GC Index: Graphics Mode */
