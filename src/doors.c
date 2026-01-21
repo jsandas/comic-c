@@ -395,7 +395,10 @@ void activate_door(const door_t *door)
     /* If the target is in a different level, load the entire level
      * (including tileset, enemy graphics, etc.) */
     if (door->target_level != source_door_level_number) {
-        load_new_level();
+        if (load_new_level() == -1) {
+            /* Failed to load level - critical error, cannot proceed */
+            return;
+        }
         /* After loading the level assets, load the stage */
         load_new_stage();
     } else {
