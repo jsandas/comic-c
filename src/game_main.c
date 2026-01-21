@@ -2347,24 +2347,17 @@ void comic_dies(void)
 }
 
 /*
- * game_over - Display game over screen and end game
+ * blit_game_over_graphic - Blit the GAME OVER graphic to offscreen buffer
  * 
- * Displays the "GAME OVER" graphic on screen, plays the game over sound,
- * then waits for a keystroke before terminating. This is called when the
- * player runs out of lives and falls off the bottom of a stage.
+ * Blits the 128x48 GAME OVER sprite using plane-by-plane rendering.
+ * The sprite data is organized as 4 sequential planes of 768 bytes each.
+ * 
+ * Parameters:
+ *   pixel_offset - Offset in video memory where graphic should be blitted
  */
-static void game_over(void)
+static void blit_game_over_graphic(uint16_t pixel_offset)
 {
-    uint16_t pixel_offset;
     uint8_t plane;
-    
-    /* Render the map to the offscreen buffer */
-    blit_map_playfield_offscreen();
-    
-    /* Blit the GAME OVER graphic to the offscreen buffer
-     * GRAPHIC_GAME_OVER is 128x48 pixels at screen position (40, 64)
-     * pixel_coords(40, 64) = 40/8 + 64*40 = 5 + 2560 = 2565 */
-    pixel_offset = 40 / 8 + (64 * (SCREEN_WIDTH / 8));
     
     /* Blit the game over graphic using the plane-by-plane method
      * The graphic is 16 bytes wide (128 pixels / 8) and 48 pixels tall
@@ -2411,6 +2404,27 @@ static void game_over(void)
     _outp(0x3CF, 0x00);
     _outp(0x3C4, 0x02);
     _outp(0x3C5, 0x0F);
+}
+
+/*
+ * game_over - Display game over screen and end game
+ * 
+ * Displays the "GAME OVER" graphic on screen, plays the game over sound,
+ * then waits for a keystroke before terminating. This is called when the
+ * player runs out of lives and falls off the bottom of a stage.
+ */
+static void game_over(void)
+{
+    uint16_t pixel_offset;
+    
+    /* Render the map to the offscreen buffer */
+    blit_map_playfield_offscreen();
+    
+    /* Blit the GAME OVER graphic to the offscreen buffer
+     * GRAPHIC_GAME_OVER is 128x48 pixels at screen position (40, 64)
+     * pixel_coords(40, 64) = 40/8 + 64*40 = 5 + 2560 = 2565 */
+    pixel_offset = 40 / 8 + (64 * (SCREEN_WIDTH / 8));
+    blit_game_over_graphic(pixel_offset);
     
     /* Swap video buffers and wait */
     wait_n_ticks(1);
@@ -2507,54 +2521,7 @@ static void game_end_sequence(void)
     
     /* Blit the GAME OVER graphic (same 128x48 at position 40,64) */
     pixel_offset = 40 / 8 + (64 * (SCREEN_WIDTH / 8));
-    
-    /* Blit the game over graphic using the plane-by-plane method
-     * Sprite data layout: 768 bytes per plane (128 pixels × 48 pixels / 8)
-     * Blue plane (0-767) + Green plane (768-1535) + Red plane (1536-2303) + Intensity plane (2304-3071) */
-    {
-        uint8_t plane;
-        for (plane = 1; plane <= 8; plane *= 2) {
-            uint16_t src_offset = 0;
-            uint16_t dst_offset = pixel_offset;
-            uint8_t row;
-            uint8_t col;
-            uint8_t plane_index;
-            const uint8_t *src;
-            uint8_t __far *video_mem = (uint8_t __far *)0xa0000000L;
-            
-            /* Calculate plane index from plane mask (1->0, 2->1, 4->2, 8->3) */
-            if (plane == 1) plane_index = 0;
-            else if (plane == 2) plane_index = 1;
-            else if (plane == 4) plane_index = 2;
-            else plane_index = 3;  /* plane == 8 */
-            
-            /* Offset source pointer to correct plane (768 bytes per plane) */
-            src = (const uint8_t *)sprite_R4_game_over_128x48 + (plane_index * 768);
-            
-            /* Set plane write mask */
-            _outp(0x3CE, 0x05);     /* GC Index: Graphics Mode */
-            _outp(0x3CF, 0x02);     /* Graphics Mode: Write Mode 2 */
-            _outp(0x3CE, 0x08);     /* GC Index: Bit Mask */
-            _outp(0x3CF, 0xFF);     /* Bit Mask: all bits */
-            _outp(0x3C4, 0x02);     /* SC Index: Map Mask */
-            _outp(0x3C5, plane);    /* Map Mask: current plane */
-            
-            /* Blit the graphic */
-            for (row = 0; row < 48; row++) {
-                for (col = 0; col < 16; col++) {
-                    video_mem[offscreen_video_buffer_ptr + dst_offset + col] = src[src_offset + col];
-                }
-                src_offset += 16;
-                dst_offset += SCREEN_WIDTH / 8;
-            }
-        }
-        
-        /* Restore graphics mode */
-        _outp(0x3CE, 0x05);
-        _outp(0x3CF, 0x00);
-        _outp(0x3C4, 0x02);
-        _outp(0x3C5, 0x0F);
-    }
+    blit_game_over_graphic(pixel_offset);
     
     swap_video_buffers();
     
