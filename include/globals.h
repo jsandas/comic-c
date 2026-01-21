@@ -72,7 +72,9 @@ void debug_log_close(void);
  *   score_bytes[1] = middle byte (bits 8-15)
  *   score_bytes[2] = MSB (high byte, bits 16-23)
  * 
- * This supports values from 0 to 999,999 (3 decimal digits per byte: 0-255 maps to 0-999).
+ * This is a standard 24-bit little-endian integer representation with a theoretical
+ * range of 0 to 16,777,215 (2^24 - 1). The game logic caps the score at 999,999
+ * via overflow checking in the award_points function.
  * This format matches the original assembly implementation.
  */
 
