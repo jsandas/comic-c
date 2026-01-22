@@ -427,14 +427,20 @@ The refactoring approach has been revised to a **C-only entry point** model:
      - ✅ Supports scores from 0 to 999,999 points
      - ✅ Integrated into main game loop after inventory rendering
      - ✅ Zero warnings/errors on build
+   - **Fireball power meter** ✅ **COMPLETE** - 2026-01-21
+     - ✅ `increment_fireball_meter()` - Increments meter and renders appropriate cell sprite
+     - ✅ `decrement_fireball_meter()` - Decrements meter and renders appropriate cell sprite
+     - ✅ Displays at screen position (240, 54) with 6 cells
+     - ✅ Each cell shows empty/half/full using 8x16 meter sprites
+     - ✅ Fireball meter value ranges from 0-12 (6 cells × 2 units each)
+     - ✅ Zero warnings/errors on build
    - **Still needs implementation**:
-     - ❌ HP meter - Display current health as colored blocks
-     - ❌ Fireball power meter - Visual bar showing fireball charge (0-100)
-     - ❌ Shield indicator - Visual feedback when shield is active
-     - ❌ Lives display - Already renders icons, may need refresh logic
+     - ❌ Shield visual indicator (NOTE: Shield item only refills HP - no visible indicator in original game)
+     - ❌ Lives display - Already renders icons, may need refresh logic verification
    - **Technical requirements**:
-     - Bar/meter rendering for HP and fireball power
+     - Verify shield collection logic is working (refills HP to MAX_HP)
      - UI update functions called from game loop or when state changes
+   - **Note**: Game has fireball meter only, NO HP meter or shield indicator
    - **Reference**: See `reference/disassembly/R5sw1991.asm` for UI update logic
 
 ### Phase 5: Sound and Input (Optional)

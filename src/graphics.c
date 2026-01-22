@@ -62,9 +62,6 @@ extern uint8_t comic_has_shield;
 /* Score data (defined in game_main.c) */
 extern uint8_t score_bytes[3];  /* 3-byte score in base-100 representation */
 
-/* Forward declaration for debug logging */
-extern void debug_log(const char *format, ...);
-
 /*
  * init_ega_graphics - Initialize EGA graphics controller for pixel writing
  * 
@@ -922,7 +919,7 @@ void render_inventory_display(void)
  *   pixel_x, pixel_y = top-left corner in pixel coordinates
  *   sprite_data = pointer to 64-byte EGA sprite (4 planes, 16 bytes each)
  */
-static void blit_8x16_sprite(uint16_t pixel_x, uint16_t pixel_y, const uint8_t __far *sprite_data)
+void blit_8x16_sprite(uint16_t pixel_x, uint16_t pixel_y, const uint8_t __far *sprite_data)
 {
     uint16_t base_offset;
     uint8_t plane;
@@ -1010,9 +1007,6 @@ void render_score_display(void)
     int16_t x_pos;
     uint16_t pixel_y = 24;
     
-    debug_log("render_score_display: score_bytes=[%u, %u, %u]\n",
-              score_bytes[0], score_bytes[1], score_bytes[2]);
-    
     /* Render 3 base-100 bytes as 6 decimal digits */
     /* Assembly starts at di=0x3e1 (X=264) for score[0] and moves left */
     for (digit_idx = 0; digit_idx < 3; digit_idx++) {
@@ -1025,10 +1019,6 @@ void render_score_display(void)
         
         /* Calculate X position: start at 264 and move left by 16 pixels each iteration */
         x_pos = 264 - (digit_idx * 16);  /* 264, 248, 232 for indices 0, 1, 2 */
-        
-        debug_log("  digit_idx=%u: base100=%u, high=%u, low=%u, x_pos=%d (displays %u%u)\n",
-                  digit_idx, base100_value, high_decimal, low_decimal, x_pos, 
-                  high_decimal, low_decimal);
         
         /* Assembly's blit_score_digit does: inc di (move right 8), blit low, dec di, blit high */
         /* So it blits LOW digit first at x+8, then HIGH digit at x */

@@ -212,7 +212,8 @@ static uint8_t teleport_key_pressed = 0;
 uint8_t minimum_jump_frames = 0;
 
 /* Fireball state */
-static uint8_t fireball_meter = 100;
+#define MAX_FIREBALL_METER 12  /* Maximum fireball meter value (12 pips = 6 cells) */
+static uint8_t fireball_meter = 12;  /* Start with full fireball meter */
 static uint8_t fireball_meter_counter = 2;
 
 /* Item collection state */
@@ -1778,16 +1779,72 @@ static void beam_out(void)
 
 static void decrement_fireball_meter(void)
 {
-    if (fireball_meter > 0) {
-        fireball_meter--;
+    uint8_t ah, al;
+    uint16_t x_pos;
+    const uint8_t __far *sprite_to_render;
+    
+    if (fireball_meter == 0) {
+        return;
     }
+    
+    fireball_meter--;
+    
+    /* Calculate number of cells used (each cell = 2 units, shown as half/full) */
+    ah = fireball_meter;
+    al = fireball_meter + 1;
+    al = al >> 1;  /* Number of cells used (final one may be empty or half-full) */
+    
+    /* Determine which sprite to render for the final cell:
+     * If meter is odd: GRAPHIC_METER_HALF
+     * If meter is even: GRAPHIC_METER_EMPTY */
+    if (ah & 1) {
+        /* Odd - draw half-full cell */
+        sprite_to_render = sprite_meter_half_8x16;
+    } else {
+        /* Even - draw empty cell */
+        sprite_to_render = sprite_meter_empty_8x16;
+    }
+    
+    /* Calculate X position: base at 240, add 8 pixels per cell */
+    x_pos = 240 + al;
+    
+    /* Render the meter cell at Y=54 */
+    blit_8x16_sprite(x_pos, 54, sprite_to_render);
 }
 
 static void increment_fireball_meter(void)
 {
-    if (fireball_meter < 100) {
-        fireball_meter++;
+    uint8_t ah, al;
+    uint16_t x_pos;
+    const uint8_t __far *sprite_to_render;
+    
+    if (fireball_meter >= MAX_FIREBALL_METER) {
+        return;
     }
+    
+    fireball_meter++;
+    
+    /* Calculate number of cells used (each cell = 2 units, shown as half/full) */
+    ah = fireball_meter;
+    al = fireball_meter + 1;
+    al = al >> 1;  /* Number of cells used (final one may be half-full or full) */
+    
+    /* Determine which sprite to render for the final cell:
+     * If meter is odd: GRAPHIC_METER_HALF
+     * If meter is even: GRAPHIC_METER_FULL */
+    if (ah & 1) {
+        /* Odd - draw half-full cell */
+        sprite_to_render = sprite_meter_half_8x16;
+    } else {
+        /* Even - draw full cell */
+        sprite_to_render = sprite_meter_full_8x16;
+    }
+    
+    /* Calculate X position: base at 240, add 8 pixels per cell */
+    x_pos = 240 + al;
+    
+    /* Render the meter cell at Y=54 */
+    blit_8x16_sprite(x_pos, 54, sprite_to_render);
 }
 
 void blit_map_playfield_offscreen(void)
@@ -2554,10 +2611,6 @@ void award_points(uint16_t points)
     uint8_t carry = 0;
     uint8_t i;
     
-    debug_log("award_points(%u): units_of_100=%u\n", points, units_of_100);
-    debug_log("  BEFORE: score_bytes=[%u, %u, %u]\n", 
-              score_bytes[0], score_bytes[1], score_bytes[2]);
-    
     /* Add to score[0] first, with carry propagation through bytes 1 and 2 */
     /* This matches assembly's loop: add to current byte, carry to next if >=100 */
     score_bytes[0] += units_of_100;
@@ -2585,9 +2638,7 @@ void award_points(uint16_t points)
         score_bytes[1] = 99;
         score_bytes[2] = 99;
     }
-    
-    debug_log("  AFTER:  score_bytes=[%u, %u, %u]\n", 
-              score_bytes[0], score_bytes[1], score_bytes[2]);
+
 }
 
 /*
