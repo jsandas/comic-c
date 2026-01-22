@@ -78,31 +78,36 @@ void debug_log_close(void);
  * This format matches the original assembly implementation.
  */
 
-/* score_get_value - Reconstruct a 32-bit score from three bytes
+/* score_get_value - Reconstruct a 32-bit score from three base-100 bytes
  * 
- * Combines the three score_bytes into a single 32-bit unsigned integer by:
- * 1. Shifting byte[2] (MSB) left 16 bits to the high byte position
- * 2. Shifting byte[1] (middle) left 8 bits to the middle byte position
- * 3. Using byte[0] (LSB) as-is in the low byte position
- * 4. ORing all three values together
+ * The score is stored in base-100 representation, where each byte stores 0-99:
+ * - score_bytes[0] = least significant (ones place, 1-100)
+ * - score_bytes[1] = middle (hundreds place, 100-9900)
+ * - score_bytes[2] = most significant (ten-thousands place, 10000-990000)
  * 
- * Example: score_bytes = [0x12, 0x34, 0x56] produces 0x563412 (5,649,426 decimal)
+ * Example: score_bytes = [0, 20, 0] produces 2000 decimal (20 * 100)
+ *          score_bytes = [99, 99, 99] produces 999999 decimal (maximum)
  * 
- * The (uint32_t) casts ensure proper 32-bit arithmetic during shifts.
+ * Formula: score = byte[0] + (byte[1] * 100) + (byte[2] * 10000)
  */
-#define score_get_value() (((uint32_t)score_bytes[2] << 16) | ((uint32_t)score_bytes[1] << 8) | (uint32_t)score_bytes[0])
+#define score_get_value() ((uint32_t)score_bytes[0] + ((uint32_t)score_bytes[1] * 100UL) + ((uint32_t)score_bytes[2] * 10000UL))
 
-/* score_set_value - Store a 32-bit value into three bytes (little-endian)
+/* score_set_value - Store a 32-bit value into three base-100 bytes
  * 
- * Decomposes a 32-bit unsigned integer into three bytes:
- * - byte[0] = low byte (value & 0xFF)
- * - byte[1] = middle byte ((value >> 8) & 0xFF)
- * - byte[2] = high byte ((value >> 16) & 0xFF)
+ * Decomposes a decimal score (0-999999) into three base-100 bytes:
+ * - byte[0] = (value % 100) - rightmost 2 decimal digits
+ * - byte[1] = ((value / 100) % 100) - middle 2 decimal digits
+ * - byte[2] = ((value / 10000) % 100) - leftmost 2 decimal digits
  * 
  * Wrapped in do-while(0) to safely use in all contexts, including
  * after if statements without braces.
  */
-#define score_set_value(v) do { score_bytes[0] = (v) & 0xFF; score_bytes[1] = ((v) >> 8) & 0xFF; score_bytes[2] = ((v) >> 16) & 0xFF; } while(0)
+#define score_set_value(v) do { \
+    uint32_t _val = (v); \
+    score_bytes[0] = _val % 100; \
+    score_bytes[1] = (_val / 100UL) % 100; \
+    score_bytes[2] = (_val / 10000UL) % 100; \
+} while(0)
 
 /* ===== Player State (will be needed when porting game logic to C) ===== */
 /* Note: Currently these are in assembly if used there */

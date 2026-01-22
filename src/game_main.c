@@ -325,6 +325,7 @@ void blit_map_playfield_offscreen(void);
 void blit_comic_playfield_offscreen(void);
 void swap_video_buffers(void);
 void render_inventory_display(void);
+void render_score_display(void);
 static void clear_bios_keyboard_buffer(void);
 static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
@@ -2534,25 +2535,59 @@ static void game_end_sequence(void)
 }
 
 /*
- * award_points - Award points to the player's score
+ * award_points - Award points to the player's score using base-100 arithmetic
  * 
- * Adds the specified number of points to the player's score, with overflow
- * protection (max score is 999,999).
+ * Adds points to the player's score by performing base-100 addition with carry.
+ * Matches assembly implementation: receives value in units of 100 (0-99 range).
+ * Assembly receives al=20 to award 2000 points, storing 20 directly in score[0].
  * 
  * Parameters:
- *   points - Number of points to add
+ *   points - Number of points to add (ACTUAL value, e.g., 2000, not 20)
+ *            Function internally divides by 100 to get base-100 units
+ *            Example: pass 2000 → stores 20 in score[0] → displays as "0000020"
+ * 
+ * Note: Minimum award is 100 points, so rightmost 2 digits are always "00"
  */
 void award_points(uint16_t points)
 {
-    uint32_t current_score = score_get_value();
-    uint32_t new_score = current_score + points;
+    uint8_t units_of_100 = (uint8_t)(points / 100);  /* Convert to base-100 units (0-99) */
+    uint8_t carry = 0;
+    uint8_t i;
     
-    /* Prevent score overflow (cap at 999,999) */
-    if (new_score > 999999U) {
-        score_set_value(999999U);
+    debug_log("award_points(%u): units_of_100=%u\n", points, units_of_100);
+    debug_log("  BEFORE: score_bytes=[%u, %u, %u]\n", 
+              score_bytes[0], score_bytes[1], score_bytes[2]);
+    
+    /* Add to score[0] first, with carry propagation through bytes 1 and 2 */
+    /* This matches assembly's loop: add to current byte, carry to next if >=100 */
+    score_bytes[0] += units_of_100;
+    if (score_bytes[0] >= 100) {
+        carry = 1;
+        score_bytes[0] -= 100;
     } else {
-        score_set_value(new_score);
+        carry = 0;
     }
+    
+    /* Propagate carry through remaining bytes */
+    for (i = 1; i < 3 && carry; i++) {
+        score_bytes[i] += carry;
+        if (score_bytes[i] >= 100) {
+            carry = 1;
+            score_bytes[i] -= 100;
+        } else {
+            carry = 0;
+        }
+    }
+    
+    /* If still have carry after byte 2, cap at maximum score 999999 */
+    if (carry) {
+        score_bytes[0] = 99;
+        score_bytes[1] = 99;
+        score_bytes[2] = 99;
+    }
+    
+    debug_log("  AFTER:  score_bytes=[%u, %u, %u]\n", 
+              score_bytes[0], score_bytes[1], score_bytes[2]);
 }
 
 /*
@@ -2974,6 +3009,9 @@ void game_loop(void)
         
         /* Render inventory display items on the UI */
         render_inventory_display();
+        
+        /* Render score display on the UI */
+        render_score_display();
         
         swap_video_buffers();
     }

@@ -79,7 +79,7 @@
 ### Next Priority Items
 1. **Game UI Rendering** (Phase 4 Step 4) - IN PROGRESS
    - ✅ Inventory display (Door Key, Teleport Wand, Corkscrew, Shield) - COMPLETE
-   - Score digit rendering (6-digit dynamic display)
+   - ✅ Score digit rendering (6-digit dynamic display) - COMPLETE
    - HP meter visual display
    - Fireball power meter visual display
    - Shield indicator visual feedback
@@ -418,14 +418,21 @@ The refactoring approach has been revised to a **C-only entry point** model:
      - ✅ Integrated into main game loop after item rendering, before buffer swap
      - ✅ Uses 16x16 masked sprites for each item
      - ✅ Zero warnings/errors on build
+   - **Score display** ✅ **COMPLETE** - 2026-01-21
+     - ✅ `render_score_display()` - Renders 6-digit score on game UI
+     - ✅ Displays at screen position (264, 24) near top right corner
+     - ✅ Converts 3-byte base-100 score to 6 decimal digits
+     - ✅ Each base-100 digit displayed as 2 decimal digits (0-99)
+     - ✅ Uses 8x16 digit sprites (sprite_score_digit_0_8x16 through _9_8x16)
+     - ✅ Supports scores from 0 to 999,999 points
+     - ✅ Integrated into main game loop after inventory rendering
+     - ✅ Zero warnings/errors on build
    - **Still needs implementation**:
-     - ❌ Score display - Update score digits dynamically (6-digit display)
      - ❌ HP meter - Display current health as colored blocks
      - ❌ Fireball power meter - Visual bar showing fireball charge (0-100)
      - ❌ Shield indicator - Visual feedback when shield is active
      - ❌ Lives display - Already renders icons, may need refresh logic
    - **Technical requirements**:
-     - Digit rendering for score (separate digits 0-9 sprites)
      - Bar/meter rendering for HP and fireball power
      - UI update functions called from game loop or when state changes
    - **Reference**: See `reference/disassembly/R5sw1991.asm` for UI update logic

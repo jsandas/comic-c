@@ -63,6 +63,9 @@ void blit_wxh(uint16_t dest_offset, const uint8_t __far *graphic, uint16_t width
 /* Inventory item rendering */
 void render_inventory_display(void);
 
+/* Score display rendering */
+void render_score_display(void);
+
 /* Load 16-byte palette array (values 0-63) into EGA palette registers 0..15 */
 void load_ega_palette_from_file(const uint8_t *palette16);
 
