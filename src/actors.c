@@ -16,6 +16,8 @@
 #include "graphics.h"
 #include "file_loaders.h"
 #include "sprite_data.h"
+#include "sound.h"
+#include "sound_data.h"
 
 /* ===== External Game State Variables ===== */
 /*
@@ -84,7 +86,7 @@ static void comic_takes_damage(void)
 {
     if (comic_has_shield) {
         comic_has_shield = 0;
-        /* TODO: Play shield break sound */
+        play_sound(SOUND_DAMAGE, 2);
     } else if (comic_hp > 0) {
         comic_hp--;
         if (comic_hp == 0) {
@@ -226,7 +228,7 @@ void try_to_fire(void)
             fireballs[i].animation = 0;
             fireballs[i].num_animation_frames = 2;
             
-            /* TODO: Play SOUND_FIRE with priority 0 */
+            play_sound(SOUND_FIRE, 0);
             
             return; /* Only spawn one fireball per call */
         }
@@ -317,7 +319,7 @@ void handle_fireballs(void)
             fireballs[i].x = FIREBALL_DEAD;
             fireballs[i].y = FIREBALL_DEAD;
             award_points(300);
-            /* TODO: Play SOUND_HIT_ENEMY with priority 1 */
+            play_sound(SOUND_HIT_ENEMY, 1);
             
             break; /* Fireball consumed, check next fireball */
         }
@@ -408,7 +410,7 @@ void handle_item(void)
             /* Collision detected - collect item! */
             items_collected[level_index][stage_index] = 1;
             award_points(2000);
-            /* TODO: Play SOUND_COLLECT_ITEM with priority 3 */
+            play_sound(SOUND_COLLECT_ITEM, 3);
             
             /* Update game state based on item type */
             switch (item_type) {
@@ -811,7 +813,7 @@ void handle_enemies(void)
                     /* Collision detected! */
                     enemy->state = ENEMY_STATE_RED_SPARK; /* Start red spark death animation */
                     comic_takes_damage();
-                    /* TODO: Play collision sound */
+                    play_sound(SOUND_DAMAGE, 2);
                     continue;
                 }
             }

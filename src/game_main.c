@@ -2319,9 +2319,8 @@ void comic_dies(void)
     /* Wait for effect to display */
     wait_n_ticks(2);
     
-    /* Play "Too Bad" sound - TODO: implement sound playback
-     * In the assembly, this used: int3 with AX=SOUND_PLAY, BX=SOUND_TOO_BAD address, CX=priority
-     */
+    /* Play "Too Bad" sound */
+    play_sound(SOUND_TOO_BAD, 2);
     
     /* Wait for sound to finish */
     wait_n_ticks(15);
@@ -2430,10 +2429,8 @@ static void game_over(void)
     wait_n_ticks(1);
     swap_video_buffers();
     
-    /* Play game over sound effect
-     * TODO: implement sound_play() call
-     * int3 with AX=SOUND_PLAY, BX=SOUND_GAME_OVER address, CX=priority 2
-     */
+    /* Play game over sound effect */
+    play_sound(SOUND_GAME_OVER, 2);
     
     /* Clear the BIOS keyboard buffer and wait for a keystroke */
     clear_bios_keyboard_buffer();
@@ -2472,9 +2469,8 @@ static void game_end_sequence(void)
     
     /* Award 20,000 points for winning (20 x 1,000 points) */
     for (points_awarded = 0; points_awarded < 20; points_awarded++) {
-        /* Play score tally sound
-         * TODO: int3 with AX=SOUND_PLAY, BX=SOUND_SCORE_TALLY address, CX=priority 3
-         */
+        /* Play score tally sound */
+        play_sound(SOUND_SCORE_TALLY, 3);
         award_points(1000);
         wait_n_ticks(1);
     }
@@ -2484,9 +2480,8 @@ static void game_end_sequence(void)
     while (life_counter > 0) {
         /* Award 10,000 points for this life (10 x 1,000 points) */
         for (points_awarded = 0; points_awarded < 10; points_awarded++) {
-            /* Play score tally sound
-             * TODO: int3 with AX=SOUND_PLAY, BX=SOUND_SCORE_TALLY address, CX=priority 3
-             */
+            /* Play score tally sound */
+            play_sound(SOUND_SCORE_TALLY, 3);
             award_points(1000);
             wait_n_ticks(1);
         }
@@ -2495,9 +2490,8 @@ static void game_end_sequence(void)
         wait_n_ticks(3);  /* Brief pause between lives */
     }
     
-    /* Play the title theme
-     * TODO: int3 with AX=SOUND_PLAY, BX=SOUND_TITLE address, CX=priority 4
-     */
+    /* Play the title theme */
+    play_sound(SOUND_TITLE, 4);
     
     /* Load and display the win graphic (sys002.ega)
      * TODO: Implement RLE decompression and display of win graphic
