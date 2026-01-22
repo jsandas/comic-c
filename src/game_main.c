@@ -324,6 +324,7 @@ void game_loop(void);
 void blit_map_playfield_offscreen(void);
 void blit_comic_playfield_offscreen(void);
 void swap_video_buffers(void);
+void render_inventory_display(void);
 static void clear_bios_keyboard_buffer(void);
 static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
@@ -2970,6 +2971,10 @@ void game_loop(void)
         handle_enemies();
         handle_fireballs();
         handle_item();
+        
+        /* Render inventory display items on the UI */
+        render_inventory_display();
+        
         swap_video_buffers();
     }
 }

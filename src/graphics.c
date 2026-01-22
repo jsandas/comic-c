@@ -12,6 +12,7 @@
 #include <i86.h>
 #include "globals.h"
 #include "graphics.h"
+#include "sprite_data.h"
 #include "timing.h"
 
 /* EGA Register Addresses */
@@ -51,6 +52,12 @@ static uint16_t current_display_offset = GRAPHICS_BUFFER_GAMEPLAY_A;
 
 /* Forward declaration for static helper function */
 static void set_palette_register(uint8_t index, uint8_t color);
+
+/* Inventory item flags (defined in game_main.c) */
+extern uint8_t comic_has_door_key;
+extern uint8_t comic_has_teleport_wand;
+extern uint8_t comic_has_corkscrew;
+extern uint8_t comic_has_shield;
 
 /*
  * init_ega_graphics - Initialize EGA graphics controller for pixel writing
@@ -854,4 +861,46 @@ void blit_wxh(uint16_t dest_offset, const uint8_t __far *graphic, uint16_t width
             }
         }
     }
+}
+
+
+/*
+ * render_inventory_display - Render inventory items on the game UI
+ *
+ * Displays the inventory items that Comic has collected on the UI background.
+ * Items are rendered at their fixed UI positions (from the original assembly).
+ *
+ * Inventory positions (pixel coordinates):
+ *   Corkscrew:     (256, 112)
+ *   Door Key:      (280, 112)
+ *   Boots:         (232, 136)  - doesn't display sprite, just logic
+ *   Lantern:       (256, 136)  - not yet used
+ *   Teleport Wand: (280, 136)
+ *   Gems:          (232, 160)  - tracked in comic_num_treasures, not displayed as sprite
+ *
+ * All inventory items are 16x16 sprites with even/odd plane data.
+ * Items are only rendered if Comic has collected them (flags are non-zero).
+ */
+void render_inventory_display(void)
+{
+    /* All inventory sprites are 16x16 pixels - blit to both video buffers */
+    
+    if (comic_has_corkscrew) {
+        /* Render Corkscrew at (256, 112) */
+        blit_sprite_16x16_masked(256, 112, sprite_corkscrew_even_16x16m);
+    }
+    
+    if (comic_has_door_key) {
+        /* Render Door Key at (280, 112) */
+        blit_sprite_16x16_masked(280, 112, sprite_door_key_even_16x16m);
+    }
+    
+    if (comic_has_teleport_wand) {
+        /* Render Teleport Wand at (280, 136) */
+        blit_sprite_16x16_masked(280, 136, sprite_teleport_wand_even_16x16m);
+    }
+    
+    /* NOTE: Boots and Lantern graphics are not rendered in inventory UI. 
+     * Boots affect jump_power but don't display. Lantern is not yet used. 
+     * Gems/treasures are tracked in comic_num_treasures, displayed as a counter. */
 }
