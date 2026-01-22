@@ -2,11 +2,19 @@
 
 ## Project Status (As of 2026-01-21)
 
-**Overall Progress**: Phase 5 in progress - Sound and Input Systems  
-**Latest Milestone**: Sound System fully implemented in C with all game sound effects integrated  
+**Overall Progress**: Phase 5 COMPLETE - All core game systems implemented in C  
+**Latest Milestone**: Interrupt handlers (INT 8, INT 9) fully implemented in C  
 **Current Focus**: Testing and validation (Phase 6)
 
 ### Recent Accomplishments
+- ✅ **Interrupt Handlers fully implemented in pure C** - COMPLETED 2026-01-21
+  - ✅ INT 8 (timer) handler using Open Watcom's `__interrupt` keyword
+  - ✅ INT 9 (keyboard) handler with scancode queue
+  - ✅ Direct hardware port access from C (port 0x60 for keyboard)
+  - ✅ Proper interrupt chaining with `_chain_intr()`
+  - ✅ Sound advancement integrated into INT 8 handler
+  - ✅ Game tick flag management for timing synchronization
+  - ✅ No assembly code required - pure C implementation
 - ✅ **Sound System fully implemented in pure C** - COMPLETED 2026-01-21
   - ✅ PC speaker control via direct hardware access (ports 0x61, 0x42, 0x43)
   - ✅ PIT (Programmable Interval Timer) frequency control
@@ -61,21 +69,25 @@
   - ✅ Rendering infrastructure in place (sprite loading pending)
 - ✅ **Implement special features in C** - COMPLETED 2026-01-19
   - ✅ `begin_teleport()` - Find safe landing spot with tile scanning
-  -**Testing and Validation** (Phase 6)
-   - Create test scenarios for all implemented systems
-   - Validate physics accuracy against original game
-   - Validate AI behaviors and collision detection
-   - Full level playthroughs in DOSBox
-2. **Joystick handling** (Phase 5 Step 2 - Optional)
-3. **Keyboard interrupt handler refinement** (Phase 5 Step 3 - Optional)ation for level completion
+  - ✅ `handle_teleport()` - 6-frame teleport animation with camera movement
+  - ✅ `pause_game()` - Pause screen display and keypress handling
+  - ✅ `beam_in()` - 12-frame materialize animation for level start
+  - ✅ `beam_out()` - 12-frame materialize animation for level completion
   - ✅ All teleport variables properly declared and integrated
   - ✅ Sound effects wired (SOUND_TELEPORT, SOUND_MATERIALIZE)
 
 ### Next Priority Items
-1. Implement sprite loading (.SHP files, SYS004.EGA for items)
-2. Complete enemy/item/fireball visual rendering
-3. Implement door system and level transitions
-4. Test all systems in DOSBox with save states
+1. **Game UI Rendering** (Phase 4 Step 4) - CRITICAL
+   - Implement inventory item display
+   - Implement score digit rendering
+   - Implement HP and fireball meter updates
+   - Integrate UI updates into game loop
+2. **Testing and Validation** (Phase 6)
+   - Create test scenarios for all implemented systems
+   - Validate physics accuracy against original game
+   - Validate AI behaviors and collision detection
+   - Full level playthroughs in DOSBox
+   - Verify save state compatibility
 
 
 ---
@@ -396,6 +408,22 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Menu navigation and input handling
    - ✅ Story/intro sequence display
 
+4. **Game UI Rendering** ❌ **NOT STARTED**
+   - **Status**: UI background loads but dynamic elements don't update
+   - **Needs implementation**:
+     - ❌ Inventory display - Show collected items (Door Key, Teleport Wand, Corkscrew, Shield, Boots)
+     - ❌ Score display - Update score digits dynamically (6-digit display)
+     - ❌ HP meter - Display current health as colored blocks
+     - ❌ Fireball power meter - Visual bar showing fireball charge (0-100)
+     - ❌ Shield indicator - Visual feedback when shield is active
+     - ❌ Lives display - Already renders icons, may need refresh logic
+   - **Technical requirements**:
+     - Sprite blitting for inventory items at fixed UI positions
+     - Digit rendering for score (separate digits 0-9 sprites)
+     - Bar/meter rendering for HP and fireball power
+     - UI update functions called from game loop or when state changes
+   - **Reference**: See `reference/disassembly/R5sw1991.asm` for UI update logic
+
 ### Phase 5: Sound and Input (Optional)
 
 **Goal**: Convert remaining subsystems (lower priority)
@@ -421,17 +449,37 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ `sound_advance_tick()` called from main game loop
    - ✅ Pure C implementation - no assembly code required
 
-2. **Joystick handling**
-   - Calibration routines
-   - Axis reading
-   - Threshold detection
-   - *Keep in assembly only with strong justification and tests* (INT 15h, low value to convert)
+2. **Joystick handling** ⏭️ **SKIPPED** - 2026-01-21
+   - **Decision**: Joystick support intentionally not implemented
+   - **Rationale**: 
+     - Very few users have physical joysticks for DOS games today
+     - Keyboard controls are fully functional and preferred
+     - Hardware-specific implementation adds complexity without modern value
+   - **Already implemented in C** (CPU speed calibration only):
+     - ✅ `calibrate_joystick()` - Measures CPU speed via timing loop (used for general timing, not joystick-specific)
+     - ✅ `max_joystick_reads` variable - Stores calibrated timing value
+     - ✅ `calibrate_joystick_interactive()` - Stub that displays message and returns
+   - **Would still need for full joystick support**:
+     - ❌ Axis reading via INT 15h (ah=84h, dx=1) or direct port 0x201 access
+     - ❌ Button/switch reading via INT 15h (ah=84h, dx=0)
+     - ❌ PIT counter timing for analog position measurement
+     - ❌ Interactive calibration routine (center, left, right, up, down positions)
+     - ❌ Threshold calculations (x_low, x_high, y_low, y_high)
+     - ❌ Runtime polling in timer interrupt or main loop
+     - ❌ Key state mapping (joystick axes → key_state_left/right/open/teleport)
+     - ❌ Variables: `joystick_x_zero`, `joystick_y_zero`, `joystick_x_low`, `joystick_x_high`, `joystick_y_low`, `joystick_y_high`, `joystick_is_calibrated`
+   - **Implementation reference**: See `reference/disassembly/R5sw1991.asm` lines 667-776 (calibration), 1282-1327 (INT 8 polling), 1517-1643 (INT 21 handler and axis reading)
 
-3. **Interrupt handlers**
-   - INT 3 (sound)
-   - INT 8 (timer - sets `game_tick_flag`)
-   - INT 9 (keyboard - sets `key_state_*`)
-   - *Keep in assembly only with strong justification and tests* (direct hardware, real-mode quirks)
+3. **Interrupt handlers** ✅ **COMPLETE** - 2026-01-21
+   - ✅ INT 8 (timer - sets `game_tick_flag`) - Implemented in C
+   - ✅ INT 9 (keyboard - sets `key_state_*`) - Implemented in C
+   - ✅ Pure C implementation using Open Watcom's `__interrupt` keyword
+   - ✅ INT 8: Advances sound playback, sets game tick flag on odd interrupts
+   - ✅ INT 9: Reads keyboard scancodes from port 0x60, stores in queue
+   - ✅ Both handlers chain to original BIOS handlers using `_chain_intr()`
+   - ✅ Proper interrupt installation/restoration with `_dos_getvect()` / `_dos_setvect()`
+   - ✅ No assembly code required - direct hardware port access from C
+   - **Implementation**: See [game_main.c](game_main.c#L469-L509) for `int8_handler` and `int9_handler`
 
 ### Phase 6: Testing and Validation (NOT STARTED)
 
