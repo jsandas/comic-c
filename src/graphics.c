@@ -59,6 +59,12 @@ extern uint8_t comic_has_teleport_wand;
 extern uint8_t comic_has_corkscrew;
 extern uint8_t comic_has_shield;
 
+/* Score data (defined in game_main.c) */
+extern uint8_t score_bytes[3];  /* 3-byte score in base-100 representation */
+
+/* Forward declaration for debug logging */
+extern void debug_log(const char *format, ...);
+
 /*
  * init_ega_graphics - Initialize EGA graphics controller for pixel writing
  * 
@@ -904,3 +910,135 @@ void render_inventory_display(void)
      * Boots affect jump_power but don't display. Lantern is not yet used. 
      * Gems/treasures are tracked in comic_num_treasures, displayed as a counter. */
 }
+
+
+/*
+ * blit_8x16_sprite - Blit an 8x16 unmasked EGA sprite to both video buffers
+ *
+ * Sprite format: EGA planar (4 planes, 16 bytes each = 64 bytes total)
+ * Blits to both the onscreen and offscreen video buffers.
+ *
+ * Input:
+ *   pixel_x, pixel_y = top-left corner in pixel coordinates
+ *   sprite_data = pointer to 64-byte EGA sprite (4 planes, 16 bytes each)
+ */
+static void blit_8x16_sprite(uint16_t pixel_x, uint16_t pixel_y, const uint8_t __far *sprite_data)
+{
+    uint16_t base_offset;
+    uint8_t plane;
+    uint8_t row;
+    uint8_t sprite_byte;
+    uint16_t video_offset;
+    uint8_t __far *video_ptr_a;
+    uint8_t __far *video_ptr_b;
+    const uint8_t *plane_data;
+    uint16_t plane_offset;
+    
+    /* Calculate video memory offset for top-left corner of sprite */
+    base_offset = (pixel_y * 320 + pixel_x) / 8;
+    
+    /* Blit each of the 4 color planes */
+    for (plane = 0; plane < 4; plane++) {
+        /* Enable writing to this plane */
+        enable_ega_plane_write(plane);
+        
+        /* Plane data: Blue=0, Green=16, Red=32, Intensity=48 bytes offset */
+        plane_offset = plane * 16;
+        plane_data = sprite_data + plane_offset;
+        
+        /* Copy this plane to both buffers, 1 byte per row (8 pixels wide) */
+        for (row = 0; row < 16; row++) {
+            /* Calculate video offset for this row */
+            video_offset = base_offset + (row * 40);
+            
+            /* Get pointers to both video buffers for this row */
+            video_ptr_a = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_A + video_offset);
+            video_ptr_b = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_B + video_offset);
+            
+            /* Copy 1 byte per row (8 pixels in EGA format = 1 byte) */
+            sprite_byte = plane_data[row];
+            
+            /* Write to both buffers */
+            *video_ptr_a = sprite_byte;
+            *video_ptr_b = sprite_byte;
+        }
+    }
+}
+
+
+/*
+ * render_score_display - Render the 6-digit score on the game UI
+ *
+ * Displays the current score at the top of the screen.
+ * Score is stored as 3 bytes in base-100 representation.
+ * The score value is always ×100 of the display (e.g., stored 20 = displayed 2000).
+ * 
+ * Storage format (3 bytes):
+ *   score_bytes[0] = first digit pair (0-99) - rightmost
+ *   score_bytes[1] = second digit pair (0-99) - middle
+ *   score_bytes[2] = third digit pair (0-99) - leftmost
+ * 
+ * Display format (6 decimal digits rendered at X=232-280):
+ *   X=232-248: score_bytes[2] as 2 decimal digits (leftmost)
+ *   X=248-264: score_bytes[1] as 2 decimal digits (middle)
+ *   X=264-280: score_bytes[0] as 2 decimal digits (rightmost)
+ * 
+ * The UI graphic may show 8 zeros, but code only updates 6 digit positions.
+ * Example: score_bytes=[0, 20, 0] displays as "002000" at X=232-280
+ * 
+ * Y coordinate is 24 (near top of screen).
+ */
+void render_score_display(void)
+{
+    const uint8_t __far *digit_sprites[10] = {
+        sprite_score_digit_0_8x16,
+        sprite_score_digit_1_8x16,
+        sprite_score_digit_2_8x16,
+        sprite_score_digit_3_8x16,
+        sprite_score_digit_4_8x16,
+        sprite_score_digit_5_8x16,
+        sprite_score_digit_6_8x16,
+        sprite_score_digit_7_8x16,
+        sprite_score_digit_8_8x16,
+        sprite_score_digit_9_8x16
+    };
+    
+    uint8_t digit_idx;
+    uint8_t base100_value;
+    uint8_t high_decimal;
+    uint8_t low_decimal;
+    int16_t x_pos;
+    uint16_t pixel_y = 24;
+    
+    debug_log("render_score_display: score_bytes=[%u, %u, %u]\n",
+              score_bytes[0], score_bytes[1], score_bytes[2]);
+    
+    /* Render 3 base-100 bytes as 6 decimal digits */
+    /* Assembly starts at di=0x3e1 (X=264) for score[0] and moves left */
+    for (digit_idx = 0; digit_idx < 3; digit_idx++) {
+        base100_value = score_bytes[digit_idx];
+        
+        /* Convert base-100 byte to 2 decimal digits via division */
+        /* Assembly uses repeated subtraction: high = base100/10, low = base100%10 */
+        high_decimal = base100_value / 10;
+        low_decimal = base100_value % 10;
+        
+        /* Calculate X position: start at 264 and move left by 16 pixels each iteration */
+        x_pos = 264 - (digit_idx * 16);  /* 264, 248, 232 for indices 0, 1, 2 */
+        
+        debug_log("  digit_idx=%u: base100=%u, high=%u, low=%u, x_pos=%d (displays %u%u)\n",
+                  digit_idx, base100_value, high_decimal, low_decimal, x_pos, 
+                  high_decimal, low_decimal);
+        
+        /* Assembly's blit_score_digit does: inc di (move right 8), blit low, dec di, blit high */
+        /* So it blits LOW digit first at x+8, then HIGH digit at x */
+        if (low_decimal < 10) {
+            blit_8x16_sprite((uint16_t)(x_pos + 8), pixel_y, digit_sprites[low_decimal]);
+        }
+        
+        if (high_decimal < 10) {
+            blit_8x16_sprite((uint16_t)x_pos, pixel_y, digit_sprites[high_decimal]);
+        }
+    }
+}
+
