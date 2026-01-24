@@ -117,7 +117,6 @@ void debug_log(const char *format, ...)
 
 /* Game constants */
 #define MAX_NUM_LIVES           5
-#define MAX_HP                  6
 #define TELEPORT_DISTANCE       6   /* How many game units a teleport moves Comic horizontally */
 
 /*
@@ -212,7 +211,6 @@ static uint8_t teleport_key_pressed = 0;
 uint8_t minimum_jump_frames = 0;
 
 /* Fireball state */
-#define MAX_FIREBALL_METER 12  /* Maximum fireball meter value (12 pips = 6 cells) */
 static uint8_t fireball_meter = 0;   /* Start with empty fireball meter */
 static uint8_t fireball_meter_counter = 2;
 
