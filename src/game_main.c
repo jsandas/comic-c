@@ -2470,10 +2470,14 @@ void comic_dies(void)
     comic_jump_counter = comic_jump_power;  /* Use current jump power (may be 5 if Boots collected) */
     comic_animation = COMIC_STANDING;
     
-    /* Schedule full HP refill (pending_increase will cause increments in game_loop) */
-    /* NOTE: We do NOT set comic_hp = 0 here. This preserves the visual health meter
-     * on screen from before the death sequence. The game loop will re-render it
-     * after the first increment, at which point comic_hp will have the correct value. */
+    /* Reset HP to 0 and queue full HP refill */
+    /* IMPORTANT: We must reset comic_hp = 0 first, then set the pending increase.
+     * If Comic had residual HP from before (e.g., fell with 3/6 HP), setting
+     * comic_hp_pending_increase = MAX_HP without resetting would cause the
+     * pending increments to complete while comic_hp >= MAX_HP, awarding
+     * multiple bonus points. By resetting to 0, increments go 0→1→2→3→4→5→6
+     * with no bonus points until all 6 are done. */
+    comic_hp = 0;
     comic_hp_pending_increase = MAX_HP;
 }
 
