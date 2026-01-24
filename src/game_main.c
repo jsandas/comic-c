@@ -213,7 +213,7 @@ uint8_t minimum_jump_frames = 0;
 
 /* Fireball state */
 #define MAX_FIREBALL_METER 12  /* Maximum fireball meter value (12 pips = 6 cells) */
-static uint8_t fireball_meter = 12;  /* Start with full fireball meter */
+static uint8_t fireball_meter = 0;   /* Start with empty fireball meter */
 static uint8_t fireball_meter_counter = 2;
 
 /* Item collection state */
@@ -1779,7 +1779,8 @@ static void beam_out(void)
 
 static void decrement_fireball_meter(void)
 {
-    uint8_t ah, al;
+    uint8_t old_meter_val;
+    uint8_t cell_num;
     uint16_t x_pos;
     const uint8_t __far *sprite_to_render;
     
@@ -1787,26 +1788,32 @@ static void decrement_fireball_meter(void)
         return;
     }
     
+    /* Save old meter value before decrementing */
+    old_meter_val = fireball_meter;
+    
+    /* Decrement the meter */
     fireball_meter--;
     
-    /* Calculate number of cells used (each cell = 2 units, shown as half/full) */
-    ah = fireball_meter;
-    al = fireball_meter + 1;
-    al = al >> 1;  /* Number of cells used (final one may be empty or half-full) */
+    /* Calculate cell position using (old_meter + 1) / 2
+     * This matches the assembly: mov ah, al; inc al; shr al, 1 */
+    cell_num = (old_meter_val + 1) >> 1;
     
-    /* Determine which sprite to render for the final cell:
-     * If meter is odd: GRAPHIC_METER_HALF
-     * If meter is even: GRAPHIC_METER_EMPTY */
-    if (ah & 1) {
-        /* Odd - draw half-full cell */
-        sprite_to_render = sprite_meter_half_8x16;
-    } else {
-        /* Even - draw empty cell */
+    /* No need to cap - the offset naturally goes up to 6 for meter 12 */
+    
+    /* Determine sprite based on OLD meter value (before decrement):
+     * If OLD meter is odd: GRAPHIC_METER_EMPTY
+     * If OLD meter is even: GRAPHIC_METER_HALF */
+    if (old_meter_val & 1) {
+        /* Old meter was odd - draw empty cell */
         sprite_to_render = sprite_meter_empty_8x16;
+    } else {
+        /* Old meter was even - draw half-full cell */
+        sprite_to_render = sprite_meter_half_8x16;
     }
     
-    /* Calculate X position: base at 240, add 8 pixels per cell */
-    x_pos = 240 + al;
+    /* Calculate X position: base at 240 (not 248), add cell_num * 8 pixels
+     * This matches the assembly: pixel_coords(240, 54) + ax */
+    x_pos = 240 + (cell_num << 3);
     
     /* Render the meter cell at Y=54 */
     blit_8x16_sprite(x_pos, 54, sprite_to_render);
@@ -1814,25 +1821,33 @@ static void decrement_fireball_meter(void)
 
 static void increment_fireball_meter(void)
 {
-    uint8_t ah, al;
+    uint8_t meter_val;
+    uint8_t cell_num;
     uint16_t x_pos;
     const uint8_t __far *sprite_to_render;
     
-    if (fireball_meter >= MAX_FIREBALL_METER) {
+    if (fireball_meter > MAX_FIREBALL_METER - 1) {
         return;
     }
     
     fireball_meter++;
     
-    /* Calculate number of cells used (each cell = 2 units, shown as half/full) */
-    ah = fireball_meter;
-    al = fireball_meter + 1;
-    al = al >> 1;  /* Number of cells used (final one may be half-full or full) */
+    /* After incrementing, use the NEW meter value for calculations */
+    meter_val = fireball_meter;
+    
+    /* Calculate which cell to display: cell_num = (meter - 1) / 2
+     * This maps: meter 1-2→cell 0, 3-4→cell 1, 5-6→cell 2, ..., 11-12→cell 5 */
+    cell_num = (meter_val - 1) >> 1;
+    
+    /* Cap cell at 5 to stay within the 6-cell display box */
+    if (cell_num > 5) {
+        cell_num = 5;
+    }
     
     /* Determine which sprite to render for the final cell:
      * If meter is odd: GRAPHIC_METER_HALF
      * If meter is even: GRAPHIC_METER_FULL */
-    if (ah & 1) {
+    if (meter_val & 1) {
         /* Odd - draw half-full cell */
         sprite_to_render = sprite_meter_half_8x16;
     } else {
@@ -1840,8 +1855,9 @@ static void increment_fireball_meter(void)
         sprite_to_render = sprite_meter_full_8x16;
     }
     
-    /* Calculate X position: base at 240, add 8 pixels per cell */
-    x_pos = 240 + al;
+    /* Calculate X position: base at 248 (not 240), add 8 pixels per cell
+     * Since video buffer is in bytes (40 bytes = 320 pixels), each byte = 8 pixels */
+    x_pos = 248 + (cell_num << 3);
     
     /* Render the meter cell at Y=54 */
     blit_8x16_sprite(x_pos, 54, sprite_to_render);
