@@ -67,6 +67,9 @@ void render_inventory_display(void);
 /* Score display rendering */
 void render_score_display(void);
 
+/* HP meter rendering */
+void decrement_comic_hp(void);
+
 /* Load 16-byte palette array (values 0-63) into EGA palette registers 0..15 */
 void load_ega_palette_from_file(const uint8_t *palette16);
 

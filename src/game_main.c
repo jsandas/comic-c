@@ -117,7 +117,7 @@ void debug_log(const char *format, ...)
 
 /* Game constants */
 #define MAX_NUM_LIVES           5
-#define MAX_HP                  7
+#define MAX_HP                  6
 #define TELEPORT_DISTANCE       6   /* How many game units a teleport moves Comic horizontally */
 
 /*
@@ -173,8 +173,8 @@ uint8_t comic_jump_power = JUMP_POWER_DEFAULT;  /* Base jump power (4 default, 5
 uint8_t ceiling_stick_flag = 0;  /* Whether Comic is jumping upward against a ceiling */
 uint8_t comic_fall_delay = 0;  /* Ticks to hover at jump apex */
 const level_t *current_level_ptr = NULL;  /* Pointer to current level data */
-uint8_t comic_hp = MAX_HP;
-static uint8_t comic_hp_pending_increase = 0;
+uint8_t comic_hp = 0;  /* Start at 0, will fill to MAX_HP via pending_increase */
+uint8_t comic_hp_pending_increase = MAX_HP;  /* Fill HP at game start */
 uint16_t camera_x = 0;
 /* Landing sentinel: set by physics when hitting ground; clears each tick */
 uint8_t landed_this_tick = 0;
@@ -2035,8 +2035,58 @@ void swap_video_buffers(void)
 
 static void increment_comic_hp(void)
 {
-    if (comic_hp < MAX_HP) {
-        comic_hp++;
+    uint16_t x_pos;
+    
+    if (comic_hp >= MAX_HP) {
+        /* HP is already full; award 1800 bonus points */
+        award_points(18);  /* 18 * 100 = 1800 points */
+        return;
+    }
+    
+    /* Increment HP */
+    comic_hp++;
+    
+    /* Render the HP meter cell at Y=82, base X=240
+     * Each unit of HP is 8 pixels wide */
+    x_pos = 240 + (comic_hp << 3);
+    blit_8x16_sprite(x_pos, 82, sprite_meter_full_8x16);
+}
+
+void decrement_comic_hp(void)
+{
+    uint16_t x_pos;
+    
+    if (comic_hp == 0) {
+        return;
+    }
+    
+    /* Render the empty sprite at the current HP position before decrementing */
+    x_pos = 240 + (comic_hp << 3);
+    blit_8x16_sprite(x_pos, 82, sprite_meter_empty_8x16);
+    
+    /* Decrement HP */
+    comic_hp--;
+    
+    /* Play damage sound */
+    play_sound(SOUND_DAMAGE, 2);  /* priority 2 */
+}
+
+static void render_comic_hp_meter(void)
+{
+    uint8_t i;
+    uint16_t x_pos;
+    
+    /* Render exactly 6 cells (cells 1 through 6) */
+    /* Cell N is at x = 240 + (N * 8) */
+    for (i = 1; i <= 6; i++) {
+        x_pos = 240 + (i * 8);
+        if (i <= comic_hp) {
+            /* Full cell */
+            blit_8x16_sprite(x_pos, 82, sprite_meter_full_8x16);
+        } else {
+            /* Empty cell */
+            blit_8x16_sprite(x_pos, 82, sprite_meter_empty_8x16);
+        }
     }
 }
 
@@ -2418,6 +2468,12 @@ void comic_dies(void)
     comic_y_vel = 0;
     comic_jump_counter = comic_jump_power;  /* Use current jump power (may be 5 if Boots collected) */
     comic_animation = COMIC_STANDING;
+    
+    /* Schedule full HP refill (pending_increase will cause increments in game_loop) */
+    /* NOTE: We do NOT set comic_hp = 0 here. This preserves the visual health meter
+     * on screen from before the death sequence. The game loop will re-render it
+     * after the first increment, at which point comic_hp will have the correct value. */
+    comic_hp_pending_increase = MAX_HP;
 }
 
 /*
@@ -3067,6 +3123,7 @@ void game_loop(void)
         if (!skip_rendering) {
             blit_map_playfield_offscreen();
             blit_comic_playfield_offscreen();
+            render_comic_hp_meter();
         }
         
         /* Handle enemies, fireballs, and items */

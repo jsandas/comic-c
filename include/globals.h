@@ -66,6 +66,10 @@ void debug_log_close(void);
 #define COMIC_FACING_RIGHT      0
 #define COMIC_FACING_LEFT       5      /* offset for left-facing frames */
 
+/* ===== Player Game Constants ===== */
+#define MAX_HP                  6      /* Maximum hit points */
+#define MAX_FIREBALL_METER      12     /* Maximum fireball meter units */
+
 /* ===== Score Macros (Score Storage: 3-byte little-endian format) ===== */
 /* The score is stored as 3 bytes in little-endian order:
  *   score_bytes[0] = LSB (low byte, bits 0-7)

@@ -434,14 +434,20 @@ The refactoring approach has been revised to a **C-only entry point** model:
      - ✅ Each cell shows empty/half/full using 8x16 meter sprites
      - ✅ Fireball meter value ranges from 0-12 (6 cells × 2 units each)
      - ✅ Zero warnings/errors on build
+   - **HP (Hit Points) meter** ✅ **COMPLETE** - 2026-01-24
+     - ✅ `increment_comic_hp()` - Increments HP and renders full sprite, awards bonus points when full
+     - ✅ `decrement_comic_hp()` - Decrements HP, renders empty sprite, and plays damage sound
+     - ✅ Displays at screen position (240, 82) with 6 units
+     - ✅ Each unit is 8 pixels wide, using 8x16 meter sprites
+     - ✅ HP value ranges from 0-6 (MAX_HP = 6)
+     - ✅ Zero warnings/errors on build
    - **Still needs implementation**:
-     - ❌ Shield visual indicator (NOTE: Shield item only refills HP - no visible indicator in original game)
      - ❌ Lives display - Already renders icons, may need refresh logic verification
    - **Technical requirements**:
-     - Verify shield collection logic is working (refills HP to MAX_HP)
-     - UI update functions called from game loop or when state changes
-   - **Note**: Game has fireball meter only, NO HP meter or shield indicator
-   - **Reference**: See `reference/disassembly/R5sw1991.asm` for UI update logic
+     - Verify HP meter renders correctly during gameplay
+     - UI update functions called from game loop when HP changes
+   - **Note**: Both fireball meter and HP meter are fully implemented
+   - **Reference**: See `reference/disassembly/R5sw1991.asm` lines 5932-5987 for HP meter logic
 
 ### Phase 5: Sound and Input (Optional)
 

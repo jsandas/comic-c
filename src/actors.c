@@ -35,6 +35,8 @@ extern uint8_t comic_hp;                   /* Current hit points (0-10) */
 extern uint8_t comic_has_shield;           /* 1 if Shield item collected, 0 otherwise */
 extern uint8_t comic_has_door_key;         /* 1 if door key collected, 0 otherwise */
 extern uint8_t comic_has_teleport_wand;    /* 1 if teleport wand collected, 0 otherwise */
+extern uint8_t comic_hp_pending_increase;  /* Units of HP to award at 1 per tick */
+extern uint8_t comic_num_lives;            /* Current number of lives */
 
 /* Camera state */
 extern uint16_t camera_x;                  /* Camera X position (game units) */
@@ -62,6 +64,7 @@ extern uint8_t enemy_respawn_counter_cycle; /* Cycles: 20→40→60→80→100�
 /* Forward declarations for external functions */
 extern void comic_dies(void);               /* Game over sequence from physics.c */
 extern void award_points(uint16_t points);  /* Award points from game_main.c */
+extern void award_extra_life(void);         /* Award extra life from game_main.c */
 
 /* ===== Actor Arrays ===== */
 enemy_t enemies[MAX_NUM_ENEMIES];
@@ -88,7 +91,7 @@ static void comic_takes_damage(void)
         comic_has_shield = 0;
         play_sound(SOUND_DAMAGE, 2);
     } else if (comic_hp > 0) {
-        comic_hp--;
+        decrement_comic_hp();
         if (comic_hp == 0) {
             /* Comic is dead - trigger game over sequence */
             comic_dies();
@@ -424,6 +427,14 @@ void handle_item(void)
                     break;
                 case ITEM_SHIELD:
                     comic_has_shield = 1;
+                    /* Check if Comic already has full HP */
+                    if (comic_hp >= MAX_HP) {
+                        /* Full HP: award an extra life */
+                        award_extra_life();
+                    } else {
+                        /* Not full: schedule MAX_HP units of HP to be awarded */
+                        comic_hp_pending_increase = MAX_HP;
+                    }
                     break;
                 case ITEM_TELEPORT_WAND:
                     /* Grant teleport ability */
