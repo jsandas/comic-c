@@ -2470,15 +2470,19 @@ void comic_dies(void)
     comic_jump_counter = comic_jump_power;  /* Use current jump power (may be 5 if Boots collected) */
     comic_animation = COMIC_STANDING;
     
-    /* Reset HP to 0 and queue full HP refill */
-    /* IMPORTANT: We must reset comic_hp = 0 first, then set the pending increase.
-     * If Comic had residual HP from before (e.g., fell with 3/6 HP), setting
-     * comic_hp_pending_increase = MAX_HP without resetting would cause the
-     * pending increments to complete while comic_hp >= MAX_HP, awarding
-     * multiple bonus points. By resetting to 0, increments go 0→1→2→3→4→5→6
-     * with no bonus points until all 6 are done. */
-    comic_hp = 0;
-    comic_hp_pending_increase = MAX_HP;
+    /* Queue only the missing HP to refill */
+    /* IMPORTANT: We keep comic_hp at its current value (showing the HP state at death)
+     * and only queue the missing portion to refill. This way the HP meter visually
+     * remains at whatever it was when Comic died, then refills only the missing cells.
+     * For example, if Comic had 3/6 HP and dies, the meter shows 3 cells, then refills
+     * to show 4, 5, 6 cells as comic_hp increments.
+     * 
+     * By setting pending = MAX_HP - current_hp, we ensure no bonus points are awarded:
+     * - If current_hp = 6: pending = 0, so no increments happen
+     * - If current_hp < 6: pending increments from current_hp to MAX_HP, avoiding >= MAX_HP checks
+     * 
+     * This matches the original assembly behavior exactly. */
+    comic_hp_pending_increase = MAX_HP - comic_hp;
 }
 
 /*
