@@ -2600,7 +2600,7 @@ static void game_end_sequence(void)
     for (points_awarded = 0; points_awarded < 20; points_awarded++) {
         /* Play score tally sound */
         play_sound(SOUND_SCORE_TALLY, 3);
-        award_points(1000);
+        award_points(10);  /* 10 * 100 = 1000 points per loop, 20 loops = 20,000 total */
         wait_n_ticks(1);
     }
     
@@ -2611,7 +2611,7 @@ static void game_end_sequence(void)
         for (points_awarded = 0; points_awarded < 10; points_awarded++) {
             /* Play score tally sound */
             play_sound(SOUND_SCORE_TALLY, 3);
-            award_points(1000);
+            award_points(10);  /* 10 * 100 = 1000 points per loop, 10 loops = 10,000 per life */
             wait_n_ticks(1);
         }
         
@@ -2665,25 +2665,30 @@ static void game_end_sequence(void)
  * award_points - Award points to the player's score using base-100 arithmetic
  * 
  * Adds points to the player's score by performing base-100 addition with carry.
- * Matches assembly implementation: receives value in units of 100 (0-99 range).
- * Assembly receives al=20 to award 2000 points, storing 20 directly in score[0].
+ * Score is stored as three base-100 bytes where each byte holds 0-99 and represents
+ * a pair of decimal digits. The formula is: score = byte[0] + (byte[1]*100) + (byte[2]*10000)
  * 
  * Parameters:
- *   points - Number of points to add (ACTUAL value, e.g., 2000, not 20)
- *            Function internally divides by 100 to get base-100 units
- *            Example: pass 2000 → stores 20 in score[0] → displays as "0000020"
+ *   points - Points to add in base-100 units (0-99 typical per call)
+ *            Each unit represents 100 decimal points.
+ *            Example: award_points(20) adds 2000 points, resulting in byte[1] = 20 → displays "002000"
+ *            Example: award_points(18) adds 1800 points
  * 
- * Note: Minimum award is 100 points, so rightmost 2 digits are always "00"
+ * The base-100 encoding stores pairs of decimal digits in each byte:
+ *   - byte[0]: rightmost pair (ones and tens digits: displays "00" to "99")
+ *   - byte[1]: middle pair (hundreds and thousands digits: displays "00" to "99")
+ *   - byte[2]: leftmost pair (ten-thousands and hundred-thousands: displays "00" to "99")
+ * Full 6-digit display: "AABBCC" where AA=byte[2], BB=byte[1], CC=byte[0]
+ * The rightmost 2 digits (byte[0]) are always "00" since award_points gives increments of 100.
+ * Maximum score is 999,999 ([99, 99, 99]).
  */
 void award_points(uint16_t points)
 {
-    uint8_t units_of_100 = (uint8_t)(points / 100);  /* Convert to base-100 units (0-99) */
     uint8_t carry = 0;
     uint8_t i;
     
-    /* Add to score[0] first, with carry propagation through bytes 1 and 2 */
-    /* This matches assembly's loop: add to current byte, carry to next if >=100 */
-    score_bytes[0] += units_of_100;
+    /* Add points to byte[0] with carry propagation */
+    score_bytes[0] += (uint8_t)points;
     if (score_bytes[0] >= 100) {
         carry = 1;
         score_bytes[0] -= 100;
@@ -2702,13 +2707,12 @@ void award_points(uint16_t points)
         }
     }
     
-    /* If still have carry after byte 2, cap at maximum score 999999 */
+    /* If still have carry after byte 2, cap at maximum score 999,999 */
     if (carry) {
         score_bytes[0] = 99;
         score_bytes[1] = 99;
         score_bytes[2] = 99;
     }
-
 }
 
 /*

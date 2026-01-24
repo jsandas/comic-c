@@ -967,21 +967,22 @@ void blit_8x16_sprite(uint16_t pixel_x, uint16_t pixel_y, const uint8_t __far *s
  * render_score_display - Render the 6-digit score on the game UI
  *
  * Displays the current score at the top of the screen.
- * Score is stored as 3 bytes in base-100 representation.
- * The score value is always ×100 of the display (e.g., stored 20 = displayed 2000).
+ * Score is stored as 3 bytes in base-100 representation using the formula:
+ *   score = score_bytes[0] + (score_bytes[1] * 100) + (score_bytes[2] * 10000)
  * 
- * Storage format (3 bytes):
- *   score_bytes[0] = first digit pair (0-99) - rightmost
- *   score_bytes[1] = second digit pair (0-99) - middle
- *   score_bytes[2] = third digit pair (0-99) - leftmost
+ * Storage format (3 bytes, base-100):
+ *   score_bytes[0] = rightmost digit pair (0-99, typically "00" since minimum award is 100 points)
+ *   score_bytes[1] = middle digit pair (0-99, represents hundreds and thousands)
+ *   score_bytes[2] = leftmost digit pair (0-99, represents ten-thousands and hundred-thousands)
  * 
  * Display format (6 decimal digits rendered at X=232-280):
- *   X=232-248: score_bytes[2] as 2 decimal digits (leftmost)
- *   X=248-264: score_bytes[1] as 2 decimal digits (middle)
- *   X=264-280: score_bytes[0] as 2 decimal digits (rightmost)
+ *   X=232-248: score_bytes[2] as 2 decimal digits (leftmost: ten-thousands place)
+ *   X=248-264: score_bytes[1] as 2 decimal digits (middle: thousands place)
+ *   X=264-280: score_bytes[0] as 2 decimal digits (rightmost: hundreds place, typically "00")
  * 
- * The UI graphic may show 8 zeros, but code only updates 6 digit positions.
- * Example: score_bytes=[0, 20, 0] displays as "002000" at X=232-280
+ * Each base-100 byte is converted to 2 decimal digits via division and modulo.
+ * Example: score_bytes=[0, 20, 0] represents score of 0 + (20*100) + 0 = 2000 and displays as "002000"
+ * Example: score_bytes=[0, 0, 5] represents score of 0 + 0 + (5*10000) = 50000 and displays as "500000"
  * 
  * Y coordinate is 24 (near top of screen).
  */

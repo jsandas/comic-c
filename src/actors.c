@@ -321,7 +321,7 @@ void handle_fireballs(void)
             enemies[j].state = ENEMY_STATE_WHITE_SPARK; /* Start death animation */
             fireballs[i].x = FIREBALL_DEAD;
             fireballs[i].y = FIREBALL_DEAD;
-            award_points(300);
+            award_points(3);  /* 3 * 100 = 300 points */
             play_sound(SOUND_HIT_ENEMY, 1);
             
             break; /* Fireball consumed, check next fireball */
@@ -412,7 +412,7 @@ void handle_item(void)
         if (y_diff >= 0 && y_diff < 4) {
             /* Collision detected - collect item! */
             items_collected[level_index][stage_index] = 1;
-            award_points(2000);
+            award_points(20);  /* 20 * 100 = 2000 points */
             play_sound(SOUND_COLLECT_ITEM, 3);
             
             /* Update game state based on item type */
