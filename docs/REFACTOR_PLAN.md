@@ -1,9 +1,9 @@
 # Captain Comic C Refactor Plan
 
-## Project Status (As of 2026-01-21)
+## Project Status (As of 2026-01-24)
 
-**Overall Progress**: Phase 5 COMPLETE - All core game systems implemented in C  
-**Latest Milestone**: Interrupt handlers (INT 8, INT 9) fully implemented in C  
+**Overall Progress**: Phase 4 Complete - All core game systems and UI rendering implemented in C  
+**Latest Milestone**: HP/Shield meter system fully implemented in C  
 **Current Focus**: Testing and validation (Phase 6)
 
 ### Recent Accomplishments
@@ -76,13 +76,30 @@
   - ✅ All teleport variables properly declared and integrated
   - ✅ Sound effects wired (SOUND_TELEPORT, SOUND_MATERIALIZE)
 
+### Recent Accomplishments (Continued)
+- ✅ **HP/Shield meter system fully implemented in C** - COMPLETED 2026-01-24
+  - ✅ `increment_comic_hp()` - Increments HP (0-6), renders full sprite at calculated position, awards 1800 bonus at max
+  - ✅ `decrement_comic_hp()` - Renders empty sprite before decrementing, plays SOUND_DAMAGE
+  - ✅ `render_comic_hp_meter()` - Renders all 6 cells as full/empty based on current HP
+  - ✅ HP meter displays at Y=82 with correct cell positions (248-288 pixels)
+  - ✅ Pending increase mechanism: `comic_hp_pending_increase` increments 1 per game tick
+  - ✅ Shield item collection with HP refill logic in `actors.c`
+  - ✅ Extra life award when Shield collected with full HP
+  - ✅ Visual health persistence during death/respawn sequences
+  - ✅ Fixed MAX_HP constant from 7 to 6 (6-cell display)
+  - ✅ Made `comic_hp_pending_increase` public for cross-module access
+  - ✅ All necessary extern declarations in actors.c
+  - ✅ Integration with game loop rendering phase
+  - ✅ Build verified with zero errors/warnings
+  - ✅ Committed to git repository (commit 0307d3d)
+
 ### Next Priority Items
-1. **Game UI Rendering** (Phase 4 Step 4) - IN PROGRESS
+1. **Game UI Rendering** (Phase 4 Step 4) ✅ **COMPLETE** - 2026-01-24
    - ✅ Inventory display (Door Key, Teleport Wand, Corkscrew, Shield) - COMPLETE
    - ✅ Score digit rendering (6-digit dynamic display) - COMPLETE
-   - HP meter visual display
-   - Fireball power meter visual display
-   - Shield indicator visual feedback
+   - ✅ Fireball power meter visual display - COMPLETE
+   - ✅ HP (Hit Points) meter visual display - COMPLETE
+   - ✅ Shield item collection with HP refill logic - COMPLETE
 2. **Testing and Validation** (Phase 6)
    - Create test scenarios for all implemented systems
    - Validate physics accuracy against original game
@@ -409,7 +426,7 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Menu navigation and input handling
    - ✅ Story/intro sequence display
 
-4. **Game UI Rendering** ⏳ **IN PROGRESS** - 2026-01-21
+4. **Game UI Rendering** ✅ **COMPLETE** - 2026-01-24
    - **Inventory display** ✅ **COMPLETE** - 2026-01-21
      - ✅ `render_inventory_display()` - Renders collected inventory items on UI
      - ✅ Displays Door Key at (280, 112) when collected
@@ -435,18 +452,20 @@ The refactoring approach has been revised to a **C-only entry point** model:
      - ✅ Fireball meter value ranges from 0-12 (6 cells × 2 units each)
      - ✅ Zero warnings/errors on build
    - **HP (Hit Points) meter** ✅ **COMPLETE** - 2026-01-24
-     - ✅ `increment_comic_hp()` - Increments HP and renders full sprite, awards bonus points when full
-     - ✅ `decrement_comic_hp()` - Decrements HP, renders empty sprite, and plays damage sound
-     - ✅ Displays at screen position (240, 82) with 6 units
-     - ✅ Each unit is 8 pixels wide, using 8x16 meter sprites
-     - ✅ HP value ranges from 0-6 (MAX_HP = 6)
+     - ✅ `increment_comic_hp()` - Increments HP and renders full sprite, awards 1800 bonus points when full
+     - ✅ `decrement_comic_hp()` - Decrements HP, renders empty sprite, and plays SOUND_DAMAGE
+     - ✅ `render_comic_hp_meter()` - Renders all 6 cells as full/empty based on current HP
+     - ✅ Displays at screen position (240, 82) with 6 cells at X = 248-288 pixels (8px apart)
+     - ✅ HP value ranges from 0-6 (MAX_HP = 6 in globals.h)
+     - ✅ Pending increase mechanism: `comic_hp_pending_increase` increments 1 per game tick
+     - ✅ Visual persistence during respawn: preserves `comic_hp` value, only sets `comic_hp_pending_increase`
      - ✅ Zero warnings/errors on build
-   - **Still needs implementation**:
-     - ❌ Lives display - Already renders icons, may need refresh logic verification
-   - **Technical requirements**:
-     - Verify HP meter renders correctly during gameplay
-     - UI update functions called from game loop when HP changes
-   - **Note**: Both fireball meter and HP meter are fully implemented
+   - **Shield item collection** ✅ **COMPLETE** - 2026-01-24
+     - ✅ Shield item refills HP via `comic_hp_pending_increase = MAX_HP` in actors.c
+     - ✅ Extra life awarded when Shield collected with full HP (`comic_hp >= MAX_HP`)
+     - ✅ Cross-module integration with extern declarations for `comic_hp_pending_increase`, `comic_num_lives`
+     - ✅ `comic_takes_damage()` calls `decrement_comic_hp()` for proper animation
+     - ✅ All changes committed to git (commit 0307d3d)
    - **Reference**: See `reference/disassembly/R5sw1991.asm` lines 5932-5987 for HP meter logic
 
 ### Phase 5: Sound and Input (Optional)
