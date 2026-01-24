@@ -889,12 +889,15 @@ int calibrate_joystick_interactive(void)
 /*
  * award_extra_life - Award an extra life to the player
  * 
- * Increments the number of lives if not already at maximum.
- * Updates the UI display with a bright life icon.
+ * Plays the extra life sound, increments the number of lives if not already at maximum,
+ * and updates the UI display with a bright life icon.
  */
 void award_extra_life(void)
 {
     uint16_t x_pixel, y_pixel;
+    
+    /* Play the extra life sound */
+    play_sound(SOUND_EXTRA_LIFE, 4);
     
     /* Increment lives if below max */
     if (comic_num_lives < MAX_NUM_LIVES) {
