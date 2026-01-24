@@ -432,8 +432,9 @@ void handle_item(void)
                         /* Full HP: award an extra life */
                         award_extra_life();
                     } else {
-                        /* Not full: schedule MAX_HP units of HP to be awarded */
-                        comic_hp_pending_increase = MAX_HP;
+                        /* Not full: schedule only the missing HP increments
+                         * For example, if comic_hp=3 and MAX_HP=6, schedule 3 increments */
+                        comic_hp_pending_increase = MAX_HP - comic_hp;
                     }
                     break;
                 case ITEM_TELEPORT_WAND:
