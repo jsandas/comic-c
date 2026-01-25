@@ -58,6 +58,10 @@ extern uint8_t comic_has_door_key;
 extern uint8_t comic_has_teleport_wand;
 extern uint8_t comic_has_corkscrew;
 extern uint8_t comic_has_shield;
+extern uint8_t comic_has_lantern;
+extern uint8_t comic_firepower;        /* Number of active fireball slots (controls Blastola Cola inventory display) */
+extern uint8_t comic_num_treasures;    /* Number of treasures collected (0-3, controls Crown/Gold/Gems display) */
+extern uint8_t comic_jump_power;       /* Jump power level (controls Boots display at >4) */
 
 /* Score data (defined in game_main.c) */
 extern uint8_t score_bytes[3];  /* 3-byte score in base-100 representation */
@@ -870,23 +874,36 @@ void blit_wxh(uint16_t dest_offset, const uint8_t __far *graphic, uint16_t width
 /*
  * render_inventory_display - Render inventory items on the game UI
  *
- * Displays the inventory items that Comic has collected on the UI background.
+ * Displays all inventory items that Comic has collected on the UI background.
  * Items are rendered at their fixed UI positions (from the original assembly).
  *
  * Inventory positions (pixel coordinates):
- *   Corkscrew:     (256, 112)
- *   Door Key:      (280, 112)
- *   Boots:         (232, 136)  - doesn't display sprite, just logic
- *   Lantern:       (256, 136)  - not yet used
- *   Teleport Wand: (280, 136)
- *   Gems:          (232, 160)  - tracked in comic_num_treasures, not displayed as sprite
+ *   Row 1 (Y=112):
+ *     Blastola Cola: (232, 112) - shown if comic_firepower > 0
+ *     Corkscrew:    (256, 112) - shown if comic_has_corkscrew = 1
+ *     Door Key:     (280, 112) - shown if comic_has_door_key = 1
+ *
+ *   Row 2 (Y=136):
+ *     Boots:        (232, 136) - shown if comic_jump_power > 4
+ *     Lantern:      (256, 136) - shown if comic_has_lantern = 1
+ *     Teleport Wand:(280, 136) - shown if comic_has_teleport_wand = 1
+ *
+ *   Row 3 (Y=160):
+ *     Gems:         (232, 160) - shown if comic_num_treasures > 0
+ *     Crown:        (256, 160) - shown if comic_num_treasures > 1
+ *     Gold:         (280, 160) - shown if comic_num_treasures > 2
  *
  * All inventory items are 16x16 sprites with even/odd plane data.
- * Items are only rendered if Comic has collected them (flags are non-zero).
+ * Items are only rendered if Comic has collected them.
  */
 void render_inventory_display(void)
 {
-    /* All inventory sprites are 16x16 pixels - blit to both video buffers */
+    /* Row 1 (Y=112) */
+    if (comic_firepower > 0) {
+        /* Render Blastola Cola at (232, 112) - has multiple animation frames */
+        /* Use frame 0 (sprite_blastola_cola_inventory_0_even_16x16m) */
+        blit_sprite_16x16_masked(232, 112, sprite_blastola_cola_even_16x16m);
+    }
     
     if (comic_has_corkscrew) {
         /* Render Corkscrew at (256, 112) */
@@ -898,14 +915,37 @@ void render_inventory_display(void)
         blit_sprite_16x16_masked(280, 112, sprite_door_key_even_16x16m);
     }
     
+    /* Row 2 (Y=136) */
+    if (comic_jump_power > 4) {
+        /* Render Boots at (232, 136) - shows when jump power exceeds default (Boots grant jump power 5) */
+        blit_sprite_16x16_masked(232, 136, sprite_boots_even_16x16m);
+    }
+    
+    if (comic_has_lantern) {
+        /* Render Lantern at (256, 136) - collected in Castle level */
+        blit_sprite_16x16_masked(256, 136, sprite_lantern_even_16x16m);
+    }
+    
     if (comic_has_teleport_wand) {
         /* Render Teleport Wand at (280, 136) */
         blit_sprite_16x16_masked(280, 136, sprite_teleport_wand_even_16x16m);
     }
     
-    /* NOTE: Boots and Lantern graphics are not rendered in inventory UI. 
-     * Boots affect jump_power but don't display. Lantern is not yet used. 
-     * Gems/treasures are tracked in comic_num_treasures, displayed as a counter. */
+    /* Row 3 (Y=160) - Treasures */
+    if (comic_num_treasures > 0) {
+        /* Render Gems at (232, 160) - first treasure */
+        blit_sprite_16x16_masked(232, 160, sprite_gems_even_16x16m);
+    }
+    
+    if (comic_num_treasures > 1) {
+        /* Render Crown at (256, 160) - second treasure */
+        blit_sprite_16x16_masked(256, 160, sprite_crown_even_16x16m);
+    }
+    
+    if (comic_num_treasures > 2) {
+        /* Render Gold at (280, 160) - third treasure */
+        blit_sprite_16x16_masked(280, 160, sprite_gold_even_16x16m);
+    }
 }
 
 

@@ -95,7 +95,7 @@
 
 ### Next Priority Items
 1. **Game UI Rendering** (Phase 4 Step 4) ✅ **COMPLETE** - 2026-01-24
-   - ✅ Inventory display (Door Key, Teleport Wand, Corkscrew, Shield) - COMPLETE
+   - ✅ Inventory display (Door Key, Teleport Wand, Corkscrew) - COMPLETE
    - ✅ Score digit rendering (6-digit dynamic display) - COMPLETE
    - ✅ Fireball power meter visual display - COMPLETE
    - ✅ HP (Hit Points) meter visual display - COMPLETE

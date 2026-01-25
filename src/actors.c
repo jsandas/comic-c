@@ -35,6 +35,8 @@ extern uint8_t comic_hp;                   /* Current hit points (0-10) */
 extern uint8_t comic_has_shield;           /* 1 if Shield item collected, 0 otherwise */
 extern uint8_t comic_has_door_key;         /* 1 if door key collected, 0 otherwise */
 extern uint8_t comic_has_teleport_wand;    /* 1 if teleport wand collected, 0 otherwise */
+extern uint8_t comic_has_lantern;          /* 1 if Lantern item collected, 0 otherwise */
+extern uint8_t comic_jump_power;           /* Jump power level (4 default, 5 with Boots) */
 extern uint8_t comic_hp_pending_increase;  /* Units of HP to award at 1 per tick */
 extern uint8_t comic_num_lives;            /* Current number of lives */
 
@@ -425,6 +427,14 @@ void handle_item(void)
                         comic_firepower++;
                     }
                     break;
+                case ITEM_BOOTS:
+                    /* Grant increased jump power */
+                    comic_jump_power = 5;
+                    break;
+                case ITEM_LANTERN:
+                    /* Grant light in dark areas (Castle level) */
+                    comic_has_lantern = 1;
+                    break;
                 case ITEM_SHIELD:
                     comic_has_shield = 1;
                     /* Check if Comic already has full HP */
@@ -440,6 +450,10 @@ void handle_item(void)
                 case ITEM_TELEPORT_WAND:
                     /* Grant teleport ability */
                     comic_has_teleport_wand = 1;
+                    break;
+                case ITEM_DOOR_KEY:
+                    /* Grant door opening ability */
+                    comic_has_door_key = 1;
                     break;
                 case ITEM_CROWN:
                 case ITEM_GOLD:

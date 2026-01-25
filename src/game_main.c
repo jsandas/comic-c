@@ -137,7 +137,11 @@ void debug_log(const char *format, ...)
 #define SCANCODE_ESC    0x01
 #define SCANCODE_Q      0x10
 #define SCANCODE_W      0x11
+#define SCANCODE_O      0x18
 #define SCANCODE_K      0x25
+#define SCANCODE_L      0x26
+#define SCANCODE_C      0x2E
+#define SCANCODE_B      0x30
 
 /* Global variables for initialization and game state */
 static uint8_t interrupt_handler_install_sentinel = 0;
@@ -197,12 +201,20 @@ uint8_t key_state_open = 0;
 uint8_t key_state_teleport = 0;
 static uint8_t key_state_cheat_wand = 0;  /* W key for teleport wand cheat */
 static uint8_t key_state_cheat_key = 0;   /* K key for door key cheat */
+static uint8_t key_state_cheat_cola = 0;  /* B key for Blastola Cola cheat */
+static uint8_t key_state_cheat_corkscrew = 0; /* C key for Corkscrew cheat */
+static uint8_t key_state_cheat_boots = 0; /* O key for Boots cheat */
+static uint8_t key_state_cheat_lantern = 0; /* L key for Lantern cheat */
 
 /* Previous frame input state (used for edge-triggered input like jump) */
 static uint8_t previous_key_state_jump = 0;
 static uint8_t previous_key_state_teleport = 0;
 static uint8_t previous_key_state_cheat_wand = 0;
 static uint8_t previous_key_state_cheat_key = 0;
+static uint8_t previous_key_state_cheat_cola = 0;
+static uint8_t previous_key_state_cheat_corkscrew = 0;
+static uint8_t previous_key_state_cheat_boots = 0;
+static uint8_t previous_key_state_cheat_lantern = 0;
 
 /* Flag set when teleport key edge is detected in update_keyboard_input() */
 static uint8_t teleport_key_pressed = 0;
@@ -220,6 +232,7 @@ uint8_t comic_has_teleport_wand = 0;
 uint8_t comic_firepower = 0;           /* Number of active fireball slots (0-5) */
 uint8_t comic_has_corkscrew = 0;       /* 1 if Corkscrew item collected */
 uint8_t comic_has_shield = 0;          /* 1 if Shield item collected */
+uint8_t comic_has_lantern = 0;         /* 1 if Lantern item collected (only affects darkness in Castle level) */
 
 /* Score - 3 bytes (24-bit value) to store up to 999,999 points */
 uint8_t score_bytes[3] = {0, 0, 0};  /* Little-endian: byte 0 is LSB, byte 2 is MSB */
@@ -2777,6 +2790,10 @@ static void dos_idle(void)
  * Current cheats:
  *   W key - Grant teleport wand for testing teleportation feature
  *   K key - Grant door key for testing door opening feature
+ *   B key - Grant Blastola Cola for testing fireball feature
+ *   C key - Grant Corkscrew for testing fireball corkscrew motion
+ *   O key - Grant Boots for testing increased jump power
+ *   L key - Grant Lantern for testing Castle level lighting
  */
 static void handle_cheat_codes(void)
 {
@@ -2793,6 +2810,42 @@ static void handle_cheat_codes(void)
     if (key_state_cheat_key && !previous_key_state_cheat_key) {
         if (comic_has_door_key == 0) {
             comic_has_door_key = 1;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
+    
+    /* B key: Grant Blastola Cola (edge-triggered on press) */
+    if (key_state_cheat_cola && !previous_key_state_cheat_cola) {
+        if (comic_firepower < MAX_NUM_FIREBALLS) {
+            comic_firepower++;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
+    
+    /* C key: Grant Corkscrew (edge-triggered on press) */
+    if (key_state_cheat_corkscrew && !previous_key_state_cheat_corkscrew) {
+        if (comic_has_corkscrew == 0) {
+            comic_has_corkscrew = 1;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
+    
+    /* O key: Grant Boots (edge-triggered on press) */
+    if (key_state_cheat_boots && !previous_key_state_cheat_boots) {
+        if (comic_jump_power < 5) {
+            comic_jump_power = 5;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
+    
+    /* L key: Grant Lantern (edge-triggered on press) */
+    if (key_state_cheat_lantern && !previous_key_state_cheat_lantern) {
+        if (comic_has_lantern == 0) {
+            comic_has_lantern = 1;
             /* Play item collection sound for feedback */
             play_sound(SOUND_COLLECT_ITEM, 3);
         }
@@ -2866,6 +2919,14 @@ static void update_keyboard_input(void)
             key_state_cheat_wand = (uint8_t)(!is_break);  /* W key - cheat code */
         } else if (code == SCANCODE_K) {
             key_state_cheat_key = (uint8_t)(!is_break);  /* K key - cheat code */
+        } else if (code == SCANCODE_B) {
+            key_state_cheat_cola = (uint8_t)(!is_break);  /* B key - cheat code */
+        } else if (code == SCANCODE_C) {
+            key_state_cheat_corkscrew = (uint8_t)(!is_break);  /* C key - cheat code */
+        } else if (code == SCANCODE_O) {
+            key_state_cheat_boots = (uint8_t)(!is_break);  /* O key - cheat code */
+        } else if (code == SCANCODE_L) {
+            key_state_cheat_lantern = (uint8_t)(!is_break);  /* L key - cheat code */
         }
     }
 }
@@ -2981,6 +3042,10 @@ void game_loop(void)
         previous_key_state_teleport = key_state_teleport;
         previous_key_state_cheat_wand = key_state_cheat_wand;
         previous_key_state_cheat_key = key_state_cheat_key;
+        previous_key_state_cheat_cola = key_state_cheat_cola;
+        previous_key_state_cheat_corkscrew = key_state_cheat_corkscrew;
+        previous_key_state_cheat_boots = key_state_cheat_boots;
+        previous_key_state_cheat_lantern = key_state_cheat_lantern;
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
