@@ -70,16 +70,16 @@ void debug_log_close(void);
 #define MAX_HP                  6      /* Maximum hit points */
 #define MAX_FIREBALL_METER      12     /* Maximum fireball meter units */
 
-/* ===== Score Macros (Score Storage: 3-byte little-endian format) ===== */
-/* The score is stored as 3 bytes in little-endian order:
- *   score_bytes[0] = LSB (low byte, bits 0-7)
- *   score_bytes[1] = middle byte (bits 8-15)
- *   score_bytes[2] = MSB (high byte, bits 16-23)
+/* ===== Score Macros (Score Storage: 3-byte base-100 digit-pair encoding) ===== */
+/* The score is stored as 3 bytes in base-100 representation, where each byte holds
+ * a digit pair (0-99) representing two decimal digits:
+ *   score_bytes[0] = ones/tens place (0-99, contributes 0-99 to total)
+ *   score_bytes[1] = hundreds/thousands place (0-99, contributes 0-9900 to total)
+ *   score_bytes[2] = ten-thousands/hundred-thousands place (0-99, contributes 0-990000 to total)
  * 
- * This is a standard 24-bit little-endian integer representation with a theoretical
- * range of 0 to 16,777,215 (2^24 - 1). The game logic caps the score at 999,999
- * via overflow checking in the award_points function.
- * This format matches the original assembly implementation.
+ * Maximum supported score: 999,999 (99 + 99*100 + 99*10000)
+ * The game logic enforces this cap via overflow checking in award_points().
+ * This base-100 encoding matches the original assembly implementation.
  */
 
 /* score_get_value - Reconstruct a 32-bit score from three base-100 bytes
