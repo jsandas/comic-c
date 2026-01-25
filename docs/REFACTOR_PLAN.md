@@ -413,11 +413,14 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - ✅ Added `comic_num_treasures` variable for treasure tracking
    - ✅ Implemented `game_over()` - Display game over screen with graphic overlay
    - ✅ Implemented `game_end_sequence()` - Victory animation with score tallying
-   - ✅ Implemented `award_points()` - Points system with 3-byte (24-bit) score storage (0-999,999)
+   - ✅ Implemented `award_points()` - Points system with 3-byte base-100 digit-pair encoding (0-999,999 displayed points)
+     - ✅ Each byte stores 0-99 representing one digit-pair (two decimal digits)
+     - ✅ Each unit passed to `award_points()` represents 100 displayed points (e.g., award_points(18) = 1800 points)
+     - ✅ Score stored as: byte[0] (ones/tens) + byte[1] (hundreds/thousands) + byte[2] (ten-thousands/hundred-thousands)
    - ✅ Updated `comic_dies()` - Integrated game over check and respawn logic
    - ✅ Updated game loop - Call `game_end_sequence()` when win_counter reaches 1
    - ✅ Fixed `lose_a_life()` - Properly decrements lives and checks game over condition
-   - ✅ Score overflow protection - Prevents score exceeding 999,999 points
+   - ✅ Score overflow protection - Prevents score exceeding 999,999 points with carry propagation
    - ✅ Keyboard input handling - Clear buffer and wait for keystroke on game over/victory
    - ✅ Successfully compiled with zero warnings/errors
 
