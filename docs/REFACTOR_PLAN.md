@@ -466,7 +466,7 @@ The refactoring approach has been revised to a **C-only entry point** model:
    - **Shield item collection** ✅ **COMPLETE** - 2026-01-24
      - ✅ Shield item schedules missing HP increases: `comic_hp_pending_increase = MAX_HP - comic_hp` in actors.c
      - ✅ Over the next N ticks (where N = missing HP), counter decrements while `increment_comic_hp()` is called each tick
-     - ✅ Extra life awarded when Shield collected with full HP (`comic_hp >= MAX_HP`), triggering 6 pending increments to enable overcharge bonus
+     - ✅ Extra life awarded when Shield is collected with full HP (`comic_hp >= MAX_HP`); if Comic already has maximum lives (`comic_num_lives >= MAX_NUM_LIVES`), `award_extra_life()` instead sets `comic_hp_pending_increase = MAX_HP` (6 pending increments) to enable the overcharge bonus
      - ✅ Cross-module integration with extern declarations for `comic_hp_pending_increase`, `comic_num_lives`
      - ✅ `comic_takes_damage()` calls `decrement_comic_hp()` for proper animation
      - ✅ All changes committed to git (commit 0307d3d)
