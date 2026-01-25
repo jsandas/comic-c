@@ -14,6 +14,7 @@
 #include "level_data.h"
 #include "globals.h"
 #include "graphics.h"
+#include "player.h"
 #include "file_loaders.h"
 #include "sprite_data.h"
 #include "sound.h"
