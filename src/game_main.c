@@ -2512,29 +2512,35 @@ void comic_death_animation(void)
  * 
  * This function is called when Comic falls off the bottom of the screen
  * or when his HP is reduced to zero. It:
- * 1. Sets Comic's animation to COMIC_JUMPING
- * 2. Blits Comic and the map to the offscreen buffer
- * 3. Swaps video buffers to show the death frame
+ * 1. Sets Comic's animation based on the type of death
+ * 2. For falling deaths: blits partial Comic sprite (feet off screen)
+ * 3. For enemy collision deaths: skips sprite rendering (already played animation)
  * 4. Plays the "Too Bad" sound effect
  * 5. Either respawns Comic with one less life, or ends the game
+ * 
+ * Uses inhibit_death_by_enemy_collision flag to distinguish:
+ * - Flag == 0: falling death (show partial sprite)
+ * - Flag == 1: enemy collision death (skip sprite, jump to .too_bad equivalent)
  */
 void comic_dies(void)
 {
-    /* Set Comic's animation to jumping as he falls */
-    comic_animation = COMIC_JUMPING;
-    
-    /* If Comic is still visible on screen (y < PLAYFIELD_HEIGHT), show the death animation */
-    if (comic_y < PLAYFIELD_HEIGHT) {
-        /* Blit the map and Comic's current position */
-        blit_map_playfield_offscreen();
-        blit_comic_playfield_offscreen();
-        swap_video_buffers();
+    /* Check if we're coming from the death animation (enemy collision) */
+    if (inhibit_death_by_enemy_collision == 0) {
+        /* This is a falling death - show Comic partially visible as he falls off */
+        comic_animation = COMIC_JUMPING;
         
-        /* Wait briefly to show the death frame */
-        wait_n_ticks(1);
+        if (comic_y < PLAYFIELD_HEIGHT) {
+            /* Blit the map and partial Comic sprite */
+            blit_map_playfield_offscreen();
+            blit_comic_playfield_offscreen();
+            swap_video_buffers();
+            
+            /* Wait briefly to show the death frame */
+            wait_n_ticks(1);
+        }
     }
     
-    /* Blit final frame and swap buffers */
+    /* Common path for both death types */
     blit_map_playfield_offscreen();
     swap_video_buffers();
     
