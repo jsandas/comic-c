@@ -457,12 +457,13 @@ The refactoring approach has been revised to a **C-only entry point** model:
      - ✅ `render_comic_hp_meter()` - Renders all 6 cells as full/empty based on current HP
      - ✅ Displays at screen position (240, 82) with 6 cells at X = 248-288 pixels (8px apart)
      - ✅ HP value ranges from 0-6 (MAX_HP = 6 in globals.h)
-     - ✅ Pending increase mechanism: `comic_hp_pending_increase` increments 1 per game tick
+     - ✅ Pending increase mechanism: `comic_hp_pending_increase` counter is decremented 1 per game tick while `increment_comic_hp()` is called
      - ✅ Visual persistence during respawn: preserves `comic_hp` value, only sets `comic_hp_pending_increase`
      - ✅ Zero warnings/errors on build
    - **Shield item collection** ✅ **COMPLETE** - 2026-01-24
-     - ✅ Shield item refills HP via `comic_hp_pending_increase = MAX_HP` in actors.c
-     - ✅ Extra life awarded when Shield collected with full HP (`comic_hp >= MAX_HP`)
+     - ✅ Shield item schedules missing HP increases: `comic_hp_pending_increase = MAX_HP - comic_hp` in actors.c
+     - ✅ Over the next N ticks (where N = missing HP), counter decrements while `increment_comic_hp()` is called each tick
+     - ✅ Extra life awarded when Shield collected with full HP (`comic_hp >= MAX_HP`), triggering 6 pending increments to enable overcharge bonus
      - ✅ Cross-module integration with extern declarations for `comic_hp_pending_increase`, `comic_num_lives`
      - ✅ `comic_takes_damage()` calls `decrement_comic_hp()` for proper animation
      - ✅ All changes committed to git (commit 0307d3d)
