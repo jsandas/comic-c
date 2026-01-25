@@ -2102,9 +2102,9 @@ static void render_comic_hp_meter(void)
     uint8_t i;
     uint16_t x_pos;
     
-    /* Render exactly 6 cells (cells 1 through 6) */
+    /* Render exactly MAX_HP cells (cells 1 through MAX_HP) */
     /* Cell N is at x = 240 + (N * 8) */
-    for (i = 1; i <= 6; i++) {
+    for (i = 1; i <= MAX_HP; i++) {
         x_pos = 240 + (i * 8);
         if (i <= comic_hp) {
             /* Full cell */
