@@ -2487,12 +2487,11 @@ void comic_death_animation(void)
             default: death_frame_ptr = sprite_comic_death_0_16x32m; break;
         }
         
-        /* Calculate Comic's pixel position for blitting the death animation
-         * Comic's playfield position (in game units) to pixel coordinates:
-         * X: (game_units - camera_x) * 8 pixels/unit
-         * Y: game_units * 8 pixels/unit */
-        pixel_x = ((int16_t)comic_x - (int16_t)camera_x) * 8;
-        pixel_y = (int16_t)comic_y * 8;
+        /* Calculate Comic's pixel position for blitting the death animation.
+         * Add +8 offsets to align within the playfield (top-left at 8,8),
+         * matching blit_comic_playfield_offscreen and enemy rendering. */
+        pixel_x = (((int16_t)comic_x - (int16_t)camera_x) * 8) + 8;
+        pixel_y = ((int16_t)comic_y * 8) + 8;
         
         /* Blit the death animation frame with transparency to the offscreen buffer */
         blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, death_frame_ptr);
