@@ -2554,31 +2554,30 @@ void comic_dies(void)
     if (comic_num_lives == 0) {
         /* No lives left - show game over screen */
         game_over();
+        return;
     }
     
-    /* Respawn Comic at the checkpoint position for this level/stage */
-    comic_x = comic_x_checkpoint;
-    comic_y = comic_y_checkpoint;
+    /* Reset core movement/animation state for respawn (match assembly intent) */
     comic_run_cycle = 0;
     comic_is_falling_or_jumping = 0;
     comic_x_momentum = 0;
     comic_y_vel = 0;
-    comic_jump_counter = comic_jump_power;  /* Use current jump power (may be 5 if Boots collected) */
+    comic_jump_counter = comic_jump_power;  /* fix assembly bug: respect Boots jump power */
     comic_animation = COMIC_STANDING;
     
-    /* Queue only the missing HP to refill */
-    /* IMPORTANT: We keep comic_hp at its current value (showing the HP state at death)
-     * and only queue the missing portion to refill. This way the HP meter visually
-     * remains at whatever it was when Comic died, then refills only the missing cells.
-     * For example, if Comic had 3/6 HP and dies, the meter shows 3 cells, then refills
-     * to show 4, 5, 6 cells as comic_hp increments.
-     * 
-     * By setting pending = MAX_HP - current_hp, we ensure no bonus points are awarded:
-     * - If current_hp = 6: pending = 0, so no increments happen
-     * - If current_hp < 6: pending increments from current_hp to MAX_HP, avoiding >= MAX_HP checks
-     * 
-     * This matches the original assembly behavior exactly. */
-    comic_hp_pending_increase = MAX_HP - comic_hp;
+    /* HP refill behavior on respawn: keep visible meter state and only refill missing cells */
+    /* This preserves the current HP display and avoids bonus points while refilling */
+    comic_hp_pending_increase = (comic_hp < MAX_HP) ? (MAX_HP - comic_hp) : 0;
+    
+    /* Reset fireball meter counter per assembly */
+    fireball_meter_counter = 2;
+    
+    /* Ensure we are not considered teleporting and not coming from a door */
+    comic_is_teleporting = 0;
+    source_door_level_number = -1;
+    
+    /* Reload stage to position Comic at checkpoint, clamp camera, and redraw */
+    load_new_stage();
 }
 
 /*
