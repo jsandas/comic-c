@@ -140,6 +140,7 @@ void debug_log(const char *format, ...)
 #define SCANCODE_O      0x18
 #define SCANCODE_K      0x25
 #define SCANCODE_L      0x26
+#define SCANCODE_S      0x1F
 #define SCANCODE_C      0x2E
 #define SCANCODE_B      0x30
 
@@ -205,6 +206,7 @@ static uint8_t key_state_cheat_cola = 0;  /* B key for Blastola Cola cheat */
 static uint8_t key_state_cheat_corkscrew = 0; /* C key for Corkscrew cheat */
 static uint8_t key_state_cheat_boots = 0; /* O key for Boots cheat */
 static uint8_t key_state_cheat_lantern = 0; /* L key for Lantern cheat */
+static uint8_t key_state_cheat_shield = 0; /* S key for Shield cheat */
 
 /* Previous frame input state (used for edge-triggered input like jump) */
 static uint8_t previous_key_state_jump = 0;
@@ -215,6 +217,7 @@ static uint8_t previous_key_state_cheat_cola = 0;
 static uint8_t previous_key_state_cheat_corkscrew = 0;
 static uint8_t previous_key_state_cheat_boots = 0;
 static uint8_t previous_key_state_cheat_lantern = 0;
+static uint8_t previous_key_state_cheat_shield = 0;
 
 /* Flag set when teleport key edge is detected in update_keyboard_input() */
 static uint8_t teleport_key_pressed = 0;
@@ -2859,6 +2862,23 @@ static void handle_cheat_codes(void)
             play_sound(SOUND_COLLECT_ITEM, 3);
         }
     }
+    
+    /* S key: Grant Shield (edge-triggered on press) */
+    if (key_state_cheat_shield && !previous_key_state_cheat_shield) {
+        if (comic_has_shield == 0) {
+            comic_has_shield = 1;
+            /* Check if Comic already has full HP */
+            if (comic_hp >= MAX_HP) {
+                /* Full HP: award an extra life */
+                award_extra_life();
+            } else {
+                /* Not full: schedule only the missing HP increments */
+                comic_hp_pending_increase = MAX_HP - comic_hp;
+            }
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
 }
 
 /*
@@ -2936,6 +2956,8 @@ static void update_keyboard_input(void)
             key_state_cheat_boots = (uint8_t)(!is_break);  /* O key - cheat code */
         } else if (code == SCANCODE_L) {
             key_state_cheat_lantern = (uint8_t)(!is_break);  /* L key - cheat code */
+        } else if (code == SCANCODE_S) {
+            key_state_cheat_shield = (uint8_t)(!is_break);  /* S key - cheat code */
         }
     }
 }
@@ -3055,6 +3077,7 @@ void game_loop(void)
         previous_key_state_cheat_corkscrew = key_state_cheat_corkscrew;
         previous_key_state_cheat_boots = key_state_cheat_boots;
         previous_key_state_cheat_lantern = key_state_cheat_lantern;
+        previous_key_state_cheat_shield = key_state_cheat_shield;
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
