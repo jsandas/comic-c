@@ -183,6 +183,9 @@ uint16_t camera_x = 0;
 /* Landing sentinel: set by physics when hitting ground; clears each tick */
 uint8_t landed_this_tick = 0;
 
+/* Death animation state - prevents re-entering death animation during enemy collisions */
+uint8_t inhibit_death_by_enemy_collision = 0;
+
 /* Teleport state */
 static uint8_t teleport_animation = 0;
 static uint8_t teleport_source_x = 0;
@@ -2434,6 +2437,75 @@ void load_new_stage(void)
     
     /* Reset source_door_level_number to -1 (normal entry) for future transitions */
     source_door_level_number = -1;
+}
+
+/*
+ * comic_death_animation - Play the 8-frame death animation when Comic takes lethal damage
+ * 
+ * This function displays an 8-frame animation of Comic's death using the sprite_comic_death_*
+ * frames. It continues to handle enemies and items during the animation so they can move
+ * and be rendered. The function is called from comic_takes_damage when HP reaches zero.
+ * 
+ * The animation sequence:
+ * - Frames 0-3: Comic sprite is drawn under the death animation
+ * - Frames 4-7: Only death animation is shown (Comic is "gone")
+ * - Each frame lasts 1 tick
+ */
+void comic_death_animation(void)
+{
+    uint8_t frame;
+    const uint8_t *death_frame_ptr;
+    int16_t pixel_x;
+    int16_t pixel_y;
+    
+    /* Play the death sound effect */
+    play_sound(SOUND_DEATH, 4);  /* priority 4 */
+    
+    /* Play all 8 frames of the death animation */
+    for (frame = 0; frame < 8; frame++) {
+        /* Blit the map to the offscreen buffer */
+        blit_map_playfield_offscreen();
+        
+        /* For the first 4 frames (0-3), draw Comic under the death animation */
+        if (frame < 4) {
+            blit_comic_playfield_offscreen();
+        }
+        
+        /* Continue updating enemies while the animation plays */
+        handle_enemies();
+        
+        /* Get the death animation frame sprite (16x32) */
+        switch (frame) {
+            case 0: death_frame_ptr = sprite_comic_death_0_16x32m; break;
+            case 1: death_frame_ptr = sprite_comic_death_1_16x32m; break;
+            case 2: death_frame_ptr = sprite_comic_death_2_16x32m; break;
+            case 3: death_frame_ptr = sprite_comic_death_3_16x32m; break;
+            case 4: death_frame_ptr = sprite_comic_death_4_16x32m; break;
+            case 5: death_frame_ptr = sprite_comic_death_5_16x32m; break;
+            case 6: death_frame_ptr = sprite_comic_death_6_16x32m; break;
+            case 7: death_frame_ptr = sprite_comic_death_7_16x32m; break;
+            default: death_frame_ptr = sprite_comic_death_0_16x32m; break;
+        }
+        
+        /* Calculate Comic's pixel position for blitting the death animation
+         * Comic's playfield position (in game units) to pixel coordinates:
+         * X: (game_units - camera_x) * 8 pixels/unit
+         * Y: game_units * 8 pixels/unit */
+        pixel_x = ((int16_t)comic_x - (int16_t)camera_x) * 8;
+        pixel_y = (int16_t)comic_y * 8;
+        
+        /* Blit the death animation frame with transparency to the offscreen buffer */
+        blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, death_frame_ptr);
+        
+        /* Continue updating items while the animation plays */
+        handle_item();
+        
+        /* Display the frame */
+        swap_video_buffers();
+        
+        /* Wait 1 tick per frame */
+        wait_n_ticks(1);
+    }
 }
 
 /*

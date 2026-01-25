@@ -66,8 +66,12 @@ extern uint8_t enemy_respawn_counter_cycle; /* Cycles: 20→40→60→80→100�
 
 /* Forward declarations for external functions */
 extern void comic_dies(void);               /* Game over sequence from physics.c */
+extern void comic_death_animation(void);    /* Death animation from game_main.c */
 extern void award_points(uint16_t points);  /* Award points from game_main.c */
 extern void award_extra_life(void);         /* Award extra life from game_main.c */
+
+/* Death animation state */
+extern uint8_t inhibit_death_by_enemy_collision; /* Set during death animation to prevent re-entry */
 
 /* ===== Actor Arrays ===== */
 enemy_t enemies[MAX_NUM_ENEMIES];
@@ -86,7 +90,7 @@ static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uin
  * comic_takes_damage - Reduce Comic's HP and start shield/death animation
  * 
  * If Comic has shield, remove shield instead of losing HP.
- * If HP reaches 0, trigger death sequence.
+ * If HP reaches 0, trigger death animation sequence.
  */
 static void comic_takes_damage(void)
 {
@@ -96,8 +100,11 @@ static void comic_takes_damage(void)
     } else if (comic_hp > 0) {
         decrement_comic_hp();
         if (comic_hp == 0) {
-            /* Comic is dead - trigger game over sequence */
-            comic_dies();
+            /* Comic is dead - trigger death animation then respawn/game over sequence */
+            inhibit_death_by_enemy_collision = 1;
+            comic_death_animation();
+            inhibit_death_by_enemy_collision = 0;
+            comic_dies();  /* Handle respawn or game over */
         }
     }
 }
@@ -840,8 +847,20 @@ void handle_enemies(void)
                 if (y_diff >= 0 && y_diff < 4) {
                     /* Collision detected! */
                     enemy->state = ENEMY_STATE_RED_SPARK; /* Start red spark death animation */
-                    comic_takes_damage();
-                    play_sound(SOUND_DAMAGE, 2);
+                    
+                    /* Check if Comic should die from this hit.
+                     * This happens when Comic's HP is 0 (fully depleted, just respawned)
+                     * and we're not already playing the death animation. */
+                    if (comic_hp == 0 && inhibit_death_by_enemy_collision == 0) {
+                        /* Comic is killed by this enemy collision - play death animation */
+                        inhibit_death_by_enemy_collision = 1;
+                        comic_death_animation();
+                        inhibit_death_by_enemy_collision = 0;
+                        comic_dies();  /* Handle respawn or game over */
+                    } else {
+                        /* Comic survives this hit - decrement HP and continue */
+                        decrement_comic_hp();
+                    }
                     continue;
                 }
             }
