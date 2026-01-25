@@ -10,9 +10,7 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
-/* HP meter management */
+/* HP management - called from actors.c when Comic takes damage */
 void decrement_comic_hp(void);
-void increment_comic_hp(void);
-void render_comic_hp_meter(void);
 
 #endif /* PLAYER_H */
