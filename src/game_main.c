@@ -117,7 +117,6 @@ void debug_log(const char *format, ...)
 
 /* Game constants */
 #define MAX_NUM_LIVES           5
-#define MAX_HP                  7
 #define TELEPORT_DISTANCE       6   /* How many game units a teleport moves Comic horizontally */
 
 /*
@@ -138,7 +137,12 @@ void debug_log(const char *format, ...)
 #define SCANCODE_ESC    0x01
 #define SCANCODE_Q      0x10
 #define SCANCODE_W      0x11
+#define SCANCODE_O      0x18
 #define SCANCODE_K      0x25
+#define SCANCODE_L      0x26
+#define SCANCODE_S      0x1F
+#define SCANCODE_C      0x2E
+#define SCANCODE_B      0x30
 
 /* Global variables for initialization and game state */
 static uint8_t interrupt_handler_install_sentinel = 0;
@@ -173,8 +177,8 @@ uint8_t comic_jump_power = JUMP_POWER_DEFAULT;  /* Base jump power (4 default, 5
 uint8_t ceiling_stick_flag = 0;  /* Whether Comic is jumping upward against a ceiling */
 uint8_t comic_fall_delay = 0;  /* Ticks to hover at jump apex */
 const level_t *current_level_ptr = NULL;  /* Pointer to current level data */
-uint8_t comic_hp = MAX_HP;
-static uint8_t comic_hp_pending_increase = 0;
+uint8_t comic_hp = 0;  /* Start at 0, will fill to MAX_HP via pending_increase */
+uint8_t comic_hp_pending_increase = MAX_HP;  /* Fill HP at game start */
 uint16_t camera_x = 0;
 /* Landing sentinel: set by physics when hitting ground; clears each tick */
 uint8_t landed_this_tick = 0;
@@ -198,12 +202,22 @@ uint8_t key_state_open = 0;
 uint8_t key_state_teleport = 0;
 static uint8_t key_state_cheat_wand = 0;  /* W key for teleport wand cheat */
 static uint8_t key_state_cheat_key = 0;   /* K key for door key cheat */
+static uint8_t key_state_cheat_cola = 0;  /* B key for Blastola Cola cheat */
+static uint8_t key_state_cheat_corkscrew = 0; /* C key for Corkscrew cheat */
+static uint8_t key_state_cheat_boots = 0; /* O key for Boots cheat */
+static uint8_t key_state_cheat_lantern = 0; /* L key for Lantern cheat */
+static uint8_t key_state_cheat_shield = 0; /* S key for Shield cheat */
 
 /* Previous frame input state (used for edge-triggered input like jump) */
 static uint8_t previous_key_state_jump = 0;
 static uint8_t previous_key_state_teleport = 0;
 static uint8_t previous_key_state_cheat_wand = 0;
 static uint8_t previous_key_state_cheat_key = 0;
+static uint8_t previous_key_state_cheat_cola = 0;
+static uint8_t previous_key_state_cheat_corkscrew = 0;
+static uint8_t previous_key_state_cheat_boots = 0;
+static uint8_t previous_key_state_cheat_lantern = 0;
+static uint8_t previous_key_state_cheat_shield = 0;
 
 /* Flag set when teleport key edge is detected in update_keyboard_input() */
 static uint8_t teleport_key_pressed = 0;
@@ -212,7 +226,7 @@ static uint8_t teleport_key_pressed = 0;
 uint8_t minimum_jump_frames = 0;
 
 /* Fireball state */
-static uint8_t fireball_meter = 100;
+static uint8_t fireball_meter = 0;   /* Start with empty fireball meter */
 static uint8_t fireball_meter_counter = 2;
 
 /* Item collection state */
@@ -221,6 +235,7 @@ uint8_t comic_has_teleport_wand = 0;
 uint8_t comic_firepower = 0;           /* Number of active fireball slots (0-5) */
 uint8_t comic_has_corkscrew = 0;       /* 1 if Corkscrew item collected */
 uint8_t comic_has_shield = 0;          /* 1 if Shield item collected */
+uint8_t comic_has_lantern = 0;         /* 1 if Lantern item collected (only affects darkness in Castle level) */
 
 /* Score - 3 bytes (24-bit value) to store up to 999,999 points */
 uint8_t score_bytes[3] = {0, 0, 0};  /* Little-endian: byte 0 is LSB, byte 2 is MSB */
@@ -324,6 +339,8 @@ void game_loop(void);
 void blit_map_playfield_offscreen(void);
 void blit_comic_playfield_offscreen(void);
 void swap_video_buffers(void);
+void render_inventory_display(void);
+void render_score_display(void);
 static void clear_bios_keyboard_buffer(void);
 static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
@@ -888,26 +905,38 @@ int calibrate_joystick_interactive(void)
 /*
  * award_extra_life - Award an extra life to the player
  * 
- * Increments the number of lives if not already at maximum.
- * Updates the UI display with a bright life icon.
+ * Plays the extra life sound, increments the number of lives if not already at maximum,
+ * and updates the UI display with a bright life icon.
  */
 void award_extra_life(void)
 {
     uint16_t x_pixel, y_pixel;
     
-    /* Increment lives if below max */
-    if (comic_num_lives < MAX_NUM_LIVES) {
-        comic_num_lives++;
-        
-        /* Display the bright life icon at the appropriate position
-         * Icons start at x=24, then each life is at x = 24 + (life_count * 24) pixels
-         * After incrementing, comic_num_lives contains the NEW count */
-        x_pixel = 24 + (comic_num_lives * 24);
-        y_pixel = 180;
-        
-        /* Blit the bright life icon to both gameplay buffers */
-        blit_sprite_16x16_masked(x_pixel, y_pixel, sprite_life_icon_bright);
+    /* Play the extra life sound */
+    play_sound(SOUND_EXTRA_LIFE, 4);
+    
+    /* Check if already at max lives */
+    if (comic_num_lives >= MAX_NUM_LIVES) {
+        /* Already at maximum lives: refill HP and award 22500 points (75 + 75 + 75 = 225 * 100)
+         * Set HP refill unconditionally - if HP is already full, increment_comic_hp will award bonus points */
+        comic_hp_pending_increase = MAX_HP;
+        award_points(75);
+        award_points(75);
+        award_points(75);
+        return;
     }
+    
+    /* Increment lives if below max */
+    comic_num_lives++;
+    
+    /* Display the bright life icon at the appropriate position
+     * Icons start at x=24, then each life is at x = 24 + (life_count * 24) pixels
+     * After incrementing, comic_num_lives contains the NEW count */
+    x_pixel = 24 + (comic_num_lives * 24);
+    y_pixel = 180;
+    
+    /* Blit the bright life icon to both gameplay buffers */
+    blit_sprite_16x16_masked(x_pixel, y_pixel, sprite_life_icon_bright);
 }
 
 /*
@@ -1776,16 +1805,88 @@ static void beam_out(void)
 
 static void decrement_fireball_meter(void)
 {
-    if (fireball_meter > 0) {
-        fireball_meter--;
+    uint8_t old_meter_val;
+    uint8_t cell_num;
+    uint16_t x_pos;
+    const uint8_t __far *sprite_to_render;
+    
+    if (fireball_meter == 0) {
+        return;
     }
+    
+    /* Save old meter value before decrementing */
+    old_meter_val = fireball_meter;
+    
+    /* Decrement the meter */
+    fireball_meter--;
+    
+    /* Calculate cell position using (old_meter + 1) / 2
+     * This matches the assembly: mov ah, al; inc al; shr al, 1 */
+    cell_num = (old_meter_val + 1) >> 1;
+    
+    /* No need to cap - the offset naturally goes up to 6 for meter 12 */
+    
+    /* Determine sprite based on OLD meter value (before decrement):
+     * If OLD meter is odd: GRAPHIC_METER_EMPTY
+     * If OLD meter is even: GRAPHIC_METER_HALF */
+    if (old_meter_val & 1) {
+        /* Old meter was odd - draw empty cell */
+        sprite_to_render = sprite_meter_empty_8x16;
+    } else {
+        /* Old meter was even - draw half-full cell */
+        sprite_to_render = sprite_meter_half_8x16;
+    }
+    
+    /* Calculate X position: base at 240 (not 248), add cell_num * 8 pixels
+     * This matches the assembly: pixel_coords(240, 54) + ax */
+    x_pos = 240 + (cell_num << 3);
+    
+    /* Render the meter cell at Y=54 */
+    blit_8x16_sprite(x_pos, 54, sprite_to_render);
 }
 
 static void increment_fireball_meter(void)
 {
-    if (fireball_meter < 100) {
-        fireball_meter++;
+    uint8_t meter_val;
+    uint8_t cell_num;
+    uint16_t x_pos;
+    const uint8_t __far *sprite_to_render;
+    
+    if (fireball_meter > MAX_FIREBALL_METER - 1) {
+        return;
     }
+    
+    fireball_meter++;
+    
+    /* After incrementing, use the NEW meter value for calculations */
+    meter_val = fireball_meter;
+    
+    /* Calculate which cell to display: cell_num = (meter - 1) / 2
+     * This maps: meter 1-2→cell 0, 3-4→cell 1, 5-6→cell 2, ..., 11-12→cell 5 */
+    cell_num = (meter_val - 1) >> 1;
+    
+    /* Cap cell at 5 to stay within the 6-cell display box */
+    if (cell_num > 5) {
+        cell_num = 5;
+    }
+    
+    /* Determine which sprite to render for the final cell:
+     * If meter is odd: GRAPHIC_METER_HALF
+     * If meter is even: GRAPHIC_METER_FULL */
+    if (meter_val & 1) {
+        /* Odd - draw half-full cell */
+        sprite_to_render = sprite_meter_half_8x16;
+    } else {
+        /* Even - draw full cell */
+        sprite_to_render = sprite_meter_full_8x16;
+    }
+    
+    /* Calculate X position: base at 248 (not 240), add 8 pixels per cell
+     * Since video buffer is in bytes (40 bytes = 320 pixels), each byte = 8 pixels */
+    x_pos = 248 + (cell_num << 3);
+    
+    /* Render the meter cell at Y=54 */
+    blit_8x16_sprite(x_pos, 54, sprite_to_render);
 }
 
 void blit_map_playfield_offscreen(void)
@@ -1960,8 +2061,58 @@ void swap_video_buffers(void)
 
 static void increment_comic_hp(void)
 {
-    if (comic_hp < MAX_HP) {
-        comic_hp++;
+    uint16_t x_pos;
+    
+    if (comic_hp >= MAX_HP) {
+        /* HP is already full; award 1800 bonus points */
+        award_points(18);  /* 18 * 100 = 1800 points */
+        return;
+    }
+    
+    /* Increment HP */
+    comic_hp++;
+    
+    /* Render the HP meter cell at Y=82, base X=240
+     * Each unit of HP is 8 pixels wide */
+    x_pos = 240 + (comic_hp << 3);
+    blit_8x16_sprite(x_pos, 82, sprite_meter_full_8x16);
+}
+
+void decrement_comic_hp(void)
+{
+    uint16_t x_pos;
+    
+    if (comic_hp == 0) {
+        return;
+    }
+    
+    /* Render the empty sprite at the current HP position before decrementing */
+    x_pos = 240 + (comic_hp << 3);
+    blit_8x16_sprite(x_pos, 82, sprite_meter_empty_8x16);
+    
+    /* Decrement HP */
+    comic_hp--;
+    
+    /* Play damage sound */
+    play_sound(SOUND_DAMAGE, 2);  /* priority 2 */
+}
+
+static void render_comic_hp_meter(void)
+{
+    uint8_t i;
+    uint16_t x_pos;
+    
+    /* Render exactly MAX_HP cells (cells 1 through MAX_HP) */
+    /* Cell N is at x = 240 + (N * 8) */
+    for (i = 1; i <= MAX_HP; i++) {
+        x_pos = 240 + (i * 8);
+        if (i <= comic_hp) {
+            /* Full cell */
+            blit_8x16_sprite(x_pos, 82, sprite_meter_full_8x16);
+        } else {
+            /* Empty cell */
+            blit_8x16_sprite(x_pos, 82, sprite_meter_empty_8x16);
+        }
     }
 }
 
@@ -2343,6 +2494,20 @@ void comic_dies(void)
     comic_y_vel = 0;
     comic_jump_counter = comic_jump_power;  /* Use current jump power (may be 5 if Boots collected) */
     comic_animation = COMIC_STANDING;
+    
+    /* Queue only the missing HP to refill */
+    /* IMPORTANT: We keep comic_hp at its current value (showing the HP state at death)
+     * and only queue the missing portion to refill. This way the HP meter visually
+     * remains at whatever it was when Comic died, then refills only the missing cells.
+     * For example, if Comic had 3/6 HP and dies, the meter shows 3 cells, then refills
+     * to show 4, 5, 6 cells as comic_hp increments.
+     * 
+     * By setting pending = MAX_HP - current_hp, we ensure no bonus points are awarded:
+     * - If current_hp = 6: pending = 0, so no increments happen
+     * - If current_hp < 6: pending increments from current_hp to MAX_HP, avoiding >= MAX_HP checks
+     * 
+     * This matches the original assembly behavior exactly. */
+    comic_hp_pending_increase = MAX_HP - comic_hp;
 }
 
 /*
@@ -2471,7 +2636,7 @@ static void game_end_sequence(void)
     for (points_awarded = 0; points_awarded < 20; points_awarded++) {
         /* Play score tally sound */
         play_sound(SOUND_SCORE_TALLY, 3);
-        award_points(1000);
+        award_points(10);  /* 10 * 100 = 1000 points per loop, 20 loops = 20,000 total */
         wait_n_ticks(1);
     }
     
@@ -2482,7 +2647,7 @@ static void game_end_sequence(void)
         for (points_awarded = 0; points_awarded < 10; points_awarded++) {
             /* Play score tally sound */
             play_sound(SOUND_SCORE_TALLY, 3);
-            award_points(1000);
+            award_points(10);  /* 10 * 100 = 1000 points per loop, 10 loops = 10,000 per life */
             wait_n_ticks(1);
         }
         
@@ -2533,24 +2698,56 @@ static void game_end_sequence(void)
 }
 
 /*
- * award_points - Award points to the player's score
+ * award_points - Award points to the player's score using base-100 arithmetic
  * 
- * Adds the specified number of points to the player's score, with overflow
- * protection (max score is 999,999).
+ * Adds points to the player's score by performing base-100 addition with carry.
+ * Score is stored as three base-100 bytes where each byte holds 0-99 and represents
+ * a pair of decimal digits. The formula is: score = byte[0] + (byte[1]*100) + (byte[2]*10000)
  * 
  * Parameters:
- *   points - Number of points to add
+ *   points - Points to add in base-100 units (0-99 typical per call)
+ *            Each unit represents 100 decimal points.
+ *            Example: award_points(20) adds 2000 points, resulting in byte[1] = 20 → displays "002000"
+ *            Example: award_points(18) adds 1800 points
+ * 
+ * The base-100 encoding stores pairs of decimal digits in each byte:
+ *   - byte[0]: rightmost pair (ones and tens digits: displays "00" to "99")
+ *   - byte[1]: middle pair (hundreds and thousands digits: displays "00" to "99")
+ *   - byte[2]: leftmost pair (ten-thousands and hundred-thousands: displays "00" to "99")
+ * Full 6-digit display: "AABBCC" where AA=byte[2], BB=byte[1], CC=byte[0]
+ * The rightmost 2 digits (byte[0]) are always "00" since award_points gives increments of 100.
+ * Maximum score is 999,999 ([99, 99, 99]).
  */
 void award_points(uint16_t points)
 {
-    uint32_t current_score = score_get_value();
-    uint32_t new_score = current_score + points;
+    uint8_t carry = 0;
+    uint8_t i;
     
-    /* Prevent score overflow (cap at 999,999) */
-    if (new_score > 999999U) {
-        score_set_value(999999U);
+    /* Add points to byte[0] with carry propagation */
+    score_bytes[0] += (uint8_t)points;
+    if (score_bytes[0] >= 100) {
+        carry = 1;
+        score_bytes[0] -= 100;
     } else {
-        score_set_value(new_score);
+        carry = 0;
+    }
+    
+    /* Propagate carry through remaining bytes */
+    for (i = 1; i < 3 && carry; i++) {
+        score_bytes[i] += carry;
+        if (score_bytes[i] >= 100) {
+            carry = 1;
+            score_bytes[i] -= 100;
+        } else {
+            carry = 0;
+        }
+    }
+    
+    /* If still have carry after byte 2, cap at maximum score 999,999 */
+    if (carry) {
+        score_bytes[0] = 99;
+        score_bytes[1] = 99;
+        score_bytes[2] = 99;
     }
 }
 
@@ -2605,6 +2802,10 @@ static void dos_idle(void)
  * Current cheats:
  *   W key - Grant teleport wand for testing teleportation feature
  *   K key - Grant door key for testing door opening feature
+ *   B key - Grant Blastola Cola for testing fireball feature
+ *   C key - Grant Corkscrew for testing fireball corkscrew motion
+ *   O key - Grant Boots for testing increased jump power
+ *   L key - Grant Lantern for testing Castle level lighting
  */
 static void handle_cheat_codes(void)
 {
@@ -2621,6 +2822,59 @@ static void handle_cheat_codes(void)
     if (key_state_cheat_key && !previous_key_state_cheat_key) {
         if (comic_has_door_key == 0) {
             comic_has_door_key = 1;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
+    
+    /* B key: Grant Blastola Cola (edge-triggered on press) */
+    if (key_state_cheat_cola && !previous_key_state_cheat_cola) {
+        if (comic_firepower < MAX_NUM_FIREBALLS) {
+            comic_firepower++;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
+    
+    /* C key: Grant Corkscrew (edge-triggered on press) */
+    if (key_state_cheat_corkscrew && !previous_key_state_cheat_corkscrew) {
+        if (comic_has_corkscrew == 0) {
+            comic_has_corkscrew = 1;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
+    
+    /* O key: Grant Boots (edge-triggered on press) */
+    if (key_state_cheat_boots && !previous_key_state_cheat_boots) {
+        if (comic_jump_power < 5) {
+            comic_jump_power = 5;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
+    
+    /* L key: Grant Lantern (edge-triggered on press) */
+    if (key_state_cheat_lantern && !previous_key_state_cheat_lantern) {
+        if (comic_has_lantern == 0) {
+            comic_has_lantern = 1;
+            /* Play item collection sound for feedback */
+            play_sound(SOUND_COLLECT_ITEM, 3);
+        }
+    }
+    
+    /* S key: Grant Shield (edge-triggered on press) */
+    if (key_state_cheat_shield && !previous_key_state_cheat_shield) {
+        if (comic_has_shield == 0) {
+            comic_has_shield = 1;
+            /* Check if Comic already has full HP */
+            if (comic_hp >= MAX_HP) {
+                /* Full HP: award an extra life */
+                award_extra_life();
+            } else {
+                /* Not full: schedule only the missing HP increments */
+                comic_hp_pending_increase = MAX_HP - comic_hp;
+            }
             /* Play item collection sound for feedback */
             play_sound(SOUND_COLLECT_ITEM, 3);
         }
@@ -2694,6 +2948,16 @@ static void update_keyboard_input(void)
             key_state_cheat_wand = (uint8_t)(!is_break);  /* W key - cheat code */
         } else if (code == SCANCODE_K) {
             key_state_cheat_key = (uint8_t)(!is_break);  /* K key - cheat code */
+        } else if (code == SCANCODE_B) {
+            key_state_cheat_cola = (uint8_t)(!is_break);  /* B key - cheat code */
+        } else if (code == SCANCODE_C) {
+            key_state_cheat_corkscrew = (uint8_t)(!is_break);  /* C key - cheat code */
+        } else if (code == SCANCODE_O) {
+            key_state_cheat_boots = (uint8_t)(!is_break);  /* O key - cheat code */
+        } else if (code == SCANCODE_L) {
+            key_state_cheat_lantern = (uint8_t)(!is_break);  /* L key - cheat code */
+        } else if (code == SCANCODE_S) {
+            key_state_cheat_shield = (uint8_t)(!is_break);  /* S key - cheat code */
         }
     }
 }
@@ -2809,6 +3073,11 @@ void game_loop(void)
         previous_key_state_teleport = key_state_teleport;
         previous_key_state_cheat_wand = key_state_cheat_wand;
         previous_key_state_cheat_key = key_state_cheat_key;
+        previous_key_state_cheat_cola = key_state_cheat_cola;
+        previous_key_state_cheat_corkscrew = key_state_cheat_corkscrew;
+        previous_key_state_cheat_boots = key_state_cheat_boots;
+        previous_key_state_cheat_lantern = key_state_cheat_lantern;
+        previous_key_state_cheat_shield = key_state_cheat_shield;
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
@@ -2964,12 +3233,20 @@ void game_loop(void)
         if (!skip_rendering) {
             blit_map_playfield_offscreen();
             blit_comic_playfield_offscreen();
+            render_comic_hp_meter();
         }
         
         /* Handle enemies, fireballs, and items */
         handle_enemies();
         handle_fireballs();
         handle_item();
+        
+        /* Render inventory display items on the UI */
+        render_inventory_display();
+        
+        /* Render score display on the UI */
+        render_score_display();
+        
         swap_video_buffers();
     }
 }

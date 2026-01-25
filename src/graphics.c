@@ -12,6 +12,7 @@
 #include <i86.h>
 #include "globals.h"
 #include "graphics.h"
+#include "sprite_data.h"
 #include "timing.h"
 
 /* EGA Register Addresses */
@@ -51,6 +52,19 @@ static uint16_t current_display_offset = GRAPHICS_BUFFER_GAMEPLAY_A;
 
 /* Forward declaration for static helper function */
 static void set_palette_register(uint8_t index, uint8_t color);
+
+/* Inventory item flags (defined in game_main.c) */
+extern uint8_t comic_has_door_key;
+extern uint8_t comic_has_teleport_wand;
+extern uint8_t comic_has_corkscrew;
+extern uint8_t comic_has_shield;
+extern uint8_t comic_has_lantern;
+extern uint8_t comic_firepower;        /* Number of active fireball slots (controls Blastola Cola inventory display) */
+extern uint8_t comic_num_treasures;    /* Number of treasures collected (0-3, controls Crown/Gold/Gems display) */
+extern uint8_t comic_jump_power;       /* Jump power level (controls Boots display at >4) */
+
+/* Score data (defined in game_main.c) */
+extern uint8_t score_bytes[3];  /* 3-byte score in base-100 representation */
 
 /*
  * init_ega_graphics - Initialize EGA graphics controller for pixel writing
@@ -672,6 +686,67 @@ void blit_sprite_16x16_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t 
 
 
 /*
+ * blit_sprite_16x16_unmasked - Blit a 16x16 unmasked EGA sprite to video memory
+ * 
+ * Blits a 16x16 sprite without mask to both gameplay buffers (0x0000 and 0x2000)
+ * at the specified pixel coordinate. Completely overwrites the destination area.
+ * The sprite is in EGA planar format (128 bytes: 32 bytes per plane × 4 planes).
+ * 
+ * Input:
+ *   pixel_x = X coordinate in pixels (0-319)
+ *   pixel_y = Y coordinate in pixels (0-199)
+ *   sprite_data = pointer to 128-byte sprite data (32 bytes per plane × 4 planes)
+ * 
+ * Sprite format (128 bytes):
+ *   Bytes 0-31:     Blue plane (2 bytes/row × 16 rows)
+ *   Bytes 32-63:    Green plane
+ *   Bytes 64-95:    Red plane
+ *   Bytes 96-127:   Intensity plane
+ */
+void blit_sprite_16x16_unmasked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data)
+{
+    uint16_t base_offset;
+    uint8_t plane;
+    uint8_t row;
+    uint8_t col;
+    uint16_t video_offset;
+    uint8_t __far *video_ptr_a;
+    uint8_t __far *video_ptr_b;
+    const uint8_t *plane_data;
+    uint16_t plane_offset;
+    
+    /* Calculate video memory offset for top-left corner of sprite */
+    base_offset = (pixel_y * 320 + pixel_x) / 8;
+    
+    /* Blit each of the 4 color planes */
+    for (plane = 0; plane < 4; plane++) {
+        /* Enable writing to this plane only (no need to read for unmasked) */
+        enable_ega_plane_write(plane);
+        
+        /* Plane data: Blue=0, Green=32, Red=64, Intensity=96 bytes offset */
+        plane_offset = plane * 32;
+        plane_data = sprite_data + plane_offset;
+        
+        /* Copy this plane to both buffers, 2 bytes per row (16 pixels wide) */
+        for (row = 0; row < 16; row++) {
+            /* Calculate video offset for this row */
+            video_offset = base_offset + (row * 40);
+            
+            /* Get pointers to both video buffers for this row */
+            video_ptr_a = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_A + video_offset);
+            video_ptr_b = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_B + video_offset);
+            
+            /* Copy 2 bytes per row (16 pixels in EGA format = 2 bytes) - direct overwrite */
+            for (col = 0; col < 2; col++) {
+                video_ptr_a[col] = plane_data[row * 2 + col];
+                video_ptr_b[col] = plane_data[row * 2 + col];
+            }
+        }
+    }
+}
+
+
+/*
  * blit_sprite_16x32_masked - Blit a 16x32 masked EGA sprite to video memory
  *
  * Sprite format (320 bytes):
@@ -855,3 +930,230 @@ void blit_wxh(uint16_t dest_offset, const uint8_t __far *graphic, uint16_t width
         }
     }
 }
+
+
+/*
+ * render_inventory_display - Render inventory items on the game UI
+ *
+ * Displays all inventory items that Comic has collected on the UI background.
+ * Items are rendered at their fixed UI positions (from the original assembly).
+ *
+ * Inventory positions (pixel coordinates):
+ *   Row 1 (Y=112):
+ *     Blastola Cola: (232, 112) - shown if comic_firepower > 0
+ *     Corkscrew:    (256, 112) - shown if comic_has_corkscrew = 1
+ *     Door Key:     (280, 112) - shown if comic_has_door_key = 1
+ *
+ *   Row 2 (Y=136):
+ *     Boots:        (232, 136) - shown if comic_jump_power > 4
+ *     Lantern:      (256, 136) - shown if comic_has_lantern = 1
+ *     Teleport Wand:(280, 136) - shown if comic_has_teleport_wand = 1
+ *
+ *   Row 3 (Y=160):
+ *     Gems:         (232, 160) - shown if comic_num_treasures > 0
+ *     Crown:        (256, 160) - shown if comic_num_treasures > 1
+ *     Gold:         (280, 160) - shown if comic_num_treasures > 2
+ *
+ * All inventory items are 16x16 sprites with even/odd plane data.
+ * Items are only rendered if Comic has collected them.
+ */
+void render_inventory_display(void)
+{
+    /* Row 1 (Y=112) */
+    /* Always render Blastola Cola to keep both buffers in sync (prevents blinking) */
+    if (comic_firepower > 0) {
+        /* Render Blastola Cola at (232, 112) - sprite varies based on firepower level
+         * Use unmasked blit to completely overwrite old sprite (no transparency) */
+        const uint8_t *blastola_sprite = NULL;
+        switch (comic_firepower) {
+            case 1:
+                blastola_sprite = sprite_blastola_cola_inventory_1_even_16x16m;
+                break;
+            case 2:
+                blastola_sprite = sprite_blastola_cola_inventory_2_even_16x16m;
+                break;
+            case 3:
+                blastola_sprite = sprite_blastola_cola_inventory_3_even_16x16m;
+                break;
+            case 4:
+                blastola_sprite = sprite_blastola_cola_inventory_4_even_16x16m;
+                break;
+            case 5:
+                blastola_sprite = sprite_blastola_cola_inventory_5_even_16x16m;
+                break;
+            default:
+                blastola_sprite = sprite_blastola_cola_even_16x16m;
+                break;
+        }
+        blit_sprite_16x16_unmasked(232, 112, blastola_sprite);
+    }
+    
+    if (comic_has_corkscrew) {
+        /* Render Corkscrew at (256, 112) */
+        blit_sprite_16x16_masked(256, 112, sprite_corkscrew_even_16x16m);
+    }
+    
+    if (comic_has_door_key) {
+        /* Render Door Key at (280, 112) */
+        blit_sprite_16x16_masked(280, 112, sprite_door_key_even_16x16m);
+    }
+    
+    /* Row 2 (Y=136) */
+    if (comic_jump_power > 4) {
+        /* Render Boots at (232, 136) - shows when jump power exceeds default (Boots grant jump power 5) */
+        blit_sprite_16x16_masked(232, 136, sprite_boots_even_16x16m);
+    }
+    
+    if (comic_has_lantern) {
+        /* Render Lantern at (256, 136) - collected in Castle level */
+        blit_sprite_16x16_masked(256, 136, sprite_lantern_even_16x16m);
+    }
+    
+    if (comic_has_teleport_wand) {
+        /* Render Teleport Wand at (280, 136) */
+        blit_sprite_16x16_masked(280, 136, sprite_teleport_wand_even_16x16m);
+    }
+    
+    /* Row 3 (Y=160) - Treasures */
+    if (comic_num_treasures > 0) {
+        /* Render Gems at (232, 160) - first treasure */
+        blit_sprite_16x16_masked(232, 160, sprite_gems_even_16x16m);
+    }
+    
+    if (comic_num_treasures > 1) {
+        /* Render Crown at (256, 160) - second treasure */
+        blit_sprite_16x16_masked(256, 160, sprite_crown_even_16x16m);
+    }
+    
+    if (comic_num_treasures > 2) {
+        /* Render Gold at (280, 160) - third treasure */
+        blit_sprite_16x16_masked(280, 160, sprite_gold_even_16x16m);
+    }
+}
+
+
+/*
+ * blit_8x16_sprite - Blit an 8x16 unmasked EGA sprite to both video buffers
+ *
+ * Sprite format: EGA planar (4 planes, 16 bytes each = 64 bytes total)
+ * Blits to both the onscreen and offscreen video buffers.
+ *
+ * Input:
+ *   pixel_x, pixel_y = top-left corner in pixel coordinates
+ *   sprite_data = pointer to 64-byte EGA sprite (4 planes, 16 bytes each)
+ */
+void blit_8x16_sprite(uint16_t pixel_x, uint16_t pixel_y, const uint8_t __far *sprite_data)
+{
+    uint16_t base_offset;
+    uint8_t plane;
+    uint8_t row;
+    uint8_t sprite_byte;
+    uint16_t video_offset;
+    uint8_t __far *video_ptr_a;
+    uint8_t __far *video_ptr_b;
+    const uint8_t *plane_data;
+    uint16_t plane_offset;
+    
+    /* Calculate video memory offset for top-left corner of sprite */
+    base_offset = (pixel_y * 320 + pixel_x) / 8;
+    
+    /* Blit each of the 4 color planes */
+    for (plane = 0; plane < 4; plane++) {
+        /* Enable writing to this plane */
+        enable_ega_plane_write(plane);
+        
+        /* Plane data: Blue=0, Green=16, Red=32, Intensity=48 bytes offset */
+        plane_offset = plane * 16;
+        plane_data = sprite_data + plane_offset;
+        
+        /* Copy this plane to both buffers, 1 byte per row (8 pixels wide) */
+        for (row = 0; row < 16; row++) {
+            /* Calculate video offset for this row */
+            video_offset = base_offset + (row * 40);
+            
+            /* Get pointers to both video buffers for this row */
+            video_ptr_a = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_A + video_offset);
+            video_ptr_b = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_B + video_offset);
+            
+            /* Copy 1 byte per row (8 pixels in EGA format = 1 byte) */
+            sprite_byte = plane_data[row];
+            
+            /* Write to both buffers */
+            *video_ptr_a = sprite_byte;
+            *video_ptr_b = sprite_byte;
+        }
+    }
+}
+
+
+/*
+ * render_score_display - Render the 6-digit score on the game UI
+ *
+ * Displays the current score at the top of the screen.
+ * Score is stored as 3 bytes in base-100 representation using the formula:
+ *   score = score_bytes[0] + (score_bytes[1] * 100) + (score_bytes[2] * 10000)
+ * 
+ * Storage format (3 bytes, base-100):
+ *   score_bytes[0] = rightmost digit pair (0-99, typically "00" since minimum award is 100 points)
+ *   score_bytes[1] = middle digit pair (0-99, represents hundreds and thousands)
+ *   score_bytes[2] = leftmost digit pair (0-99, represents ten-thousands and hundred-thousands)
+ * 
+ * Display format (6 decimal digits rendered at X=232-280):
+ *   X=232-248: score_bytes[2] as 2 decimal digits (leftmost: ten-thousands place)
+ *   X=248-264: score_bytes[1] as 2 decimal digits (middle: thousands place)
+ *   X=264-280: score_bytes[0] as 2 decimal digits (rightmost: hundreds place, typically "00")
+ * 
+ * Each base-100 byte is converted to 2 decimal digits via division and modulo.
+ * Example: score_bytes=[0, 20, 0] represents score of 0 + (20*100) + 0 = 2000 and displays as "002000"
+ * Example: score_bytes=[0, 0, 5] represents score of 0 + 0 + (5*10000) = 50000 and displays as "050000"
+ * Example: score_bytes=[5, 0, 0] represents score of 5 + 0 + 0 = 5 and displays as "000005"
+ * 
+ * Y coordinate is 24 (near top of screen).
+ */
+void render_score_display(void)
+{
+    const uint8_t __far *digit_sprites[10] = {
+        sprite_score_digit_0_8x16,
+        sprite_score_digit_1_8x16,
+        sprite_score_digit_2_8x16,
+        sprite_score_digit_3_8x16,
+        sprite_score_digit_4_8x16,
+        sprite_score_digit_5_8x16,
+        sprite_score_digit_6_8x16,
+        sprite_score_digit_7_8x16,
+        sprite_score_digit_8_8x16,
+        sprite_score_digit_9_8x16
+    };
+    
+    uint8_t digit_idx;
+    uint8_t base100_value;
+    uint8_t high_decimal;
+    uint8_t low_decimal;
+    int16_t x_pos;
+    uint16_t pixel_y = 24;
+    
+    /* Render 3 base-100 bytes as 6 decimal digits */
+    /* Assembly starts at di=0x3e1 (X=264) for score[0] and moves left */
+    for (digit_idx = 0; digit_idx < 3; digit_idx++) {
+        base100_value = score_bytes[digit_idx];
+        
+        /* Convert base-100 byte to 2 decimal digits via division */
+        /* Assembly uses repeated subtraction: high = base100/10, low = base100%10 */
+        high_decimal = base100_value / 10;
+        low_decimal = base100_value % 10;
+        
+        /* Calculate X position: start at 264 and move left by 16 pixels each iteration */
+        x_pos = 264 - (digit_idx * 16);  /* 264, 248, 232 for indices 0, 1, 2 */
+        
+        /* Assembly's blit_score_digit does: inc di (move right 8), blit low, dec di, blit high */
+        /* So it blits LOW digit first at x+8, then HIGH digit at x */
+        if (low_decimal < 10) {
+            blit_8x16_sprite((uint16_t)(x_pos + 8), pixel_y, digit_sprites[low_decimal]);
+        }
+        
+        if (high_decimal < 10) {
+            blit_8x16_sprite((uint16_t)x_pos, pixel_y, digit_sprites[high_decimal]);
+        }
+    }
+}
+

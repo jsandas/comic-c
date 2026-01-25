@@ -56,9 +56,17 @@ void init_default_palette(void);
 
 /* Sprite blitting operations */
 void blit_sprite_16x16_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data);
+void blit_sprite_16x16_unmasked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data);
 void blit_sprite_16x32_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data);
 void blit_sprite_16x8_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data);
 void blit_wxh(uint16_t dest_offset, const uint8_t __far *graphic, uint16_t width_bytes, uint16_t height);
+void blit_8x16_sprite(uint16_t pixel_x, uint16_t pixel_y, const uint8_t __far *sprite_data);
+
+/* Inventory item rendering */
+void render_inventory_display(void);
+
+/* Score display rendering */
+void render_score_display(void);
 
 /* Load 16-byte palette array (values 0-63) into EGA palette registers 0..15 */
 void load_ega_palette_from_file(const uint8_t *palette16);

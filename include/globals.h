@@ -66,43 +66,52 @@ void debug_log_close(void);
 #define COMIC_FACING_RIGHT      0
 #define COMIC_FACING_LEFT       5      /* offset for left-facing frames */
 
-/* ===== Score Macros (Score Storage: 3-byte little-endian format) ===== */
-/* The score is stored as 3 bytes in little-endian order:
- *   score_bytes[0] = LSB (low byte, bits 0-7)
- *   score_bytes[1] = middle byte (bits 8-15)
- *   score_bytes[2] = MSB (high byte, bits 16-23)
+/* ===== Player Game Constants ===== */
+#define MAX_HP                  6      /* Maximum hit points */
+#define MAX_FIREBALL_METER      12     /* Maximum fireball meter units */
+
+/* ===== Score Macros (Score Storage: 3-byte base-100 digit-pair encoding) ===== */
+/* The score is stored as 3 bytes in base-100 representation, where each byte holds
+ * a digit pair (0-99) representing two decimal digits:
+ *   score_bytes[0] = ones/tens place (0-99, contributes 0-99 to total)
+ *   score_bytes[1] = hundreds/thousands place (0-99, contributes 0-9900 to total)
+ *   score_bytes[2] = ten-thousands/hundred-thousands place (0-99, contributes 0-990000 to total)
  * 
- * This is a standard 24-bit little-endian integer representation with a theoretical
- * range of 0 to 16,777,215 (2^24 - 1). The game logic caps the score at 999,999
- * via overflow checking in the award_points function.
- * This format matches the original assembly implementation.
+ * Maximum supported score: 999,999 (99 + 99*100 + 99*10000)
+ * The game logic enforces this cap via overflow checking in award_points().
+ * This base-100 encoding matches the original assembly implementation.
  */
 
-/* score_get_value - Reconstruct a 32-bit score from three bytes
+/* score_get_value - Reconstruct a 32-bit score from three base-100 bytes
  * 
- * Combines the three score_bytes into a single 32-bit unsigned integer by:
- * 1. Shifting byte[2] (MSB) left 16 bits to the high byte position
- * 2. Shifting byte[1] (middle) left 8 bits to the middle byte position
- * 3. Using byte[0] (LSB) as-is in the low byte position
- * 4. ORing all three values together
+ * The score is stored in base-100 representation, where each byte stores 0-99:
+ * - score_bytes[0] = least significant (ones place, 1-100)
+ * - score_bytes[1] = middle (hundreds place, 100-9900)
+ * - score_bytes[2] = most significant (ten-thousands place, 10000-990000)
  * 
- * Example: score_bytes = [0x12, 0x34, 0x56] produces 0x563412 (5,649,426 decimal)
+ * Example: score_bytes = [0, 20, 0] produces 2000 decimal (20 * 100)
+ *          score_bytes = [99, 99, 99] produces 999999 decimal (maximum)
  * 
- * The (uint32_t) casts ensure proper 32-bit arithmetic during shifts.
+ * Formula: score = byte[0] + (byte[1] * 100) + (byte[2] * 10000)
  */
-#define score_get_value() (((uint32_t)score_bytes[2] << 16) | ((uint32_t)score_bytes[1] << 8) | (uint32_t)score_bytes[0])
+#define score_get_value() ((uint32_t)score_bytes[0] + ((uint32_t)score_bytes[1] * 100UL) + ((uint32_t)score_bytes[2] * 10000UL))
 
-/* score_set_value - Store a 32-bit value into three bytes (little-endian)
+/* score_set_value - Store a 32-bit value into three base-100 bytes
  * 
- * Decomposes a 32-bit unsigned integer into three bytes:
- * - byte[0] = low byte (value & 0xFF)
- * - byte[1] = middle byte ((value >> 8) & 0xFF)
- * - byte[2] = high byte ((value >> 16) & 0xFF)
+ * Decomposes a decimal score (0-999999) into three base-100 bytes:
+ * - byte[0] = (value % 100) - rightmost 2 decimal digits
+ * - byte[1] = ((value / 100) % 100) - middle 2 decimal digits
+ * - byte[2] = ((value / 10000) % 100) - leftmost 2 decimal digits
  * 
  * Wrapped in do-while(0) to safely use in all contexts, including
  * after if statements without braces.
  */
-#define score_set_value(v) do { score_bytes[0] = (v) & 0xFF; score_bytes[1] = ((v) >> 8) & 0xFF; score_bytes[2] = ((v) >> 16) & 0xFF; } while(0)
+#define score_set_value(v) do { \
+    uint32_t _val = (v); \
+    score_bytes[0] = _val % 100; \
+    score_bytes[1] = (_val / 100UL) % 100; \
+    score_bytes[2] = (_val / 10000UL) % 100; \
+} while(0)
 
 /* ===== Player State (will be needed when porting game logic to C) ===== */
 /* Note: Currently these are in assembly if used there */

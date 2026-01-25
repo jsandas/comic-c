@@ -14,6 +14,7 @@
 #include "level_data.h"
 #include "globals.h"
 #include "graphics.h"
+#include "player.h"
 #include "file_loaders.h"
 #include "sprite_data.h"
 #include "sound.h"
@@ -35,6 +36,10 @@ extern uint8_t comic_hp;                   /* Current hit points (0-10) */
 extern uint8_t comic_has_shield;           /* 1 if Shield item collected, 0 otherwise */
 extern uint8_t comic_has_door_key;         /* 1 if door key collected, 0 otherwise */
 extern uint8_t comic_has_teleport_wand;    /* 1 if teleport wand collected, 0 otherwise */
+extern uint8_t comic_has_lantern;          /* 1 if Lantern item collected, 0 otherwise */
+extern uint8_t comic_jump_power;           /* Jump power level (4 default, 5 with Boots) */
+extern uint8_t comic_hp_pending_increase;  /* Units of HP to award at 1 per tick */
+extern uint8_t comic_num_lives;            /* Current number of lives */
 
 /* Camera state */
 extern uint16_t camera_x;                  /* Camera X position (game units) */
@@ -62,6 +67,7 @@ extern uint8_t enemy_respawn_counter_cycle; /* Cycles: 20→40→60→80→100�
 /* Forward declarations for external functions */
 extern void comic_dies(void);               /* Game over sequence from physics.c */
 extern void award_points(uint16_t points);  /* Award points from game_main.c */
+extern void award_extra_life(void);         /* Award extra life from game_main.c */
 
 /* ===== Actor Arrays ===== */
 enemy_t enemies[MAX_NUM_ENEMIES];
@@ -88,7 +94,7 @@ static void comic_takes_damage(void)
         comic_has_shield = 0;
         play_sound(SOUND_DAMAGE, 2);
     } else if (comic_hp > 0) {
-        comic_hp--;
+        decrement_comic_hp();
         if (comic_hp == 0) {
             /* Comic is dead - trigger game over sequence */
             comic_dies();
@@ -318,7 +324,7 @@ void handle_fireballs(void)
             enemies[j].state = ENEMY_STATE_WHITE_SPARK; /* Start death animation */
             fireballs[i].x = FIREBALL_DEAD;
             fireballs[i].y = FIREBALL_DEAD;
-            award_points(300);
+            award_points(3);  /* 3 * 100 = 300 points */
             play_sound(SOUND_HIT_ENEMY, 1);
             
             break; /* Fireball consumed, check next fireball */
@@ -409,7 +415,7 @@ void handle_item(void)
         if (y_diff >= 0 && y_diff < 4) {
             /* Collision detected - collect item! */
             items_collected[level_index][stage_index] = 1;
-            award_points(2000);
+            award_points(20);  /* 20 * 100 = 2000 points */
             play_sound(SOUND_COLLECT_ITEM, 3);
             
             /* Update game state based on item type */
@@ -422,12 +428,33 @@ void handle_item(void)
                         comic_firepower++;
                     }
                     break;
+                case ITEM_BOOTS:
+                    /* Grant increased jump power */
+                    comic_jump_power = 5;
+                    break;
+                case ITEM_LANTERN:
+                    /* Grant light in dark areas (Castle level) */
+                    comic_has_lantern = 1;
+                    break;
                 case ITEM_SHIELD:
                     comic_has_shield = 1;
+                    /* Check if Comic already has full HP */
+                    if (comic_hp >= MAX_HP) {
+                        /* Full HP: award an extra life */
+                        award_extra_life();
+                    } else {
+                        /* Not full: schedule only the missing HP increments
+                         * For example, if comic_hp=3 and MAX_HP=6, schedule 3 increments */
+                        comic_hp_pending_increase = MAX_HP - comic_hp;
+                    }
                     break;
                 case ITEM_TELEPORT_WAND:
                     /* Grant teleport ability */
                     comic_has_teleport_wand = 1;
+                    break;
+                case ITEM_DOOR_KEY:
+                    /* Grant door opening ability */
+                    comic_has_door_key = 1;
                     break;
                 case ITEM_CROWN:
                 case ITEM_GOLD:
@@ -468,6 +495,7 @@ void handle_item(void)
 
         switch (item_type) {
             case ITEM_BLASTOLA_COLA:
+                /* Always use base sprites for items in levels (not firepower-level variants) */
                 sprite_ptr = (item_animation_counter == 0)
                     ? sprite_blastola_cola_even_16x16m
                     : sprite_blastola_cola_odd_16x16m;
