@@ -912,19 +912,28 @@ void award_extra_life(void)
     /* Play the extra life sound */
     play_sound(SOUND_EXTRA_LIFE, 4);
     
-    /* Increment lives if below max */
-    if (comic_num_lives < MAX_NUM_LIVES) {
-        comic_num_lives++;
-        
-        /* Display the bright life icon at the appropriate position
-         * Icons start at x=24, then each life is at x = 24 + (life_count * 24) pixels
-         * After incrementing, comic_num_lives contains the NEW count */
-        x_pixel = 24 + (comic_num_lives * 24);
-        y_pixel = 180;
-        
-        /* Blit the bright life icon to both gameplay buffers */
-        blit_sprite_16x16_masked(x_pixel, y_pixel, sprite_life_icon_bright);
+    /* Check if already at max lives */
+    if (comic_num_lives >= MAX_NUM_LIVES) {
+        /* Already at maximum lives: refill HP and award 22500 points (75 + 75 + 75 = 225 * 100)
+         * Set HP refill unconditionally - if HP is already full, increment_comic_hp will award bonus points */
+        comic_hp_pending_increase = MAX_HP;
+        award_points(75);
+        award_points(75);
+        award_points(75);
+        return;
     }
+    
+    /* Increment lives if below max */
+    comic_num_lives++;
+    
+    /* Display the bright life icon at the appropriate position
+     * Icons start at x=24, then each life is at x = 24 + (life_count * 24) pixels
+     * After incrementing, comic_num_lives contains the NEW count */
+    x_pixel = 24 + (comic_num_lives * 24);
+    y_pixel = 180;
+    
+    /* Blit the bright life icon to both gameplay buffers */
+    blit_sprite_16x16_masked(x_pixel, y_pixel, sprite_life_icon_bright);
 }
 
 /*
