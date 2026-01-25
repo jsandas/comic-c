@@ -686,6 +686,67 @@ void blit_sprite_16x16_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t 
 
 
 /*
+ * blit_sprite_16x16_unmasked - Blit a 16x16 unmasked EGA sprite to video memory
+ * 
+ * Blits a 16x16 sprite without mask to both gameplay buffers (0x0000 and 0x2000)
+ * at the specified pixel coordinate. Completely overwrites the destination area.
+ * The sprite is in EGA planar format (128 bytes: 32 bytes per plane × 4 planes).
+ * 
+ * Input:
+ *   pixel_x = X coordinate in pixels (0-319)
+ *   pixel_y = Y coordinate in pixels (0-199)
+ *   sprite_data = pointer to 128-byte sprite data (32 bytes per plane × 4 planes)
+ * 
+ * Sprite format (128 bytes):
+ *   Bytes 0-31:     Blue plane (2 bytes/row × 16 rows)
+ *   Bytes 32-63:    Green plane
+ *   Bytes 64-95:    Red plane
+ *   Bytes 96-127:   Intensity plane
+ */
+void blit_sprite_16x16_unmasked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data)
+{
+    uint16_t base_offset;
+    uint8_t plane;
+    uint8_t row;
+    uint8_t col;
+    uint16_t video_offset;
+    uint8_t __far *video_ptr_a;
+    uint8_t __far *video_ptr_b;
+    const uint8_t *plane_data;
+    uint16_t plane_offset;
+    
+    /* Calculate video memory offset for top-left corner of sprite */
+    base_offset = (pixel_y * 320 + pixel_x) / 8;
+    
+    /* Blit each of the 4 color planes */
+    for (plane = 0; plane < 4; plane++) {
+        /* Enable writing to this plane only (no need to read for unmasked) */
+        enable_ega_plane_write(plane);
+        
+        /* Plane data: Blue=0, Green=32, Red=64, Intensity=96 bytes offset */
+        plane_offset = plane * 32;
+        plane_data = sprite_data + plane_offset;
+        
+        /* Copy this plane to both buffers, 2 bytes per row (16 pixels wide) */
+        for (row = 0; row < 16; row++) {
+            /* Calculate video offset for this row */
+            video_offset = base_offset + (row * 40);
+            
+            /* Get pointers to both video buffers for this row */
+            video_ptr_a = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_A + video_offset);
+            video_ptr_b = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_B + video_offset);
+            
+            /* Copy 2 bytes per row (16 pixels in EGA format = 2 bytes) - direct overwrite */
+            for (col = 0; col < 2; col++) {
+                video_ptr_a[col] = plane_data[row * 2 + col];
+                video_ptr_b[col] = plane_data[row * 2 + col];
+            }
+        }
+    }
+}
+
+
+/*
  * blit_sprite_16x32_masked - Blit a 16x32 masked EGA sprite to video memory
  *
  * Sprite format (320 bytes):
@@ -899,10 +960,32 @@ void blit_wxh(uint16_t dest_offset, const uint8_t __far *graphic, uint16_t width
 void render_inventory_display(void)
 {
     /* Row 1 (Y=112) */
+    /* Always render Blastola Cola to keep both buffers in sync (prevents blinking) */
     if (comic_firepower > 0) {
-        /* Render Blastola Cola at (232, 112) - has multiple animation frames */
-        /* Use frame 0 (sprite_blastola_cola_inventory_0_even_16x16m) */
-        blit_sprite_16x16_masked(232, 112, sprite_blastola_cola_even_16x16m);
+        /* Render Blastola Cola at (232, 112) - sprite varies based on firepower level
+         * Use unmasked blit to completely overwrite old sprite (no transparency) */
+        const uint8_t *blastola_sprite = NULL;
+        switch (comic_firepower) {
+            case 1:
+                blastola_sprite = sprite_blastola_cola_inventory_1_even_16x16m;
+                break;
+            case 2:
+                blastola_sprite = sprite_blastola_cola_inventory_2_even_16x16m;
+                break;
+            case 3:
+                blastola_sprite = sprite_blastola_cola_inventory_3_even_16x16m;
+                break;
+            case 4:
+                blastola_sprite = sprite_blastola_cola_inventory_4_even_16x16m;
+                break;
+            case 5:
+                blastola_sprite = sprite_blastola_cola_inventory_5_even_16x16m;
+                break;
+            default:
+                blastola_sprite = sprite_blastola_cola_even_16x16m;
+                break;
+        }
+        blit_sprite_16x16_unmasked(232, 112, blastola_sprite);
     }
     
     if (comic_has_corkscrew) {

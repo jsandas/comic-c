@@ -494,6 +494,7 @@ void handle_item(void)
 
         switch (item_type) {
             case ITEM_BLASTOLA_COLA:
+                /* Always use base sprites for items in levels (not firepower-level variants) */
                 sprite_ptr = (item_animation_counter == 0)
                     ? sprite_blastola_cola_even_16x16m
                     : sprite_blastola_cola_odd_16x16m;
