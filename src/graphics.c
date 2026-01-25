@@ -1105,7 +1105,8 @@ void blit_8x16_sprite(uint16_t pixel_x, uint16_t pixel_y, const uint8_t __far *s
  * 
  * Each base-100 byte is converted to 2 decimal digits via division and modulo.
  * Example: score_bytes=[0, 20, 0] represents score of 0 + (20*100) + 0 = 2000 and displays as "002000"
- * Example: score_bytes=[0, 0, 5] represents score of 0 + 0 + (5*10000) = 50000 and displays as "500000"
+ * Example: score_bytes=[0, 0, 5] represents score of 0 + 0 + (5*10000) = 50000 and displays as "050000"
+ * Example: score_bytes=[5, 0, 0] represents score of 5 + 0 + 0 = 5 and displays as "000005"
  * 
  * Y coordinate is 24 (near top of screen).
  */
