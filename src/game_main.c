@@ -2053,11 +2053,20 @@ void blit_comic_playfield_offscreen(void)
 
 void blit_comic_partial_playfield_offscreen(uint16_t max_height)
 {
-    /* Clipped version of blit_comic_playfield_offscreen for falling death rendering.
-     * Renders Comic's sprite but limits the height to prevent extending beyond playfield bottom.
+    /* Render Comic's sprite during falling death sequence, but ONLY if fully visible.
      * 
-     * max_height: Maximum number of pixels to render (0-32).
-     *             Used to clip sprite when Comic is partially off bottom of screen.
+     * LIMITATION: This function does NOT actually support partial height rendering despite
+     * the assembly version doing so. The assembly can render partial sprite heights by doing
+     * plane-by-plane rendering with explicit row counts. The C version lacks this infrastructure.
+     * 
+     * NOTE: This function's name is misleading. "Partial" refers to what should happen
+     * (partial sprite rendering), not what actually happens (full sprite or nothing).
+     * The assembly function with the same name DOES implement true partial rendering.
+     * The C implementation is a simplified fallback.
+     * 
+     * max_height: Expected visible height (0-32 pixels), but is only used for validation.
+     *             Sprite is rendered only if max_height == 32 (fully visible).
+     *             Any other value causes early return (sprite completely skipped).
      */
     const uint8_t __far *sprite_ptr = NULL;
     int rel_x_units;              /* Signed: can be negative for left-of-camera sprites */
@@ -2117,21 +2126,22 @@ void blit_comic_partial_playfield_offscreen(uint16_t max_height)
 
     /* Check if the full 32-pixel sprite fits within the visible playfield.
      * 
-     * NOTE: We cannot use blit_sprite_16x8_masked or blit_sprite_16x16_masked
-     * to render partial portions of a 16x32 sprite. Those functions expect
-     * sprite data in completely different formats (16x8 = 32 bytes, 16x16 = 160 bytes)
-     * whereas our sprite pointers point to 16x32 sprites (320 bytes). Passing a 16x32
-     * sprite pointer to a function expecting 16x8 data causes it to read the wrong
-     * bytes, resulting in corrupted graphics.
+     * Unlike the assembly version, this C implementation does not support true partial
+     * rendering of sprites. It only renders the sprite if the full 32 pixels are visible.
      * 
-     * For the falling death animation, we simply skip rendering if the sprite would
-     * be clipped. This is acceptable since Comic is falling off-screen anyway.
+     * The assembly version uses plane-by-plane rendering with explicit row counts to
+     * render only the first N rows of the sprite. The C version would need to reimplement
+     * this low-level plane manipulation, which is complex and error-prone.
+     * 
+     * For the falling death case, this simplified behavior is acceptable since Comic
+     * is falling off-screen - the player can still see Comic begin to disappear, and then
+     * gets the death animation sequence (comic_death_animation) shown separately.
      */
     if (max_height >= 32) {
         /* Full sprite fits - render it */
         blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
     }
-    /* else: Sprite would be partially clipped - skip rendering to avoid corruption */
+    /* else: Sprite would be partially clipped - skip rendering (partial rendering not implemented) */
 }
 
 void swap_video_buffers(void)
