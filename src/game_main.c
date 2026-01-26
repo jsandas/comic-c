@@ -2073,6 +2073,12 @@ void blit_comic_partial_playfield_offscreen(uint16_t max_height)
     int pixel_x_signed;           /* Signed calculation to avoid underflow */
     int pixel_y_signed;           /* Signed calculation */
 
+
+    /* Skip rendering if animation is set to COMIC_ANIMATION_NONE (used during death sequences) */
+    if (comic_animation == COMIC_ANIMATION_NONE) {
+        return;
+    }
+
     /* Validate max_height parameter */
     if (max_height == 0 || max_height > 32) {
         return;
