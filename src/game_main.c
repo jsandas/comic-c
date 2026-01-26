@@ -2623,6 +2623,8 @@ void comic_dies(void)
     if (comic_death_animation_finished == 0) {
         /* This is a falling death - show Comic partially visible as he falls off */
         uint16_t visible_height;
+        int rel_x_units;
+        int visible_units;
         
         comic_animation = COMIC_JUMPING;
         
@@ -2632,7 +2634,7 @@ void comic_dies(void)
              * then visible_height (in pixels) = (20 - comic_y) * 8.
              * This represents how much of the sprite is above the playfield bottom.
              * Safe calculation: compute visible units first, then convert to pixels. */
-            int visible_units = PLAYFIELD_HEIGHT - (int)comic_y;
+            visible_units = PLAYFIELD_HEIGHT - (int)comic_y;
             visible_height = (uint16_t)(visible_units * 8);
             
             /* Clamp to sprite height (32 pixels) */
@@ -2640,13 +2642,18 @@ void comic_dies(void)
                 visible_height = 32;
             }
             
-            /* Blit the map and clipped Comic sprite */
-            blit_map_playfield_offscreen();
-            blit_comic_partial_playfield_offscreen(visible_height);
-            swap_video_buffers();
-            
-            /* Wait briefly to show the death frame */
-            wait_n_ticks(1);
+            /* Bounds check: Only render if Comic is within horizontal playfield bounds.
+             * rel_x_units must be >= 0 (not left of camera) and < PLAYFIELD_WIDTH (not right of camera) */
+            rel_x_units = (int)comic_x - (int)camera_x;
+            if (rel_x_units >= 0 && rel_x_units < PLAYFIELD_WIDTH) {
+                /* Blit the map and clipped Comic sprite */
+                blit_map_playfield_offscreen();
+                blit_comic_partial_playfield_offscreen(visible_height);
+                swap_video_buffers();
+                
+                /* Wait briefly to show the death frame */
+                wait_n_ticks(1);
+            }
         }
     } else {
         /* Enemy collision death - set animation to invalid value to prevent any sprite rendering.
