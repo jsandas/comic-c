@@ -2597,9 +2597,9 @@ void comic_death_animation(void)
     }
     
     /* Clear comic_animation to prevent any sprite rendering.
-     * Set to 255 (invalid value) rather than 0 (COMIC_STANDING) to ensure
+     * Set to COMIC_ANIMATION_NONE rather than 0 (COMIC_STANDING) to ensure
      * blit_comic_playfield_offscreen() returns early without rendering anything. */
-    comic_animation = 255;
+    comic_animation = COMIC_ANIMATION_NONE;
 }
 
 /*
@@ -2648,8 +2648,8 @@ void comic_dies(void)
         }
     } else {
         /* Enemy collision death - set animation to invalid value to prevent any sprite rendering.
-         * Using 255 (invalid) rather than 0 (COMIC_STANDING) to ensure no sprite is drawn. */
-        comic_animation = 255;
+         * Using COMIC_ANIMATION_NONE rather than 0 (COMIC_STANDING) to ensure no sprite is drawn. */
+        comic_animation = COMIC_ANIMATION_NONE;
         /* Clear the flag for next time comic_dies is called */
         comic_death_animation_finished = 0;
     }
