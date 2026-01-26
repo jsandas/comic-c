@@ -2053,41 +2053,20 @@ void blit_comic_playfield_offscreen(void)
 
 void blit_comic_partial_playfield_offscreen(uint16_t max_height)
 {
-    /* Render Comic's sprite during falling death sequence.
+    /* Render Comic's sprite during falling death sequence with TRUE partial height rendering.
      * 
-     * IMPORTANT: This function implements BINARY rendering, NOT continuous partial rendering:
-     * - If max_height >= 32: renders the full 32-pixel sprite
-     * - If max_height < 32: skips rendering entirely
+     * Behavior:
+     * - Draws only the top max_height rows (0-32) of the 16×32 masked sprite.
+     * - Uses plane-by-plane masked blitting to match the original assembly behavior.
      * 
-     * This differs from the assembly version which supports true partial height rendering.
-     * The assembly version uses plane-by-plane rendering with explicit row counts to render
-     * only the visible portion of the sprite. The C version lacks this low-level infrastructure
-     * and implements a simpler "all-or-nothing" approach.
+     * Parameter semantics:
+     * - max_height = visible height in pixels, computed as (PLAYFIELD_HEIGHT - comic_y) * 8
+     * - Clamped to 0..32; a value of 0 performs no rendering.
      * 
-     * max_height Parameter Semantics:
-     * --------
-     * This parameter represents the maximum visible height (in pixels) of the sprite if it
-     * were rendered during the falling death sequence. It is computed as:
-     *   visible_height = (PLAYFIELD_HEIGHT - comic_y) * 8
-     * 
-     * The value accounts for Comic's vertical position relative to the bottom of the playfield.
-     * Values range from 0 (completely off-screen below) to 32 (fully visible).
-     * 
-     * RENDERING DECISION: Binary Check
-     * --------
-     * - max_height >= 32: Sprite is completely above the playfield bottom boundary,
-     *                     so we render the full sprite.
-     * - max_height < 32:  Sprite would be clipped at the bottom of the screen,
-     *                     so we skip rendering (partial rendering not implemented).
-     * 
-     * RATIONALE: During falling death, Comic quickly exits the bottom of the screen.
-     * The player briefly sees Comic start to fall off (even with all-or-nothing rendering)
-     * before the death animation sequence takes over. This simplified behavior is acceptable
-     * for the current game flow.
-     * 
-     * TODO: Implement true partial sprite rendering by plane-by-plane rendering with
-     * explicit row counts, similar to the assembly version, to enable smooth sprite
-     * clipping at the bottom edge of the screen.
+     * Notes:
+     * - Horizontal clipping is still rejected earlier; sprite must be fully within X bounds.
+     * - Vertical clipping at the bottom edge is handled by limiting rows to the screen height.
+     * - Writes to both gameplay buffers to keep double-buffering in sync.
      */
     const uint8_t __far *sprite_ptr = NULL;
     int rel_x_units;              /* Signed: can be negative for left-of-camera sprites */
@@ -2145,24 +2124,15 @@ void blit_comic_partial_playfield_offscreen(uint16_t max_height)
     pixel_x_signed = (rel_x_units * 8) + 8;
     pixel_y_signed = (int)comic_y * 8 + 8;
 
-    /* Check if the full 32-pixel sprite fits within the visible playfield.
-     * 
-     * Unlike the assembly version, this C implementation does not support true partial
-     * rendering of sprites. It only renders the sprite if the full 32 pixels are visible.
-     * 
-     * The assembly version uses plane-by-plane rendering with explicit row counts to
-     * render only the first N rows of the sprite. The C version would need to reimplement
-     * this low-level plane manipulation, which is complex and error-prone.
-     * 
-     * For the falling death case, this simplified behavior is acceptable since Comic
-     * is falling off-screen - the player can still see Comic begin to disappear, and then
-     * gets the death animation sequence (comic_death_animation) shown separately.
-     */
-    if (max_height >= 32) {
-        /* Full sprite fits - render it */
-        blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
+    /* Render only the visible rows (top-origin) using rows-based masked blit.
+     * This matches the assembly behavior for partial height rendering. */
+    {
+        uint8_t rows = (uint8_t)max_height;
+        if (rows > 32) rows = 32;
+        if (rows > 0) {
+            blit_sprite_16x32_masked_rows((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr, rows);
+        }
     }
-    /* else: Sprite would be partially clipped - skip rendering (partial rendering not implemented) */
 }
 
 void swap_video_buffers(void)
