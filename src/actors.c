@@ -91,7 +91,8 @@ static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uin
  * comic_takes_damage - Reduce Comic's HP and start shield/death animation
  * 
  * If Comic has shield, remove shield instead of losing HP.
- * If HP reaches 0, trigger death animation sequence.
+ * If HP is already 0 when taking damage, trigger death animation sequence.
+ * If HP > 0, decrement HP (sound plays in decrement_comic_hp).
  */
 static void comic_takes_damage(void)
 {
@@ -99,7 +100,9 @@ static void comic_takes_damage(void)
         comic_has_shield = 0;
         play_sound(SOUND_DAMAGE, 2);
     } else if (comic_hp == 0) {
-        /* HP is already 0 - Comic dies from this hit (matches assembly behavior) */
+        /* HP is already 0 - Comic dies from this hit.
+         * Only play SOUND_DEATH via comic_death_animation, NOT SOUND_DAMAGE.
+         * This matches assembly behavior: no decrement_comic_hp() call here. */
         if (inhibit_death_by_enemy_collision == 0) {
             inhibit_death_by_enemy_collision = 1;
             comic_death_animation();
@@ -108,7 +111,7 @@ static void comic_takes_damage(void)
             comic_dies();
         }
     } else {
-        /* HP > 0: decrement HP but don't trigger death even if it reaches 0.
+        /* HP > 0: decrement HP (which plays SOUND_DAMAGE).
          * Death only occurs when taking damage WHILE HP is already 0. */
         decrement_comic_hp();
     }
