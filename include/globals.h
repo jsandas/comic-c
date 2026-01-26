@@ -61,6 +61,7 @@ void debug_log_close(void);
 #define COMIC_RUNNING_2         2
 #define COMIC_RUNNING_3         3
 #define COMIC_JUMPING           4
+#define COMIC_ANIMATION_NONE    255    /* Invalid animation - prevents sprite rendering */
 
 /* ===== Comic Facing Direction ===== */
 #define COMIC_FACING_RIGHT      0

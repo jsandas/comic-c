@@ -183,6 +183,11 @@ uint16_t camera_x = 0;
 /* Landing sentinel: set by physics when hitting ground; clears each tick */
 uint8_t landed_this_tick = 0;
 
+/* Death animation state - prevents re-entering death animation during enemy collisions */
+uint8_t inhibit_death_by_enemy_collision = 0;
+/* Flag set after death animation finishes to skip partial sprite rendering in comic_dies */
+uint8_t comic_death_animation_finished = 0;
+
 /* Teleport state */
 static uint8_t teleport_animation = 0;
 static uint8_t teleport_source_x = 0;
@@ -338,6 +343,7 @@ void load_new_stage(void);
 void game_loop(void);
 void blit_map_playfield_offscreen(void);
 void blit_comic_playfield_offscreen(void);
+void blit_comic_partial_playfield_offscreen(uint16_t max_height);
 void swap_video_buffers(void);
 void render_inventory_display(void);
 void render_score_display(void);
@@ -1967,6 +1973,11 @@ void blit_comic_playfield_offscreen(void)
     int pixel_x_signed;           /* Signed calculation to avoid underflow */
     int pixel_y_signed;           /* Signed calculation */
 
+    /* Skip rendering if animation is set to COMIC_ANIMATION_NONE (used during death sequences) */
+    if (comic_animation == COMIC_ANIMATION_NONE) {
+        return;
+    }
+
     if (comic_animation == COMIC_STANDING) {
         sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
             ? sprite_R4_comic_standing_left_16x32m
@@ -2038,6 +2049,96 @@ void blit_comic_playfield_offscreen(void)
 
     /* Blit 16x32 masked sprite to the offscreen buffers */
     blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
+}
+
+void blit_comic_partial_playfield_offscreen(uint16_t max_height)
+{
+    /* Render Comic's sprite during falling death sequence with TRUE partial height rendering.
+     * 
+     * Behavior:
+     * - Draws only the top max_height rows (0-32) of the 16×32 masked sprite.
+     * - Uses plane-by-plane masked blitting to match the original assembly behavior.
+     * 
+     * Parameter semantics:
+     * - max_height = visible height in pixels, computed as (PLAYFIELD_HEIGHT - comic_y) * 8
+     * - Clamped to 0..32; a value of 0 performs no rendering.
+     * 
+     * Notes:
+     * - Horizontal clipping is still rejected earlier; sprite must be fully within X bounds.
+     * - Vertical clipping at the bottom edge is handled by limiting rows to the screen height.
+     * - Writes to both gameplay buffers to keep double-buffering in sync.
+     */
+    const uint8_t __far *sprite_ptr = NULL;
+    int rel_x_units;              /* Signed: can be negative for left-of-camera sprites */
+    int pixel_x_signed;           /* Signed calculation to avoid underflow */
+    int pixel_y_signed;           /* Signed calculation */
+
+
+    /* Skip rendering if animation is set to COMIC_ANIMATION_NONE (used during death sequences) */
+    if (comic_animation == COMIC_ANIMATION_NONE) {
+        return;
+    }
+
+    /* Validate max_height parameter: only clamp upper bound. 0 is a valid no-op (skip rendering). */
+    if (max_height > 32) {
+        return;
+    }
+
+    if (comic_animation == COMIC_STANDING) {
+        sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+            ? sprite_R4_comic_standing_left_16x32m
+            : sprite_R4_comic_standing_right_16x32m;
+    } else if (comic_animation == COMIC_JUMPING) {
+        sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+            ? sprite_R4_comic_jumping_left_16x32m
+            : sprite_R4_comic_jumping_right_16x32m;
+    } else {
+        /* Running cycle 1..3 */
+        switch (comic_run_cycle) {
+            case COMIC_RUNNING_1:
+                sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+                    ? sprite_R4_comic_running_1_left_16x32m
+                    : sprite_R4_comic_running_1_right_16x32m;
+                break;
+            case COMIC_RUNNING_2:
+                sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+                    ? sprite_R4_comic_running_2_left_16x32m
+                    : sprite_R4_comic_running_2_right_16x32m;
+                break;
+            case COMIC_RUNNING_3:
+            default:
+                sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+                    ? sprite_R4_comic_running_3_left_16x32m
+                    : sprite_R4_comic_running_3_right_16x32m;
+                break;
+        }
+    }
+
+    if (sprite_ptr == NULL) {
+        return;
+    }
+
+    /* Compute pixel coordinates relative to camera and playfield offset (8,8) */
+    rel_x_units = (int)comic_x - (int)camera_x;
+    
+    /* Horizontal bounds check: reject sprites outside playfield width */
+    if (rel_x_units < 0 || rel_x_units >= PLAYFIELD_WIDTH) {
+        /* Offscreen horizontally; skip drawing */
+        return;
+    }
+
+    pixel_x_signed = (rel_x_units * 8) + 8;
+    pixel_y_signed = (int)comic_y * 8 + 8;
+
+    /* Render only the visible rows (top-origin) using rows-based masked blit.
+     * This matches the assembly behavior for partial height rendering. */
+    {
+        uint8_t rows = (uint8_t)max_height;
+        if (rows > 32) rows = 32;
+        if (rows > 0) {
+            blit_sprite_16x32_masked_rows((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr, rows);
+        }
+    }
 }
 
 void swap_video_buffers(void)
@@ -2437,33 +2538,148 @@ void load_new_stage(void)
 }
 
 /*
+ * comic_death_animation - Play the 8-frame death animation when Comic takes lethal damage
+ * 
+ * This function displays an 8-frame animation of Comic's death using the sprite_comic_death_*
+ * frames. It continues to handle enemies and items during the animation so they can move
+ * and be rendered.
+ * 
+ * Called from:
+ * - comic_takes_damage() in actors.c when Comic collides with an enemy and HP is already 0
+ * 
+ * The animation sequence:
+ * - Frames 0-3: Comic sprite is drawn under the death animation
+ * - Frames 0-3: Comic sprite is drawn under the death animation
+ * - Frames 4-7: Only death animation is shown (Comic is "gone")
+ * - Each frame lasts 1 tick
+ */
+void comic_death_animation(void)
+{
+    uint8_t frame;
+    const uint8_t __far *death_frame_ptr;
+    int16_t pixel_x;
+    int16_t pixel_y;
+    
+    /* Play the death sound effect */
+    play_sound(SOUND_DEATH, 4);  /* priority 4 */
+    
+    /* Play all 8 frames of the death animation */
+    for (frame = 0; frame < 8; frame++) {
+        /* Blit the map to the offscreen buffer */
+        blit_map_playfield_offscreen();
+        
+        /* For the first 4 frames (0-3), draw Comic under the death animation */
+        if (frame < 4) {
+            blit_comic_playfield_offscreen();
+        }
+        
+        /* Continue updating enemies while the animation plays */
+        handle_enemies();
+        
+        /* Get the death animation frame sprite (16x32) */
+        switch (frame) {
+            case 0: death_frame_ptr = sprite_comic_death_0_16x32m; break;
+            case 1: death_frame_ptr = sprite_comic_death_1_16x32m; break;
+            case 2: death_frame_ptr = sprite_comic_death_2_16x32m; break;
+            case 3: death_frame_ptr = sprite_comic_death_3_16x32m; break;
+            case 4: death_frame_ptr = sprite_comic_death_4_16x32m; break;
+            case 5: death_frame_ptr = sprite_comic_death_5_16x32m; break;
+            case 6: death_frame_ptr = sprite_comic_death_6_16x32m; break;
+            case 7: death_frame_ptr = sprite_comic_death_7_16x32m; break;
+            default: death_frame_ptr = sprite_comic_death_0_16x32m; break;
+        }
+        
+        /* Calculate Comic's pixel position for blitting the death animation.
+         * Add +8 offsets to align within the playfield (top-left at 8,8),
+         * matching blit_comic_playfield_offscreen and enemy rendering. */
+        pixel_x = (((int16_t)comic_x - (int16_t)camera_x) * 8) + 8;
+        pixel_y = ((int16_t)comic_y * 8) + 8;
+        
+        /* Blit the death animation frame with transparency to the offscreen buffer */
+        blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, death_frame_ptr);
+        
+        /* Continue updating items while the animation plays */
+        handle_item();
+        
+        /* Display the frame */
+        swap_video_buffers();
+        
+        /* Wait 1 tick per frame */
+        wait_n_ticks(1);
+    }
+    
+    /* Clear comic_animation to prevent any sprite rendering.
+     * Set to COMIC_ANIMATION_NONE rather than 0 (COMIC_STANDING) to ensure
+     * blit_comic_playfield_offscreen() returns early without rendering anything. */
+    comic_animation = COMIC_ANIMATION_NONE;
+}
+
+/*
  * comic_dies - Handle Comic's death
  * 
  * This function is called when Comic falls off the bottom of the screen
  * or when his HP is reduced to zero. It:
- * 1. Sets Comic's animation to COMIC_JUMPING
- * 2. Blits Comic and the map to the offscreen buffer
- * 3. Swaps video buffers to show the death frame
+ * 1. Sets Comic's animation based on the type of death
+ * 2. For falling deaths: blits partial Comic sprite (feet off screen)
+ * 3. For enemy collision deaths: skips sprite rendering (already played animation)
  * 4. Plays the "Too Bad" sound effect
  * 5. Either respawns Comic with one less life, or ends the game
+ * 
+ * Uses comic_death_animation_finished flag to distinguish:
+ * - Flag == 0: falling death (show partial sprite)
+ * - Flag == 1: enemy collision death (skip sprite, jump to .too_bad equivalent)
  */
 void comic_dies(void)
 {
-    /* Set Comic's animation to jumping as he falls */
-    comic_animation = COMIC_JUMPING;
-    
-    /* If Comic is still visible on screen (y < PLAYFIELD_HEIGHT), show the death animation */
-    if (comic_y < PLAYFIELD_HEIGHT) {
-        /* Blit the map and Comic's current position */
-        blit_map_playfield_offscreen();
-        blit_comic_playfield_offscreen();
-        swap_video_buffers();
+    /* Check if we're coming from the death animation (enemy collision) */
+    if (comic_death_animation_finished == 0) {
+        /* This is a falling death - show Comic partially visible as he falls off */
+        uint16_t visible_height;
+        int rel_x_units;
+        int visible_units;
         
-        /* Wait briefly to show the death frame */
-        wait_n_ticks(1);
+        comic_animation = COMIC_JUMPING;
+        
+        if (comic_y < PLAYFIELD_HEIGHT) {
+            /* Calculate how many pixels of the sprite are actually visible on screen.
+             * Playfield height = 20 units = 160 pixels. If Comic is at unit Y position,
+             * then visible_height (in pixels) = (20 - comic_y) * 8.
+             * This represents how much of the sprite is above the playfield bottom.
+             * Safe calculation: compute visible units first, then convert to pixels. */
+            visible_units = PLAYFIELD_HEIGHT - (int)comic_y;
+            visible_height = (uint16_t)(visible_units * 8);
+            
+            /* Clamp to sprite height (32 pixels) */
+            if (visible_height > 32) {
+                visible_height = 32;
+            }
+            
+            /* Bounds check: Only render if Comic is within horizontal playfield bounds.
+             * rel_x_units must be >= 0 (not left of camera) and < PLAYFIELD_WIDTH (not right of camera) */
+            rel_x_units = (int)comic_x - (int)camera_x;
+            if (rel_x_units >= 0 && rel_x_units < PLAYFIELD_WIDTH) {
+                /* Blit the map and clipped Comic sprite.
+                 * Note: blit_comic_partial_playfield_offscreen only renders if visible_height >= 32
+                 * (i.e., full sprite visible). This is a simplification of the assembly version
+                 * which supports true partial height rendering. For the falling death sequence,
+                 * this is acceptable: Comic briefly appears to fall off-screen before the
+                 * death animation takes over. */
+                blit_map_playfield_offscreen();
+                blit_comic_partial_playfield_offscreen(visible_height);
+                swap_video_buffers();
+                
+                /* Wait briefly to show the death frame */
+                wait_n_ticks(1);
+            }
+        }
+    } else {
+        /* Enemy collision death - set animation to a sentinel invalid value.
+         * Note: COMIC_ANIMATION_NONE is used here as a non-playable state; actual rendering
+         * behavior for this value is controlled by the blitting routines elsewhere. */
+        comic_animation = COMIC_ANIMATION_NONE;
     }
     
-    /* Blit final frame and swap buffers */
+    /* Common path for both death types */
     blit_map_playfield_offscreen();
     swap_video_buffers();
     
@@ -2479,35 +2695,32 @@ void comic_dies(void)
     /* Lose a life */
     lose_a_life();
     
+    /* Clear the death animation finished flag for next death */
+    comic_death_animation_finished = 0;
+    
     /* Check if any lives remain */
     if (comic_num_lives == 0) {
         /* No lives left - show game over screen */
         game_over();
+        return;
     }
     
-    /* Respawn Comic at the checkpoint position for this level/stage */
-    comic_x = comic_x_checkpoint;
-    comic_y = comic_y_checkpoint;
+    /* Reset core movement/animation state for respawn (match assembly intent) */
     comic_run_cycle = 0;
-    comic_is_falling_or_jumping = 0;
     comic_x_momentum = 0;
-    comic_y_vel = 0;
-    comic_jump_counter = comic_jump_power;  /* Use current jump power (may be 5 if Boots collected) */
     comic_animation = COMIC_STANDING;
     
-    /* Queue only the missing HP to refill */
-    /* IMPORTANT: We keep comic_hp at its current value (showing the HP state at death)
-     * and only queue the missing portion to refill. This way the HP meter visually
-     * remains at whatever it was when Comic died, then refills only the missing cells.
-     * For example, if Comic had 3/6 HP and dies, the meter shows 3 cells, then refills
-     * to show 4, 5, 6 cells as comic_hp increments.
-     * 
-     * By setting pending = MAX_HP - current_hp, we ensure no bonus points are awarded:
-     * - If current_hp = 6: pending = 0, so no increments happen
-     * - If current_hp < 6: pending increments from current_hp to MAX_HP, avoiding >= MAX_HP checks
-     * 
-     * This matches the original assembly behavior exactly. */
-    comic_hp_pending_increase = MAX_HP - comic_hp;
+    /* HP refill behavior on respawn: keep visible meter state and only refill missing cells */
+    /* This preserves the current HP display and avoids bonus points while refilling */
+    comic_hp_pending_increase = (comic_hp < MAX_HP) ? (MAX_HP - comic_hp) : 0;
+    
+    /* Reset fireball meter counter per assembly */
+    fireball_meter_counter = 2;
+    
+    /* Reload stage to position Comic at checkpoint, clamp camera, and redraw.
+     * Note: load_new_stage() will reset physics state (falling/jumping, y_vel, jump_counter)
+     * and clear flags (comic_is_teleporting, source_door_level_number). */
+    load_new_stage();
 }
 
 /*

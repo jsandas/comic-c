@@ -830,6 +830,104 @@ void blit_sprite_16x32_masked(uint16_t pixel_x, uint16_t pixel_y, const uint8_t 
 }
 
 /*
+ * blit_sprite_16x32_masked_rows - Blit only the top N rows of a 16x32 masked EGA sprite
+ *
+ * Sprite format (320 bytes):
+ *   Bytes 0-63:     Blue plane (2 bytes/row × 32 rows = 64 bytes)
+ *   Bytes 64-127:   Green plane
+ *   Bytes 128-191:  Red plane
+ *   Bytes 192-255:  Intensity plane
+ *   Bytes 256-319:  Mask (2 bytes/row × 32 rows = 64 bytes)
+ *
+ * Input:
+ *   pixel_x, pixel_y: top-left position in pixels
+ *   sprite_data: pointer to 320-byte sprite data (masked)
+ *   rows: number of rows to draw (1-32), top-origin
+ *
+ * Behavior:
+ *   - Clamps rows to 1..32 and to available screen space (bottom edge)
+ *   - Draws only the first 'rows' rows of the sprite, using mask combine
+ *   - Writes to both gameplay buffers (A and B) to keep them in sync
+ */
+void blit_sprite_16x32_masked_rows(uint16_t pixel_x, uint16_t pixel_y, const uint8_t *sprite_data, uint8_t rows)
+{
+    uint16_t base_offset;
+    uint8_t plane;
+    uint8_t row;
+    uint8_t rows_to_draw;
+    const uint8_t *plane_base;
+    const uint8_t *mask_base;
+    uint8_t __far *video_ptr_a;
+    uint8_t __far *video_ptr_b;
+    uint16_t screen_row_bytes;
+    uint8_t b0;
+    uint8_t b1;
+    uint8_t m0;
+    uint8_t m1;
+
+    /* Horizontal bounds: sprite is 16px wide and must not overflow */
+    if (pixel_x >= SCREEN_WIDTH || pixel_x + 16 > SCREEN_WIDTH) {
+        return;
+    }
+
+    /* Vertical bounds: top must be within screen */
+    if (pixel_y >= SCREEN_HEIGHT) {
+        return;
+    }
+
+    /* Clamp rows to 1..32 */
+    if (rows == 0) {
+        return;
+    }
+    if (rows > 32) {
+        rows = 32;
+    }
+
+    /* Also clamp to available screen space to avoid bottom overflow */
+    if ((uint16_t)(pixel_y + rows) > SCREEN_HEIGHT) {
+        rows_to_draw = (uint8_t)(SCREEN_HEIGHT - pixel_y);
+    } else {
+        rows_to_draw = rows;
+    }
+    if (rows_to_draw == 0) {
+        return;
+    }
+
+    base_offset = (uint16_t)((pixel_y * 320 + pixel_x) / 8);
+    mask_base = sprite_data + 256;
+    screen_row_bytes = SCREEN_WIDTH / 8; /* 40 */
+
+    /* For each plane, copy rows to both buffers */
+    for (plane = 0; plane < 4; plane++) {
+        plane_base = sprite_data + plane * 64; /* 64 bytes per plane */
+
+        /* Start at top row for both buffers */
+        video_ptr_a = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_A + base_offset);
+        video_ptr_b = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, GRAPHICS_BUFFER_GAMEPLAY_B + base_offset);
+
+        /* Enable plane for both reading and writing */
+        enable_ega_plane_read_write(plane);
+
+        for (row = 0; row < rows_to_draw; row++) {
+            /* Two bytes per row */
+            b0 = plane_base[row * 2 + 0];
+            b1 = plane_base[row * 2 + 1];
+            m0 = mask_base[row * 2 + 0];
+            m1 = mask_base[row * 2 + 1];
+
+            video_ptr_a[0] = (video_ptr_a[0] & m0) | (b0 & ~m0);
+            video_ptr_a[1] = (video_ptr_a[1] & m1) | (b1 & ~m1);
+
+            video_ptr_b[0] = (video_ptr_b[0] & m0) | (b0 & ~m0);
+            video_ptr_b[1] = (video_ptr_b[1] & m1) | (b1 & ~m1);
+
+            /* Advance to next screen row (40 bytes) */
+            video_ptr_a += screen_row_bytes;
+            video_ptr_b += screen_row_bytes;
+        }
+    }
+}
+/*
  * blit_sprite_16x8_masked - Blit a 16x8 masked EGA sprite to video memory
  *
  * Sprite format (80 bytes):

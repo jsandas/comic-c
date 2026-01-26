@@ -66,8 +66,13 @@ extern uint8_t enemy_respawn_counter_cycle; /* Cycles: 20→40→60→80→100�
 
 /* Forward declarations for external functions */
 extern void comic_dies(void);               /* Game over sequence from physics.c */
+extern void comic_death_animation(void);    /* Death animation from game_main.c */
 extern void award_points(uint16_t points);  /* Award points from game_main.c */
 extern void award_extra_life(void);         /* Award extra life from game_main.c */
+
+/* Death animation state */
+extern uint8_t inhibit_death_by_enemy_collision; /* Set during death animation to prevent re-entry */
+extern uint8_t comic_death_animation_finished;   /* Set after animation finishes to skip partial sprite in comic_dies */
 
 /* ===== Actor Arrays ===== */
 enemy_t enemies[MAX_NUM_ENEMIES];
@@ -86,19 +91,29 @@ static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uin
  * comic_takes_damage - Reduce Comic's HP and start shield/death animation
  * 
  * If Comic has shield, remove shield instead of losing HP.
- * If HP reaches 0, trigger death sequence.
+ * If HP is already 0 when taking damage, trigger death animation sequence.
+ * If HP > 0, decrement HP (sound plays in decrement_comic_hp).
  */
 static void comic_takes_damage(void)
 {
     if (comic_has_shield) {
         comic_has_shield = 0;
         play_sound(SOUND_DAMAGE, 2);
-    } else if (comic_hp > 0) {
-        decrement_comic_hp();
-        if (comic_hp == 0) {
-            /* Comic is dead - trigger game over sequence */
+    } else if (comic_hp == 0) {
+        /* HP is already 0 - Comic dies from this hit.
+         * Only play SOUND_DEATH via comic_death_animation, NOT SOUND_DAMAGE.
+         * This matches assembly behavior: no decrement_comic_hp() call here. */
+        if (inhibit_death_by_enemy_collision == 0) {
+            inhibit_death_by_enemy_collision = 1;
+            comic_death_animation();
+            comic_death_animation_finished = 1;
             comic_dies();
+            inhibit_death_by_enemy_collision = 0;
         }
+    } else {
+        /* HP > 0: decrement HP (which plays SOUND_DAMAGE).
+         * Death only occurs when taking damage WHILE HP is already 0. */
+        decrement_comic_hp();
     }
 }
 
@@ -840,8 +855,9 @@ void handle_enemies(void)
                 if (y_diff >= 0 && y_diff < 4) {
                     /* Collision detected! */
                     enemy->state = ENEMY_STATE_RED_SPARK; /* Start red spark death animation */
+                    
+                    /* Handle damage to Comic (shield loss, HP loss, or death) */
                     comic_takes_damage();
-                    play_sound(SOUND_DAMAGE, 2);
                     continue;
                 }
             }
