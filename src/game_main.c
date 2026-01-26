@@ -2079,8 +2079,8 @@ void blit_comic_partial_playfield_offscreen(uint16_t max_height)
         return;
     }
 
-    /* Validate max_height parameter */
-    if (max_height == 0 || max_height > 32) {
+    /* Validate max_height parameter: only clamp upper bound. 0 is a valid no-op (skip rendering). */
+    if (max_height > 32) {
         return;
     }
 
