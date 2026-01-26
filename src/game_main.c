@@ -2661,8 +2661,9 @@ void comic_dies(void)
             }
         }
     } else {
-        /* Enemy collision death - set animation to invalid value to prevent any sprite rendering.
-         * Using COMIC_ANIMATION_NONE rather than 0 (COMIC_STANDING) to ensure no sprite is drawn. */
+        /* Enemy collision death - set animation to a sentinel invalid value.
+         * Note: COMIC_ANIMATION_NONE is used here as a non-playable state; actual rendering
+         * behavior for this value is controlled by the blitting routines elsewhere. */
         comic_animation = COMIC_ANIMATION_NONE;
         /* Clear the flag for next time comic_dies is called */
         comic_death_animation_finished = 0;
