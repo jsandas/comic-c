@@ -2630,8 +2630,10 @@ void comic_dies(void)
             /* Calculate how many pixels of the sprite are actually visible on screen.
              * Playfield height = 20 units = 160 pixels. If Comic is at unit Y position,
              * then visible_height (in pixels) = (20 - comic_y) * 8.
-             * This represents how much of the sprite is above the playfield bottom. */
-            visible_height = (PLAYFIELD_HEIGHT - (int)comic_y) * 8;
+             * This represents how much of the sprite is above the playfield bottom.
+             * Safe calculation: compute visible units first, then convert to pixels. */
+            int visible_units = PLAYFIELD_HEIGHT - (int)comic_y;
+            visible_height = (uint16_t)(visible_units * 8);
             
             /* Clamp to sprite height (32 pixels) */
             if (visible_height > 32) {
