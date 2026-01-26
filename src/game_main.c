@@ -343,6 +343,7 @@ void load_new_stage(void);
 void game_loop(void);
 void blit_map_playfield_offscreen(void);
 void blit_comic_playfield_offscreen(void);
+void blit_comic_partial_playfield_offscreen(uint16_t max_height);
 void swap_video_buffers(void);
 void render_inventory_display(void);
 void render_score_display(void);
@@ -2045,6 +2046,105 @@ void blit_comic_playfield_offscreen(void)
     blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
 }
 
+void blit_comic_partial_playfield_offscreen(uint16_t max_height)
+{
+    /* Clipped version of blit_comic_playfield_offscreen for falling death rendering.
+     * Renders Comic's sprite but limits the height to prevent extending beyond playfield bottom.
+     * 
+     * max_height: Maximum number of pixels to render (0-32).
+     *             Used to clip sprite when Comic is partially off bottom of screen.
+     */
+    const uint8_t __far *sprite_ptr = NULL;
+    int rel_x_units;              /* Signed: can be negative for left-of-camera sprites */
+    int pixel_x_signed;           /* Signed calculation to avoid underflow */
+    int pixel_y_signed;           /* Signed calculation */
+    uint16_t visible_height;      /* Height of sprite to render */
+    uint16_t i;                   /* Loop counter */
+    uint16_t src_offset;          /* Offset into sprite data */
+    uint16_t plane;               /* Video plane counter */
+    uint8_t __far *vram_ptr;      /* VRAM pointer */
+
+    /* Clamp max_height to valid range */
+    if (max_height == 0 || max_height > 32) {
+        return;
+    }
+
+    if (comic_animation == COMIC_STANDING) {
+        sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+            ? sprite_R4_comic_standing_left_16x32m
+            : sprite_R4_comic_standing_right_16x32m;
+    } else if (comic_animation == COMIC_JUMPING) {
+        sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+            ? sprite_R4_comic_jumping_left_16x32m
+            : sprite_R4_comic_jumping_right_16x32m;
+    } else {
+        /* Running cycle 1..3 */
+        switch (comic_run_cycle) {
+            case COMIC_RUNNING_1:
+                sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+                    ? sprite_R4_comic_running_1_left_16x32m
+                    : sprite_R4_comic_running_1_right_16x32m;
+                break;
+            case COMIC_RUNNING_2:
+                sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+                    ? sprite_R4_comic_running_2_left_16x32m
+                    : sprite_R4_comic_running_2_right_16x32m;
+                break;
+            case COMIC_RUNNING_3:
+            default:
+                sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
+                    ? sprite_R4_comic_running_3_left_16x32m
+                    : sprite_R4_comic_running_3_right_16x32m;
+                break;
+        }
+    }
+
+    if (sprite_ptr == NULL) {
+        return;
+    }
+
+    /* Compute pixel coordinates relative to camera and playfield offset (8,8) */
+    rel_x_units = (int)comic_x - (int)camera_x;
+    
+    /* Horizontal bounds check: reject sprites outside playfield width */
+    if (rel_x_units < 0 || rel_x_units >= PLAYFIELD_WIDTH) {
+        /* Offscreen horizontally; skip drawing */
+        return;
+    }
+
+    pixel_x_signed = (rel_x_units * 8) + 8;
+    pixel_y_signed = (int)comic_y * 8 + 8;
+
+    /* Use blit_sprite_16x32_masked but only for visible height.
+     * This is a workaround since blit_sprite_16x32_masked doesn't support
+     * height clipping. For a 16x32 sprite, we'd need a 16x8, 16x16, or 16x24 variant.
+     * 
+     * For now, just use the full blit if sprite fits, or skip if it doesn't.
+     * The check (comic_y < PLAYFIELD_HEIGHT) in comic_dies() ensures we only
+     * call this when there's something to display.
+     */
+    visible_height = (PLAYFIELD_HEIGHT - (int)comic_y);
+    if (visible_height > 32) {
+        visible_height = 32;
+    }
+
+    /* If less than 8 pixels visible, skip entirely */
+    if (visible_height < 8) {
+        return;
+    }
+
+    if (visible_height >= 32) {
+        /* Full sprite fits */
+        blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
+    } else if (visible_height >= 16) {
+        /* Only top 24 pixels fit - use 16x16 from top of sprite */
+        blit_sprite_16x16_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
+    } else {
+        /* Only top 8 pixels fit - use 16x8 from top of sprite */
+        blit_sprite_16x8_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
+    }
+}
+
 void swap_video_buffers(void)
 {
     /* Display the offscreen buffer and then toggle which buffer is offscreen */
@@ -2534,12 +2634,25 @@ void comic_dies(void)
     /* Check if we're coming from the death animation (enemy collision) */
     if (comic_death_animation_finished == 0) {
         /* This is a falling death - show Comic partially visible as he falls off */
+        uint16_t visible_height;
+        
         comic_animation = COMIC_JUMPING;
         
         if (comic_y < PLAYFIELD_HEIGHT) {
-            /* Blit the map and partial Comic sprite */
+            /* Calculate how many pixels of the sprite are actually visible on screen.
+             * Playfield height = 20 units = 160 pixels. If Comic is at unit Y position,
+             * then visible_height (in pixels) = (20 - comic_y) * 8.
+             * This represents how much of the sprite is above the playfield bottom. */
+            visible_height = (PLAYFIELD_HEIGHT - (int)comic_y) * 8;
+            
+            /* Clamp to sprite height (32 pixels) */
+            if (visible_height > 32) {
+                visible_height = 32;
+            }
+            
+            /* Blit the map and clipped Comic sprite */
             blit_map_playfield_offscreen();
-            blit_comic_playfield_offscreen();
+            blit_comic_partial_playfield_offscreen(visible_height);
             swap_video_buffers();
             
             /* Wait briefly to show the death frame */
