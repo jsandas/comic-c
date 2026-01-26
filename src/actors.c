@@ -106,9 +106,9 @@ static void comic_takes_damage(void)
         if (inhibit_death_by_enemy_collision == 0) {
             inhibit_death_by_enemy_collision = 1;
             comic_death_animation();
-            inhibit_death_by_enemy_collision = 0;
             comic_death_animation_finished = 1;
             comic_dies();
+            inhibit_death_by_enemy_collision = 0;
         }
     } else {
         /* HP > 0: decrement HP (which plays SOUND_DAMAGE).
