@@ -108,6 +108,15 @@ static void comic_takes_damage(void)
             comic_death_animation_finished = 1;  /* Flag that animation is done - skip partial sprite rendering */
             comic_dies();  /* Handle respawn or game over */
         }
+    } else {
+        /* HP is already 0 - Comic dies from this hit (matches assembly behavior) */
+        if (inhibit_death_by_enemy_collision == 0) {
+            inhibit_death_by_enemy_collision = 1;
+            comic_death_animation();
+            inhibit_death_by_enemy_collision = 0;
+            comic_death_animation_finished = 1;
+            comic_dies();
+        }
     }
 }
 
@@ -850,21 +859,8 @@ void handle_enemies(void)
                     /* Collision detected! */
                     enemy->state = ENEMY_STATE_RED_SPARK; /* Start red spark death animation */
                     
-                    /* Check if Comic should die from this hit.
-                     * This happens when Comic's HP is 0 (fully depleted, just respawned)
-                     * and we're not already playing the death animation. */
-                    if (comic_hp == 0 && inhibit_death_by_enemy_collision == 0) {
-                        /* Comic is killed by this enemy collision - play death animation */
-                        inhibit_death_by_enemy_collision = 1;
-                        comic_death_animation();
-                        inhibit_death_by_enemy_collision = 0;
-                        /* Mark that the death animation has completed so comic_dies skips partial blit */
-                        comic_death_animation_finished = 1;
-                        comic_dies();  /* Handle respawn or game over */
-                    } else {
-                        /* Comic survives this hit - decrement HP and continue */
-                        decrement_comic_hp();
-                    }
+                    /* Handle damage to Comic (shield loss, HP loss, or death) */
+                    comic_takes_damage();
                     continue;
                 }
             }
