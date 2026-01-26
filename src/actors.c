@@ -98,17 +98,7 @@ static void comic_takes_damage(void)
     if (comic_has_shield) {
         comic_has_shield = 0;
         play_sound(SOUND_DAMAGE, 2);
-    } else if (comic_hp > 0) {
-        decrement_comic_hp();
-        if (comic_hp == 0) {
-            /* Comic is dead - trigger death animation then respawn/game over sequence */
-            inhibit_death_by_enemy_collision = 1;
-            comic_death_animation();
-            inhibit_death_by_enemy_collision = 0;
-            comic_death_animation_finished = 1;  /* Flag that animation is done - skip partial sprite rendering */
-            comic_dies();  /* Handle respawn or game over */
-        }
-    } else {
+    } else if (comic_hp == 0) {
         /* HP is already 0 - Comic dies from this hit (matches assembly behavior) */
         if (inhibit_death_by_enemy_collision == 0) {
             inhibit_death_by_enemy_collision = 1;
@@ -117,6 +107,10 @@ static void comic_takes_damage(void)
             comic_death_animation_finished = 1;
             comic_dies();
         }
+    } else {
+        /* HP > 0: decrement HP but don't trigger death even if it reaches 0.
+         * Death only occurs when taking damage WHILE HP is already 0. */
+        decrement_comic_hp();
     }
 }
 
