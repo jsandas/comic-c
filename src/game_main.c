@@ -2677,8 +2677,6 @@ void comic_dies(void)
          * Note: COMIC_ANIMATION_NONE is used here as a non-playable state; actual rendering
          * behavior for this value is controlled by the blitting routines elsewhere. */
         comic_animation = COMIC_ANIMATION_NONE;
-        /* Clear the flag for next time comic_dies is called */
-        comic_death_animation_finished = 0;
     }
     
     /* Common path for both death types */
@@ -2696,6 +2694,9 @@ void comic_dies(void)
     
     /* Lose a life */
     lose_a_life();
+    
+    /* Clear the death animation finished flag for next death */
+    comic_death_animation_finished = 0;
     
     /* Check if any lives remain */
     if (comic_num_lives == 0) {
