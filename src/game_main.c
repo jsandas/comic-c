@@ -185,6 +185,8 @@ uint8_t landed_this_tick = 0;
 
 /* Death animation state - prevents re-entering death animation during enemy collisions */
 uint8_t inhibit_death_by_enemy_collision = 0;
+/* Flag set after death animation finishes to skip partial sprite rendering in comic_dies */
+uint8_t comic_death_animation_finished = 0;
 
 /* Teleport state */
 static uint8_t teleport_animation = 0;
@@ -2505,6 +2507,11 @@ void comic_death_animation(void)
         /* Wait 1 tick per frame */
         wait_n_ticks(1);
     }
+    
+    /* Clear comic_animation to prevent any sprite rendering.
+     * Set to 255 (invalid value) rather than 0 (COMIC_STANDING) to ensure
+     * blit_comic_playfield_offscreen() returns early without rendering anything. */
+    comic_animation = 255;
 }
 
 /*
@@ -2518,14 +2525,14 @@ void comic_death_animation(void)
  * 4. Plays the "Too Bad" sound effect
  * 5. Either respawns Comic with one less life, or ends the game
  * 
- * Uses inhibit_death_by_enemy_collision flag to distinguish:
+ * Uses comic_death_animation_finished flag to distinguish:
  * - Flag == 0: falling death (show partial sprite)
  * - Flag == 1: enemy collision death (skip sprite, jump to .too_bad equivalent)
  */
 void comic_dies(void)
 {
     /* Check if we're coming from the death animation (enemy collision) */
-    if (inhibit_death_by_enemy_collision == 0) {
+    if (comic_death_animation_finished == 0) {
         /* This is a falling death - show Comic partially visible as he falls off */
         comic_animation = COMIC_JUMPING;
         
@@ -2538,6 +2545,12 @@ void comic_dies(void)
             /* Wait briefly to show the death frame */
             wait_n_ticks(1);
         }
+    } else {
+        /* Enemy collision death - set animation to invalid value to prevent any sprite rendering.
+         * Using 255 (invalid) rather than 0 (COMIC_STANDING) to ensure no sprite is drawn. */
+        comic_animation = 255;
+        /* Clear the flag for next time comic_dies is called */
+        comic_death_animation_finished = 0;
     }
     
     /* Common path for both death types */

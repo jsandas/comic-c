@@ -72,6 +72,7 @@ extern void award_extra_life(void);         /* Award extra life from game_main.c
 
 /* Death animation state */
 extern uint8_t inhibit_death_by_enemy_collision; /* Set during death animation to prevent re-entry */
+extern uint8_t comic_death_animation_finished;   /* Set after animation finishes to skip partial sprite in comic_dies */
 
 /* ===== Actor Arrays ===== */
 enemy_t enemies[MAX_NUM_ENEMIES];
@@ -104,6 +105,7 @@ static void comic_takes_damage(void)
             inhibit_death_by_enemy_collision = 1;
             comic_death_animation();
             inhibit_death_by_enemy_collision = 0;
+            comic_death_animation_finished = 1;  /* Flag that animation is done - skip partial sprite rendering */
             comic_dies();  /* Handle respawn or game over */
         }
     }
@@ -856,6 +858,8 @@ void handle_enemies(void)
                         inhibit_death_by_enemy_collision = 1;
                         comic_death_animation();
                         inhibit_death_by_enemy_collision = 0;
+                        /* Mark that the death animation has completed so comic_dies skips partial blit */
+                        comic_death_animation_finished = 1;
                         comic_dies();  /* Handle respawn or game over */
                     } else {
                         /* Comic survives this hit - decrement HP and continue */
