@@ -2058,13 +2058,8 @@ void blit_comic_partial_playfield_offscreen(uint16_t max_height)
     int rel_x_units;              /* Signed: can be negative for left-of-camera sprites */
     int pixel_x_signed;           /* Signed calculation to avoid underflow */
     int pixel_y_signed;           /* Signed calculation */
-    uint16_t visible_height;      /* Height of sprite to render */
-    uint16_t i;                   /* Loop counter */
-    uint16_t src_offset;          /* Offset into sprite data */
-    uint16_t plane;               /* Video plane counter */
-    uint8_t __far *vram_ptr;      /* VRAM pointer */
 
-    /* Clamp max_height to valid range */
+    /* Validate max_height parameter */
     if (max_height == 0 || max_height > 32) {
         return;
     }
@@ -2115,34 +2110,23 @@ void blit_comic_partial_playfield_offscreen(uint16_t max_height)
     pixel_x_signed = (rel_x_units * 8) + 8;
     pixel_y_signed = (int)comic_y * 8 + 8;
 
-    /* Use blit_sprite_16x32_masked but only for visible height.
-     * This is a workaround since blit_sprite_16x32_masked doesn't support
-     * height clipping. For a 16x32 sprite, we'd need a 16x8, 16x16, or 16x24 variant.
+    /* Check if the full 32-pixel sprite fits within the visible playfield.
      * 
-     * For now, just use the full blit if sprite fits, or skip if it doesn't.
-     * The check (comic_y < PLAYFIELD_HEIGHT) in comic_dies() ensures we only
-     * call this when there's something to display.
+     * NOTE: We cannot use blit_sprite_16x8_masked or blit_sprite_16x16_masked
+     * to render partial portions of a 16x32 sprite. Those functions expect
+     * sprite data in completely different formats (16x8 = 32 bytes, 16x16 = 160 bytes)
+     * whereas our sprite pointers point to 16x32 sprites (320 bytes). Passing a 16x32
+     * sprite pointer to a function expecting 16x8 data causes it to read the wrong
+     * bytes, resulting in corrupted graphics.
+     * 
+     * For the falling death animation, we simply skip rendering if the sprite would
+     * be clipped. This is acceptable since Comic is falling off-screen anyway.
      */
-    visible_height = (PLAYFIELD_HEIGHT - (int)comic_y);
-    if (visible_height > 32) {
-        visible_height = 32;
-    }
-
-    /* If less than 8 pixels visible, skip entirely */
-    if (visible_height < 8) {
-        return;
-    }
-
-    if (visible_height >= 32) {
-        /* Full sprite fits */
+    if (max_height >= 32) {
+        /* Full sprite fits - render it */
         blit_sprite_16x32_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
-    } else if (visible_height >= 16) {
-        /* Only top 24 pixels fit - use 16x16 from top of sprite */
-        blit_sprite_16x16_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
-    } else {
-        /* Only top 8 pixels fit - use 16x8 from top of sprite */
-        blit_sprite_16x8_masked((uint16_t)pixel_x_signed, (uint16_t)pixel_y_signed, (const uint8_t *)sprite_ptr);
     }
+    /* else: Sprite would be partially clipped - skip rendering to avoid corruption */
 }
 
 void swap_video_buffers(void)
