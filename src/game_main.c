@@ -2053,20 +2053,41 @@ void blit_comic_playfield_offscreen(void)
 
 void blit_comic_partial_playfield_offscreen(uint16_t max_height)
 {
-    /* Render Comic's sprite during falling death sequence, but ONLY if fully visible.
+    /* Render Comic's sprite during falling death sequence.
      * 
-     * LIMITATION: This function does NOT actually support partial height rendering despite
-     * the assembly version doing so. The assembly can render partial sprite heights by doing
-     * plane-by-plane rendering with explicit row counts. The C version lacks this infrastructure.
+     * IMPORTANT: This function implements BINARY rendering, NOT continuous partial rendering:
+     * - If max_height >= 32: renders the full 32-pixel sprite
+     * - If max_height < 32: skips rendering entirely
      * 
-     * NOTE: This function's name is misleading. "Partial" refers to what should happen
-     * (partial sprite rendering), not what actually happens (full sprite or nothing).
-     * The assembly function with the same name DOES implement true partial rendering.
-     * The C implementation is a simplified fallback.
+     * This differs from the assembly version which supports true partial height rendering.
+     * The assembly version uses plane-by-plane rendering with explicit row counts to render
+     * only the visible portion of the sprite. The C version lacks this low-level infrastructure
+     * and implements a simpler "all-or-nothing" approach.
      * 
-     * max_height: Expected visible height (0-32 pixels), but is only used for validation.
-     *             Sprite is rendered only if max_height == 32 (fully visible).
-     *             Any other value causes early return (sprite completely skipped).
+     * max_height Parameter Semantics:
+     * --------
+     * This parameter represents the maximum visible height (in pixels) of the sprite if it
+     * were rendered during the falling death sequence. It is computed as:
+     *   visible_height = (PLAYFIELD_HEIGHT - comic_y) * 8
+     * 
+     * The value accounts for Comic's vertical position relative to the bottom of the playfield.
+     * Values range from 0 (completely off-screen below) to 32 (fully visible).
+     * 
+     * RENDERING DECISION: Binary Check
+     * --------
+     * - max_height >= 32: Sprite is completely above the playfield bottom boundary,
+     *                     so we render the full sprite.
+     * - max_height < 32:  Sprite would be clipped at the bottom of the screen,
+     *                     so we skip rendering (partial rendering not implemented).
+     * 
+     * RATIONALE: During falling death, Comic quickly exits the bottom of the screen.
+     * The player briefly sees Comic start to fall off (even with all-or-nothing rendering)
+     * before the death animation sequence takes over. This simplified behavior is acceptable
+     * for the current game flow.
+     * 
+     * TODO: Implement true partial sprite rendering by plane-by-plane rendering with
+     * explicit row counts, similar to the assembly version, to enable smooth sprite
+     * clipping at the bottom edge of the screen.
      */
     const uint8_t __far *sprite_ptr = NULL;
     int rel_x_units;              /* Signed: can be negative for left-of-camera sprites */
@@ -2661,7 +2682,12 @@ void comic_dies(void)
              * rel_x_units must be >= 0 (not left of camera) and < PLAYFIELD_WIDTH (not right of camera) */
             rel_x_units = (int)comic_x - (int)camera_x;
             if (rel_x_units >= 0 && rel_x_units < PLAYFIELD_WIDTH) {
-                /* Blit the map and clipped Comic sprite */
+                /* Blit the map and clipped Comic sprite.
+                 * Note: blit_comic_partial_playfield_offscreen only renders if visible_height >= 32
+                 * (i.e., full sprite visible). This is a simplification of the assembly version
+                 * which supports true partial height rendering. For the falling death sequence,
+                 * this is acceptable: Comic briefly appears to fall off-screen before the
+                 * death animation takes over. */
                 blit_map_playfield_offscreen();
                 blit_comic_partial_playfield_offscreen(visible_height);
                 swap_video_buffers();
