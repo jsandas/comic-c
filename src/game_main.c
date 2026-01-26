@@ -2559,7 +2559,7 @@ void load_new_stage(void)
 void comic_death_animation(void)
 {
     uint8_t frame;
-    const uint8_t *death_frame_ptr;
+    const uint8_t __far *death_frame_ptr;
     int16_t pixel_x;
     int16_t pixel_y;
     
