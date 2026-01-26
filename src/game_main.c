@@ -2682,7 +2682,6 @@ void comic_dies(void)
     comic_is_falling_or_jumping = 0;
     comic_x_momentum = 0;
     comic_y_vel = 0;
-    comic_jump_counter = comic_jump_power;  /* fix assembly bug: respect Boots jump power */
     comic_animation = COMIC_STANDING;
     
     /* HP refill behavior on respawn: keep visible meter state and only refill missing cells */
