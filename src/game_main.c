@@ -2530,7 +2530,11 @@ void load_new_stage(void)
  * 
  * This function displays an 8-frame animation of Comic's death using the sprite_comic_death_*
  * frames. It continues to handle enemies and items during the animation so they can move
- * and be rendered. The function is called from comic_takes_damage when HP reaches zero.
+ * and be rendered.
+ * 
+ * Called from:
+ * - handle_enemies() in actors.c when Comic collides with an enemy while HP == 0
+ * - comic_takes_damage() when HP is reduced to zero (if implemented)
  * 
  * The animation sequence:
  * - Frames 0-3: Comic sprite is drawn under the death animation
