@@ -2569,10 +2569,10 @@ void load_new_stage(void)
  * and be rendered.
  * 
  * Called from:
- * - handle_enemies() in actors.c when Comic collides with an enemy while HP == 0
- * - comic_takes_damage() when HP is reduced to zero (if implemented)
+ * - comic_takes_damage() in actors.c when Comic collides with an enemy and HP is already 0
  * 
  * The animation sequence:
+ * - Frames 0-3: Comic sprite is drawn under the death animation
  * - Frames 0-3: Comic sprite is drawn under the death animation
  * - Frames 4-7: Only death animation is shown (Comic is "gone")
  * - Each frame lasts 1 tick
