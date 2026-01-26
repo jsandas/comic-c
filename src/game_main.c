@@ -2679,9 +2679,7 @@ void comic_dies(void)
     
     /* Reset core movement/animation state for respawn (match assembly intent) */
     comic_run_cycle = 0;
-    comic_is_falling_or_jumping = 0;
     comic_x_momentum = 0;
-    comic_y_vel = 0;
     comic_animation = COMIC_STANDING;
     
     /* HP refill behavior on respawn: keep visible meter state and only refill missing cells */
@@ -2691,11 +2689,9 @@ void comic_dies(void)
     /* Reset fireball meter counter per assembly */
     fireball_meter_counter = 2;
     
-    /* Ensure we are not considered teleporting and not coming from a door */
-    comic_is_teleporting = 0;
-    source_door_level_number = -1;
-    
-    /* Reload stage to position Comic at checkpoint, clamp camera, and redraw */
+    /* Reload stage to position Comic at checkpoint, clamp camera, and redraw.
+     * Note: load_new_stage() will reset physics state (falling/jumping, y_vel, jump_counter)
+     * and clear flags (comic_is_teleporting, source_door_level_number). */
     load_new_stage();
 }
 
