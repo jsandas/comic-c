@@ -1973,6 +1973,11 @@ void blit_comic_playfield_offscreen(void)
     int pixel_x_signed;           /* Signed calculation to avoid underflow */
     int pixel_y_signed;           /* Signed calculation */
 
+    /* Skip rendering if animation is set to COMIC_ANIMATION_NONE (used during death sequences) */
+    if (comic_animation == COMIC_ANIMATION_NONE) {
+        return;
+    }
+
     if (comic_animation == COMIC_STANDING) {
         sprite_ptr = (comic_facing == COMIC_FACING_LEFT)
             ? sprite_R4_comic_standing_left_16x32m
