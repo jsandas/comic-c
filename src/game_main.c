@@ -2340,9 +2340,7 @@ static void render_map(void)
             }
             
             /* Blit this tile to the rendered map buffer */
-            if (tile_id != 0) {
-                blit_tile_to_map(tile_id, tile_x, tile_y, tileset_graphics);
-            }
+            blit_tile_to_map(tile_id, tile_x, tile_y, tileset_graphics);
         }
     }
 }
