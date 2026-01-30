@@ -1272,64 +1272,148 @@ void enemy_behavior_roll(enemy_t *enemy)
 
 /*
  * enemy_behavior_seek - Pathfinding toward player
+ *
+ * Enhanced to match other AI routines:
+ *  - width-aware tile checks when X is odd
+ *  - consistent use of x_vel and facing
+ *  - playfield-edge and fall/despawn handling
+ *  - restraint normalization like other behaviors
  */
 void enemy_behavior_seek(enemy_t *enemy)
 {
-    uint8_t next_x, next_y;
-    uint8_t tile;
-    
-    /* Handle restraint */
+    uint8_t next_x, next_y, tile;
+    unsigned char hcollision = 0, vcollision = 0;
+    int16_t camera_rel_x;
+
+    /* Handle restraint (same pattern as other AIs) */
     if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
         enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
         return;
     }
-    
+
     if (enemy->restraint == ENEMY_RESTRAINT_MOVE_THIS_TICK) {
         enemy->restraint = ENEMY_RESTRAINT_SKIP_THIS_TICK;
     }
-    
-    /* Horizontal movement first */
+
+    /* --- Horizontal movement toward Comic (preferred) --- */
     if (enemy->x != comic_x) {
         if (enemy->x < comic_x) {
-            /* Move right */
-            enemy->facing = COMIC_FACING_RIGHT;
-            next_x = (uint8_t)(enemy->x + 2);
-            tile = get_tile_at(next_x, enemy->y);
-            if (!is_tile_solid(tile)) {
-                enemy->x = (uint8_t)(enemy->x + 1);
+            /* Attempt step right (check ahead at x+2 like other handlers) */
+            next_x = (uint8_t)(enemy->x + 1);
+            hcollision = 0;
+            tile = get_tile_at((uint8_t)(next_x + 1), enemy->y); /* check tile at x+2 */
+            if (is_tile_solid(tile)) hcollision = 1;
+            if (enemy->y & 1) {
+                tile = get_tile_at((uint8_t)(next_x + 1), (uint8_t)(enemy->y + 1));
+                if (is_tile_solid(tile)) hcollision = 1;
+            }
+
+            if (!hcollision) {
+                enemy->x = next_x;
+                enemy->x_vel = 1;
+                camera_rel_x = (int16_t)enemy->x - (int16_t)camera_x;
+                if (camera_rel_x >= PLAYFIELD_WIDTH - 2) {
+                    /* Hit right playfield edge — reverse like other AIs */
+                    enemy->x_vel = -1;
+                }
+                enemy->facing = COMIC_FACING_RIGHT;
                 return;
+            } else {
+                /* Blocked horizontally but keep intended direction */
+                enemy->x_vel = 1;
             }
         } else {
-            /* Move left */
-            enemy->facing = COMIC_FACING_LEFT;
+            /* Attempt step left */
             next_x = (uint8_t)(enemy->x - 1);
-            tile = get_tile_at(next_x, enemy->y);
-            if (!is_tile_solid(tile)) {
+            hcollision = 0;
+            tile = get_tile_at((uint8_t)(next_x - 1), enemy->y); /* check tile at x-1 */
+            if (is_tile_solid(tile)) hcollision = 1;
+            if (enemy->y & 1) {
+                tile = get_tile_at((uint8_t)(next_x - 1), (uint8_t)(enemy->y + 1));
+                if (is_tile_solid(tile)) hcollision = 1;
+            }
+
+            if (!hcollision) {
                 enemy->x = next_x;
+                enemy->x_vel = -1;
+                camera_rel_x = (int16_t)next_x - (int16_t)camera_x;
+                if (camera_rel_x <= 0) {
+                    /* Hit left playfield edge — reverse */
+                    enemy->x_vel = 1;
+                }
+                enemy->facing = COMIC_FACING_LEFT;
                 return;
+            } else {
+                enemy->x_vel = -1;
             }
         }
+    } else {
+        /* Same X as Comic */
+        enemy->x_vel = 0;
     }
-    
-    /* Vertical movement */
+
+    /* --- Vertical fallback when horizontal movement is blocked or aligned --- */
     if (enemy->y != comic_y) {
         if (enemy->y < comic_y) {
             /* Move down */
-            next_y = (uint8_t)(enemy->y + 2);
-            tile = get_tile_at(enemy->x, next_y);
-            if (!is_tile_solid(tile)) {
-                enemy->y = (uint8_t)(enemy->y + 1);
+            next_y = (uint8_t)(enemy->y + 1);
+
+            /* If falling off bottom, despawn like other AIs */
+            if (next_y >= PLAYFIELD_HEIGHT - 2) {
+                enemy->state = ENEMY_STATE_WHITE_SPARK + 5;
+                enemy->y = PLAYFIELD_HEIGHT - 2;
+                return;
+            }
+
+            vcollision = 0;
+            tile = get_tile_at(enemy->x, (uint8_t)(next_y + 1));
+            if (is_tile_solid(tile)) vcollision = 1;
+            if (enemy->x & 1) {
+                tile = get_tile_at(enemy->x + 1, (uint8_t)(next_y + 1));
+                if (is_tile_solid(tile)) vcollision = 1;
+            }
+
+            if (!vcollision) {
+                enemy->y = next_y;
+            } else {
+                /* blocked vertically — do nothing this tick (will try alternatives next tick) */
             }
         } else {
             /* Move up */
             next_y = (uint8_t)(enemy->y - 1);
-            tile = get_tile_at(enemy->x, next_y);
-            if (!is_tile_solid(tile)) {
-                enemy->y = next_y;
+            if (next_y == 0) {
+                /* Bounce off top like other AIs */
+                /* leave y as-is */
+            } else {
+                vcollision = 0;
+                tile = get_tile_at(enemy->x, next_y);
+                if (is_tile_solid(tile)) vcollision = 1;
+                if (enemy->x & 1) {
+                    tile = get_tile_at(enemy->x + 1, next_y);
+                    if (is_tile_solid(tile)) vcollision = 1;
+                }
+                if (!vcollision) {
+                    enemy->y = next_y;
+                }
             }
         }
     }
+
+    /* Update facing consistent with other behaviors */
+    enemy->facing = (enemy->x_vel < 0) ? COMIC_FACING_LEFT : COMIC_FACING_RIGHT;
+
+    /* Normalize restraint state (same logic as enemy_behavior_shy) */
+    if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
+    } else if (enemy->restraint == ENEMY_RESTRAINT_MOVE_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_SKIP_THIS_TICK;
+    } else {
+        if (enemy->restraint > ENEMY_RESTRAINT_MOVE_EVERY_TICK) {
+            enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
+        }
+    }
 }
+
 
 /*
  * enemy_behavior_shy - Flee when facing Comic
