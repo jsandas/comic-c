@@ -1111,7 +1111,6 @@ void enemy_behavior_leap(enemy_t *enemy)
     /* Handle restraint */
     if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
         enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
-        debug_log("LEAP: skipping this tick\n");
         return;
     }
     
