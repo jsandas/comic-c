@@ -138,6 +138,7 @@ void debug_log(const char *format, ...)
 #define SCANCODE_Q      0x10
 #define SCANCODE_W      0x11
 #define SCANCODE_O      0x18
+#define SCANCODE_P      0x19
 #define SCANCODE_K      0x25
 #define SCANCODE_L      0x26
 #define SCANCODE_S      0x1F
@@ -212,6 +213,8 @@ static uint8_t key_state_cheat_corkscrew = 0; /* C key for Corkscrew cheat */
 static uint8_t key_state_cheat_boots = 0; /* O key for Boots cheat */
 static uint8_t key_state_cheat_lantern = 0; /* L key for Lantern cheat */
 static uint8_t key_state_cheat_shield = 0; /* S key for Shield cheat */
+static uint8_t key_state_cheat_level = 0;  /* P key for level warp cheat */
+static uint8_t key_state_cheat_stage = 0;  /* Q key for stage warp cheat */
 
 /* Previous frame input state (used for edge-triggered input like jump) */
 static uint8_t previous_key_state_jump = 0;
@@ -223,6 +226,8 @@ static uint8_t previous_key_state_cheat_corkscrew = 0;
 static uint8_t previous_key_state_cheat_boots = 0;
 static uint8_t previous_key_state_cheat_lantern = 0;
 static uint8_t previous_key_state_cheat_shield = 0;
+static uint8_t previous_key_state_cheat_level = 0;
+static uint8_t previous_key_state_cheat_stage = 0;
 
 /* Flag set when teleport key edge is detected in update_keyboard_input() */
 static uint8_t teleport_key_pressed = 0;
@@ -3017,6 +3022,9 @@ static void dos_idle(void)
  *   C key - Grant Corkscrew for testing fireball corkscrew motion
  *   O key - Grant Boots for testing increased jump power
  *   L key - Grant Lantern for testing Castle level lighting
+ *   S key - Grant Shield for testing shield feature
+ *   P key - Warp to next level (cycles through levels 0-4)
+ *   Q key - Warp to next stage (cycles through stages 0-15)
  */
 static void handle_cheat_codes(void)
 {
@@ -3089,6 +3097,28 @@ static void handle_cheat_codes(void)
             /* Play item collection sound for feedback */
             play_sound(SOUND_COLLECT_ITEM, 3);
         }
+    }
+    
+    /* P key: Warp to next level (edge-triggered on press) */
+    if (key_state_cheat_level && !previous_key_state_cheat_level) {
+        current_level_number = (current_level_number + 1) % 5;  /* 5 levels: 0-4 */
+        current_stage_number = 0;  /* Reset to first stage */
+        /* Reset spawn position to default */
+        comic_x_checkpoint = 14;
+        comic_y_checkpoint = 12;
+        source_door_level_number = -1;  /* Not entering via door */
+        load_new_level();
+        load_new_stage();
+        /* Play sound for feedback */
+        play_sound(SOUND_STAGE_EDGE_TRANSITION, 4);
+    }
+    
+    /* Q key: Warp to next stage (edge-triggered on press) */
+    if (key_state_cheat_stage && !previous_key_state_cheat_stage) {
+        current_stage_number = (current_stage_number + 1) % 16;  /* Assume max 16 stages per level */
+        load_new_stage();
+        /* Play sound for feedback */
+        play_sound(SOUND_STAGE_EDGE_TRANSITION, 4);
     }
 }
 
@@ -3169,6 +3199,10 @@ static void update_keyboard_input(void)
             key_state_cheat_lantern = (uint8_t)(!is_break);  /* L key - cheat code */
         } else if (code == SCANCODE_S) {
             key_state_cheat_shield = (uint8_t)(!is_break);  /* S key - cheat code */
+        } else if (code == SCANCODE_P) {
+            key_state_cheat_level = (uint8_t)(!is_break);  /* P key - level warp cheat */
+        } else if (code == SCANCODE_Q) {
+            key_state_cheat_stage = (uint8_t)(!is_break);  /* Q key - stage warp cheat */
         }
     }
 }
@@ -3289,6 +3323,8 @@ void game_loop(void)
         previous_key_state_cheat_boots = key_state_cheat_boots;
         previous_key_state_cheat_lantern = key_state_cheat_lantern;
         previous_key_state_cheat_shield = key_state_cheat_shield;
+        previous_key_state_cheat_level = key_state_cheat_level;
+        previous_key_state_cheat_stage = key_state_cheat_stage;
         
         /* Check for win condition
          * When the player wins, win_counter is set to a delay value (e.g., 200).
