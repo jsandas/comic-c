@@ -207,7 +207,8 @@ if (enemy->y_vel > 0) {
         enemy->y = PLAYFIELD_HEIGHT - 2;
         return;
     }
-    /* Continue to horizontal movement section */
+    /* Apply falling movement and continue to horizontal section */
+    enemy->y = (uint8_t)(enemy->y + 1);
     goto horizontal_movement;
 }
 ```
