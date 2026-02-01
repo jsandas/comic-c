@@ -82,14 +82,14 @@ tile = get_tile_at(next_x, enemy->y);  // ❌ Only checks one tile!
 ---
 
 ### 4. Spurious Facing Update (MINOR)
-**Problem:** C code updates `enemy->facing` at the end, but the assembly doesn't.
+**Problem:** C code updates `enemy->facing` at the end, but the assembly does not set or check facing in this function.
 
 **C code (EXTRA):**
 ```c
 enemy->facing = (enemy->x_vel < 0) ? COMIC_FACING_LEFT : COMIC_FACING_RIGHT;
 ```
 
-**Fix:** Remove this line. The facing is managed elsewhere or not needed for roll behavior.
+**Fix:** Remove this line to match assembly behavior (facing is managed elsewhere or not needed for roll behavior).
 
 ---
 
