@@ -169,6 +169,116 @@ static uint8_t get_tile_at(uint8_t x, uint8_t y)
 }
 
 /*
+ * check_vertical_enemy_map_collision - Check for solid tiles when moving vertically
+ * 
+ * Enemies are 2 units wide, so when the X coordinate is odd (in the middle of a tile),
+ * the enemy spans two horizontal tiles. This function checks both tiles when needed.
+ * 
+ * Parameters:
+ *   x - X position in game units (0-255)
+ *   y - Y position in game units (0-19)
+ * 
+ * Returns:
+ *   true (1) if collision detected with solid tile, false (0) otherwise
+ */
+static uint8_t check_vertical_enemy_map_collision(uint8_t x, uint8_t y)
+{
+    uint8_t tile_x, tile_y;
+    uint16_t tile_offset;
+    uint8_t tile_id;
+    
+    if (current_tiles_ptr == NULL) {
+        return 0;
+    }
+    
+    /* Convert game units to tile coordinates (divide by 2) */
+    tile_x = x >> 1;
+    tile_y = y >> 1;
+    
+    /* Bounds check */
+    if (tile_x >= MAP_WIDTH_TILES || tile_y >= MAP_HEIGHT_TILES) {
+        return 0;
+    }
+    
+    /* Calculate tile offset: y/2 * MAP_WIDTH_TILES + x/2 */
+    tile_offset = tile_y * MAP_WIDTH_TILES + tile_x;
+    
+    /* Check primary tile at (x, y) */
+    tile_id = current_tiles_ptr[tile_offset];
+    if (tile_id > tileset_last_passable) {
+        return 1;  /* Solid collision */
+    }
+    
+    /* If X coordinate is odd, enemy spans two tiles horizontally */
+    if (x & 1) {
+        /* Check tile to the right: (x+1, y) */
+        if (tile_x + 1 < MAP_WIDTH_TILES) {
+            tile_id = current_tiles_ptr[tile_offset + 1];
+            if (tile_id > tileset_last_passable) {
+                return 1;  /* Solid collision */
+            }
+        }
+    }
+    
+    return 0;  /* No collision */
+}
+
+/*
+ * check_horizontal_enemy_map_collision - Check for solid tiles when moving horizontally
+ * 
+ * Enemies are 2 units tall, so when the Y coordinate is odd (in the middle of a tile),
+ * the enemy spans two vertical tiles. This function checks both tiles when needed.
+ * 
+ * Parameters:
+ *   x - X position in game units (0-255)
+ *   y - Y position in game units (0-19)
+ * 
+ * Returns:
+ *   true (1) if collision detected with solid tile, false (0) otherwise
+ */
+static uint8_t check_horizontal_enemy_map_collision(uint8_t x, uint8_t y)
+{
+    uint8_t tile_x, tile_y;
+    uint16_t tile_offset;
+    uint8_t tile_id;
+    
+    if (current_tiles_ptr == NULL) {
+        return 0;
+    }
+    
+    /* Convert game units to tile coordinates (divide by 2) */
+    tile_x = x >> 1;
+    tile_y = y >> 1;
+    
+    /* Bounds check */
+    if (tile_x >= MAP_WIDTH_TILES || tile_y >= MAP_HEIGHT_TILES) {
+        return 0;
+    }
+    
+    /* Calculate tile offset: y/2 * MAP_WIDTH_TILES + x/2 */
+    tile_offset = tile_y * MAP_WIDTH_TILES + tile_x;
+    
+    /* Check primary tile at (x, y) */
+    tile_id = current_tiles_ptr[tile_offset];
+    if (tile_id > tileset_last_passable) {
+        return 1;  /* Solid collision */
+    }
+    
+    /* If Y coordinate is odd, enemy spans two tiles vertically */
+    if (y & 1) {
+        /* Check tile below: (x, y+1) */
+        if (tile_y + 1 < MAP_HEIGHT_TILES) {
+            tile_id = current_tiles_ptr[tile_offset + MAP_WIDTH_TILES];
+            if (tile_id > tileset_last_passable) {
+                return 1;  /* Solid collision */
+            }
+        }
+    }
+    
+    return 0;  /* No collision */
+}
+
+/*
  * get_enemy_frame - Resolve enemy sprite frame pointer
  * 
  * Uses SHP metadata to map animation index and facing into a frame index.
@@ -1215,18 +1325,19 @@ void enemy_behavior_leap(enemy_t *enemy)
 void enemy_behavior_roll(enemy_t *enemy)
 {
     uint8_t next_x;
-    uint8_t tile;
     
     if (enemy->y_vel > 0) {
-        /* Falling */
-        enemy->y += 1;
-        if (enemy->y >= PLAYFIELD_HEIGHT - 2 - 1) {
+        /* Falling - check if near bottom */
+        if ((uint8_t)(enemy->y + 1) >= PLAYFIELD_HEIGHT - 2 - 1) {
             /* Near bottom - despawn */
             enemy->state = ENEMY_STATE_WHITE_SPARK + 5;
             enemy->y = PLAYFIELD_HEIGHT - 2;
             return;
         }
-        return;
+        /* Move down one unit */
+        enemy->y = (uint8_t)(enemy->y + 1);
+        /* Continue to horizontal movement section */
+        goto horizontal_movement;
     }
     
     /* Rolling - set direction toward Comic */
@@ -1237,7 +1348,8 @@ void enemy_behavior_roll(enemy_t *enemy)
     } else {
         enemy->x_vel = 0;
     }
-    
+
+horizontal_movement:
     /* Handle restraint */
     if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
         enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
@@ -1258,35 +1370,29 @@ void enemy_behavior_roll(enemy_t *enemy)
     if (enemy->x_vel > 0) {
         /* Moving right */
         next_x = (uint8_t)(enemy->x + 2);
-        tile = get_tile_at(next_x, enemy->y);
-        if (!is_tile_solid(tile)) {
+        if (!check_horizontal_enemy_map_collision(next_x, enemy->y)) {
             enemy->x = (uint8_t)(enemy->x + 1);
         }
     } else {
         /* Moving left */
         next_x = (uint8_t)(enemy->x - 1);
-        tile = get_tile_at(next_x, enemy->y);
-        if (!is_tile_solid(tile)) {
+        if (!check_horizontal_enemy_map_collision(next_x, enemy->y)) {
             enemy->x = next_x;
         }
     }
     
     /* Check for ground below */
-    tile = get_tile_at(enemy->x, (uint8_t)(enemy->y + 3));
-    if (!is_tile_solid(tile)) {
+    if (!check_vertical_enemy_map_collision(enemy->x, (uint8_t)(enemy->y + 3))) {
         /* No ground - start falling */
         enemy->y_vel = 1;
         return;
     }
     
     /* On ground - clamp to even boundary if just landed */
-    if (enemy->y_vel == 0) {
-        enemy->y = (uint8_t)(enemy->y & 0xFE);
+    if (enemy->y_vel != 0) {
+        enemy->y = (uint8_t)((enemy->y + 1) & 0xFE);
     }
     enemy->y_vel = 0;
-    
-    /* Update facing */
-    enemy->facing = (enemy->x_vel < 0) ? COMIC_FACING_LEFT : COMIC_FACING_RIGHT;
 }
 
 /*
