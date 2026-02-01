@@ -1025,7 +1025,6 @@ void handle_enemies(void)
 void enemy_behavior_bounce(enemy_t *enemy)
 {
     uint8_t next_x, next_y;
-    uint8_t tile;
     int16_t camera_rel_x;
     
     /* Handle restraint */
@@ -1043,8 +1042,7 @@ void enemy_behavior_bounce(enemy_t *enemy)
         /* Moving right */
         enemy->facing = COMIC_FACING_RIGHT;
         next_x = (uint8_t)(enemy->x + 2);
-        tile = get_tile_at(next_x, enemy->y);
-        if (is_tile_solid(tile)) {
+        if (check_horizontal_enemy_map_collision(next_x, enemy->y)) {
             enemy->x_vel = -1;
         } else {
             enemy->x = (uint8_t)(enemy->x + 1);
@@ -1060,8 +1058,7 @@ void enemy_behavior_bounce(enemy_t *enemy)
             enemy->x_vel = 1;
         } else {
             next_x = (uint8_t)(enemy->x - 1);
-            tile = get_tile_at(next_x, enemy->y);
-            if (is_tile_solid(tile)) {
+            if (check_horizontal_enemy_map_collision(next_x, enemy->y)) {
                 enemy->x_vel = 1;
             } else {
                 enemy->x = next_x;
@@ -1080,8 +1077,7 @@ void enemy_behavior_bounce(enemy_t *enemy)
             enemy->y_vel = -1;
         } else {
             next_y = (uint8_t)(enemy->y + 2);
-            tile = get_tile_at(enemy->x, next_y);
-            if (is_tile_solid(tile)) {
+            if (check_vertical_enemy_map_collision(enemy->x, next_y)) {
                 enemy->y_vel = -1;
             } else {
                 enemy->y = (uint8_t)(enemy->y + 1);
@@ -1096,8 +1092,7 @@ void enemy_behavior_bounce(enemy_t *enemy)
             enemy->y_vel = 1;
         } else {
             next_y = (uint8_t)(enemy->y - 1);
-            tile = get_tile_at(enemy->x, next_y);
-            if (is_tile_solid(tile)) {
+            if (check_vertical_enemy_map_collision(enemy->x, next_y)) {
                 enemy->y_vel = 1;
             } else {
                 enemy->y = next_y;
