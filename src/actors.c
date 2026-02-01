@@ -1318,15 +1318,13 @@ void enemy_behavior_roll(enemy_t *enemy)
     uint8_t tile;
     
     if (enemy->y_vel > 0) {
-        /* Falling */
-        enemy->y += 1;
-        if (enemy->y >= PLAYFIELD_HEIGHT - 2 - 1) {
+        /* Falling - check if near bottom */
+        if ((uint8_t)(enemy->y + 1) >= PLAYFIELD_HEIGHT - 2 - 1) {
             /* Near bottom - despawn */
             enemy->state = ENEMY_STATE_WHITE_SPARK + 5;
             enemy->y = PLAYFIELD_HEIGHT - 2;
             return;
         }
-        return;
     }
     
     /* Rolling - set direction toward Comic */
@@ -1380,8 +1378,8 @@ void enemy_behavior_roll(enemy_t *enemy)
     }
     
     /* On ground - clamp to even boundary if just landed */
-    if (enemy->y_vel == 0) {
-        enemy->y = (uint8_t)(enemy->y & 0xFE);
+    if (enemy->y_vel != 0) {
+        enemy->y = (uint8_t)((enemy->y + 1) & 0xFE);
     }
     enemy->y_vel = 0;
     
