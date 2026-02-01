@@ -270,6 +270,9 @@ static pt_file_t pt2;
 uint8_t *current_tiles_ptr = NULL;  /* Points to current stage's tile map */
 static uint8_t comic_num_lives = 0;
 uint8_t comic_num_treasures = 0;  /* Number of treasures collected (CROWN, GOLD, GEMS - 0-3). When == 3, triggers victory sequence */
+uint8_t comic_has_gems = 0;        /* 1 if Gems collected (Space), 0 otherwise */
+uint8_t comic_has_crown = 0;       /* 1 if Crown collected (Castle), 0 otherwise */
+uint8_t comic_has_gold = 0;        /* 1 if Gold collected (Cave), 0 otherwise */
 
 /* Offscreen buffer pointer (0x0000 or 0x2000) - start with A as offscreen when B is displayed */
 uint16_t offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
