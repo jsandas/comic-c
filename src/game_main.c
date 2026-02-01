@@ -3115,7 +3115,7 @@ static void handle_cheat_codes(void)
     
     /* Q key: Warp to next stage (edge-triggered on press) */
     if (key_state_cheat_stage && !previous_key_state_cheat_stage) {
-        current_stage_number = (current_stage_number + 1) % 16;  /* Assume max 16 stages per level */
+        current_stage_number = (current_stage_number + 1) % 3;   /* 3 stages per level: 0-2 */
         load_new_stage();
         /* Play sound for feedback */
         play_sound(SOUND_STAGE_EDGE_TRANSITION, 4);
