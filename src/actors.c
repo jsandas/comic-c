@@ -1334,6 +1334,8 @@ void enemy_behavior_roll(enemy_t *enemy)
             enemy->y = PLAYFIELD_HEIGHT - 2;
             return;
         }
+        /* Move down one unit */
+        enemy->y = (uint8_t)(enemy->y + 1);
         /* Continue to horizontal movement section */
         goto horizontal_movement;
     }
