@@ -1066,10 +1066,11 @@ void enemy_behavior_leap(enemy_t *enemy)
             if (is_tile_solid(tile)) collision = 1;
         }
         if (collision) {
-            /* Collision detected when moving down: undo position change (defer) and allow gravity to act. */
-            /* do not update `proposed_y` */
+            /* Collision detected when moving down: undo position change (keep current y)
+             * and allow gravity to act on subsequent ticks. */
+            proposed_y = enemy->y;
         } else {
-            proposed_y = proposed_y;
+            /* No collision: keep proposed_y at the advanced position. */
         }
     } else {
         /* y_vel == 0 - check if on ground */
