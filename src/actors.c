@@ -1325,7 +1325,6 @@ void enemy_behavior_leap(enemy_t *enemy)
 void enemy_behavior_roll(enemy_t *enemy)
 {
     uint8_t next_x;
-    uint8_t tile;
     
     if (enemy->y_vel > 0) {
         /* Falling - check if near bottom */
@@ -1369,22 +1368,19 @@ horizontal_movement:
     if (enemy->x_vel > 0) {
         /* Moving right */
         next_x = (uint8_t)(enemy->x + 2);
-        tile = get_tile_at(next_x, enemy->y);
-        if (!is_tile_solid(tile)) {
+        if (!check_horizontal_enemy_map_collision(next_x, enemy->y)) {
             enemy->x = (uint8_t)(enemy->x + 1);
         }
     } else {
         /* Moving left */
         next_x = (uint8_t)(enemy->x - 1);
-        tile = get_tile_at(next_x, enemy->y);
-        if (!is_tile_solid(tile)) {
+        if (!check_horizontal_enemy_map_collision(next_x, enemy->y)) {
             enemy->x = next_x;
         }
     }
     
     /* Check for ground below */
-    tile = get_tile_at(enemy->x, (uint8_t)(enemy->y + 3));
-    if (!is_tile_solid(tile)) {
+    if (!check_vertical_enemy_map_collision(enemy->x, (uint8_t)(enemy->y + 3))) {
         /* No ground - start falling */
         enemy->y_vel = 1;
         return;
@@ -1395,9 +1391,6 @@ horizontal_movement:
         enemy->y = (uint8_t)((enemy->y + 1) & 0xFE);
     }
     enemy->y_vel = 0;
-    
-    /* Update facing */
-    enemy->facing = (enemy->x_vel < 0) ? COMIC_FACING_LEFT : COMIC_FACING_RIGHT;
 }
 
 /*
