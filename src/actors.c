@@ -195,6 +195,11 @@ static uint8_t check_vertical_enemy_map_collision(uint8_t x, uint8_t y)
     tile_x = x >> 1;
     tile_y = y >> 1;
     
+    /* Bounds check */
+    if (tile_x >= MAP_WIDTH_TILES || tile_y >= MAP_HEIGHT_TILES) {
+        return 0;
+    }
+    
     /* Calculate tile offset: y/2 * MAP_WIDTH_TILES + x/2 */
     tile_offset = tile_y * MAP_WIDTH_TILES + tile_x;
     
@@ -244,6 +249,11 @@ static uint8_t check_horizontal_enemy_map_collision(uint8_t x, uint8_t y)
     /* Convert game units to tile coordinates (divide by 2) */
     tile_x = x >> 1;
     tile_y = y >> 1;
+    
+    /* Bounds check */
+    if (tile_x >= MAP_WIDTH_TILES || tile_y >= MAP_HEIGHT_TILES) {
+        return 0;
+    }
     
     /* Calculate tile offset: y/2 * MAP_WIDTH_TILES + x/2 */
     tile_offset = tile_y * MAP_WIDTH_TILES + tile_x;
