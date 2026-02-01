@@ -1364,7 +1364,7 @@ horizontal_movement:
  */
 void enemy_behavior_seek(enemy_t *enemy)
 {
-    uint8_t next_x, next_y, tile;
+    uint8_t next_x, next_y;
     unsigned char hcollision = 0, vcollision = 0;
     int16_t camera_rel_x;
 
@@ -1383,13 +1383,7 @@ void enemy_behavior_seek(enemy_t *enemy)
         if (enemy->x < comic_x) {
             /* Attempt step right (check ahead at x+2 like other handlers) */
             next_x = (uint8_t)(enemy->x + 1);
-            hcollision = 0;
-            tile = get_tile_at((uint8_t)(next_x + 1), enemy->y); /* check tile at x+2 */
-            if (is_tile_solid(tile)) hcollision = 1;
-            if (enemy->y & 1) {
-                tile = get_tile_at((uint8_t)(next_x + 1), (uint8_t)(enemy->y + 1));
-                if (is_tile_solid(tile)) hcollision = 1;
-            }
+            hcollision = check_horizontal_enemy_map_collision((uint8_t)(next_x + 1), enemy->y);
 
             if (!hcollision) {
                 enemy->x = next_x;
@@ -1408,13 +1402,7 @@ void enemy_behavior_seek(enemy_t *enemy)
         } else {
             /* Attempt step left */
             next_x = (uint8_t)(enemy->x - 1);
-            hcollision = 0;
-            tile = get_tile_at((uint8_t)(next_x - 1), enemy->y); /* check tile at x-1 */
-            if (is_tile_solid(tile)) hcollision = 1;
-            if (enemy->y & 1) {
-                tile = get_tile_at((uint8_t)(next_x - 1), (uint8_t)(enemy->y + 1));
-                if (is_tile_solid(tile)) hcollision = 1;
-            }
+            hcollision = check_horizontal_enemy_map_collision((uint8_t)(next_x - 1), enemy->y);
 
             if (!hcollision) {
                 enemy->x = next_x;
@@ -1448,13 +1436,7 @@ void enemy_behavior_seek(enemy_t *enemy)
                 return;
             }
 
-            vcollision = 0;
-            tile = get_tile_at(enemy->x, (uint8_t)(next_y + 1));
-            if (is_tile_solid(tile)) vcollision = 1;
-            if (enemy->x & 1) {
-                tile = get_tile_at(enemy->x + 1, (uint8_t)(next_y + 1));
-                if (is_tile_solid(tile)) vcollision = 1;
-            }
+            vcollision = check_vertical_enemy_map_collision(enemy->x, (uint8_t)(next_y + 1));
 
             if (!vcollision) {
                 enemy->y = next_y;
@@ -1468,13 +1450,7 @@ void enemy_behavior_seek(enemy_t *enemy)
                 /* Bounce off top like other AIs */
                 /* leave y as-is */
             } else {
-                vcollision = 0;
-                tile = get_tile_at(enemy->x, next_y);
-                if (is_tile_solid(tile)) vcollision = 1;
-                if (enemy->x & 1) {
-                    tile = get_tile_at(enemy->x + 1, next_y);
-                    if (is_tile_solid(tile)) vcollision = 1;
-                }
+                vcollision = check_vertical_enemy_map_collision(enemy->x, next_y);
                 if (!vcollision) {
                     enemy->y = next_y;
                 }
