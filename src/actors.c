@@ -1111,7 +1111,6 @@ void enemy_behavior_leap(enemy_t *enemy)
 {
     uint8_t next_x;
     uint8_t proposed_y = enemy->y;
-    uint8_t tile;
     int16_t camera_rel_x;
     int8_t vel_div_8;
     unsigned char collision;
@@ -1133,13 +1132,7 @@ void enemy_behavior_leap(enemy_t *enemy)
             proposed_y = 0;
         } else {
             /* Check collision */
-            collision = 0;
-            tile = get_tile_at(enemy->x, proposed_y);
-            if (is_tile_solid(tile)) collision = 1;
-            if (enemy->x & 1) {
-                tile = get_tile_at(enemy->x + 1, proposed_y);
-                if (is_tile_solid(tile)) collision = 1;
-            }
+            collision = check_vertical_enemy_map_collision(enemy->x, proposed_y);
             if (collision) {
                 /* Hit ceiling - undo the position change but preserve y_vel; gravity will reduce upward speed */
             } else {
@@ -1163,13 +1156,7 @@ void enemy_behavior_leap(enemy_t *enemy)
         }
         
         /* Check collision with ground below */
-        collision = 0;
-        tile = get_tile_at(enemy->x, (uint8_t)(proposed_y + 1));
-        if (is_tile_solid(tile)) collision = 1;
-        if (enemy->x & 1) {
-            tile = get_tile_at(enemy->x + 1, (uint8_t)(proposed_y + 1));
-            if (is_tile_solid(tile)) collision = 1;
-        }
+        collision = check_vertical_enemy_map_collision(enemy->x, (uint8_t)(proposed_y + 1));
         if (collision) {
             /* Collision detected when moving down: undo position change (keep current y)
              * and allow gravity to act on subsequent ticks. */
@@ -1179,13 +1166,7 @@ void enemy_behavior_leap(enemy_t *enemy)
         }
     } else {
         /* y_vel == 0 - check if on ground */
-        collision = 0;
-        tile = get_tile_at(enemy->x, (uint8_t)(enemy->y + 2));
-        if (is_tile_solid(tile)) collision = 1;
-        if (enemy->x & 1) {
-            tile = get_tile_at(enemy->x + 1, (uint8_t)(enemy->y + 2));
-            if (is_tile_solid(tile)) collision = 1;
-        }
+        collision = check_vertical_enemy_map_collision(enemy->x, (uint8_t)(enemy->y + 2));
         if (collision) {
             /* On ground - initiate jump
          * NOTE: increase initial upward impulse so the peak reaches ~6 game units
@@ -1234,13 +1215,7 @@ void enemy_behavior_leap(enemy_t *enemy)
     if (enemy->x_vel > 0) {
         /* Moving right */
         next_x = (uint8_t)(enemy->x + 2);
-        collision = 0;
-        tile = get_tile_at(next_x, proposed_y);
-        if (is_tile_solid(tile)) collision = 1;
-        if (proposed_y & 1) {
-            tile = get_tile_at(next_x, proposed_y + 1);
-            if (is_tile_solid(tile)) collision = 1;
-        }
+        collision = check_horizontal_enemy_map_collision(next_x, proposed_y);
         if (collision) {
             /* Hit wall - bounce left */
             enemy->x_vel = -1;
@@ -1261,13 +1236,7 @@ void enemy_behavior_leap(enemy_t *enemy)
             enemy->x_vel = 1;
         } else {
             next_x = (uint8_t)(enemy->x - 1);
-            collision = 0;
-            tile = get_tile_at(next_x, proposed_y);
-            if (is_tile_solid(tile)) collision = 1;
-            if (proposed_y & 1) {
-                tile = get_tile_at(next_x, proposed_y + 1);
-                if (is_tile_solid(tile)) collision = 1;
-            }
+            collision = check_horizontal_enemy_map_collision(next_x, proposed_y);
             if (collision) {
                 enemy->x_vel = 1;
             } else {
@@ -1286,13 +1255,7 @@ void enemy_behavior_leap(enemy_t *enemy)
 
     /* Check for ground after movement */
     if (enemy->y_vel > 0) {
-        collision = 0;
-        tile = get_tile_at(enemy->x, (uint8_t)(proposed_y + 3));
-        if (is_tile_solid(tile)) collision = 1;
-        if (enemy->x & 1) {
-            tile = get_tile_at(enemy->x + 1, (uint8_t)(proposed_y + 3));
-            if (is_tile_solid(tile)) collision = 1;
-        }
+        collision = check_vertical_enemy_map_collision(enemy->x, (uint8_t)(proposed_y + 3));
         if (collision) {
             /* Landed on ground.
              * Align the committed Y so that (enemy->y + 2) points at the same
