@@ -63,7 +63,7 @@ extern uint8_t comic_num_treasures;        /* Number of treasures collected (0-3
 extern uint8_t comic_has_gems;             /* 1 if Gems collected, 0 otherwise */
 extern uint8_t comic_has_crown;            /* 1 if Crown collected, 0 otherwise */
 extern uint8_t comic_has_gold;             /* 1 if Gold collected, 0 otherwise */
-extern uint8_t win_counter;                /* Win countdown counter; set to 20 when treasures == 3 */
+extern uint8_t win_counter;                /* Win countdown counter; set to TREASURE_WIN_COUNTDOWN when treasures == 3 */
 
 /* Respawn timing */
 extern uint8_t enemy_respawn_counter_cycle; /* Cycles: 20→40→60→80→100→20 */
@@ -82,6 +82,9 @@ extern uint8_t comic_death_animation_finished;   /* Set after animation finishes
 enemy_t enemies[MAX_NUM_ENEMIES];
 fireball_t fireballs[MAX_NUM_FIREBALLS];
 uint8_t enemy_shp_index[MAX_NUM_ENEMIES];
+
+/* ===== Constants ===== */
+#define TREASURE_WIN_COUNTDOWN 20  /* Ticks to wait after collecting all 3 treasures before victory sequence */
 
 /* ===== Forward Declarations ===== */
 static void comic_takes_damage(void);
@@ -486,6 +489,28 @@ void handle_fireballs(void)
 /* ===== Item System ===== */
 
 /*
+ * collect_treasure - Handle treasure collection and victory countdown
+ * 
+ * Sets the treasure flag, increments treasure count, and triggers victory
+ * countdown when all 3 treasures are collected.
+ * 
+ * Parameters:
+ *   has_treasure_flag - Pointer to treasure flag variable (comic_has_gems, comic_has_crown, or comic_has_gold)
+ */
+static void collect_treasure(uint8_t *has_treasure_flag)
+{
+    if (!*has_treasure_flag) {
+        *has_treasure_flag = 1;
+        if (comic_num_treasures < 3) {
+            comic_num_treasures++;
+            if (comic_num_treasures == 3) {
+                win_counter = TREASURE_WIN_COUNTDOWN;
+            }
+        }
+    }
+}
+
+/*
  * handle_item - Update and render the current stage's item
  */
 void handle_item(void)
@@ -586,38 +611,13 @@ void handle_item(void)
                     comic_has_door_key = 1;
                     break;
                 case ITEM_CROWN:
-                    if (!comic_has_crown) {
-                        comic_has_crown = 1;
-                        if (comic_num_treasures < 3) {
-                            comic_num_treasures++;
-                            if (comic_num_treasures == 3) {
-                                win_counter = 20;
-                            }
-                        }
-                    }
+                    collect_treasure(&comic_has_crown);
                     break;
                 case ITEM_GOLD:
-                    if (!comic_has_gold) {
-                        comic_has_gold = 1;
-                        if (comic_num_treasures < 3) {
-                            comic_num_treasures++;
-                            if (comic_num_treasures == 3) {
-                                win_counter = 20;
-                            }
-                        }
-                    }
+                    collect_treasure(&comic_has_gold);
                     break;
                 case ITEM_GEMS:
-                    if (!comic_has_gems) {
-                        comic_has_gems = 1;
-                        if (comic_num_treasures < 3) {
-                            comic_num_treasures++;
-                            /* If all three treasures collected, trigger victory sequence */
-                            if (comic_num_treasures == 3) {
-                                win_counter = 20;  /* Set countdown to begin victory sequence when counter reaches 1 */
-                            }
-                        }
-                    }
+                    collect_treasure(&comic_has_gems);
                     break;
                 /* TODO: Implement other item types */
                 default:
