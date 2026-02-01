@@ -1050,7 +1050,7 @@ void enemy_behavior_leap(enemy_t *enemy)
         
         /* Check bottom edge */
         if (proposed_y >= PLAYFIELD_HEIGHT - 2) {
-            debug_log("LEAP[%d] moving_down: fell off bottom -> despawn (y=%u)\n", idx, (unsigned)proposed_y);
+            debug_log("LEAP moving_down: fell off bottom -> despawn (y=%u)\n", (unsigned)proposed_y);
             /* Fell off bottom - despawn */
             enemy->state = ENEMY_STATE_WHITE_SPARK + 5;
             enemy->y = PLAYFIELD_HEIGHT - 2;
