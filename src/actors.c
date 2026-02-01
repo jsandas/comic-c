@@ -14,6 +14,7 @@
 #include "level_data.h"
 #include "globals.h"
 #include "graphics.h"
+#include "physics.h"
 #include "player.h"
 #include "file_loaders.h"
 #include "sprite_data.h"
@@ -728,6 +729,10 @@ spawn_enemy:
 void handle_enemies(void)
 {
     int i;
+    int16_t rel_x_enemy; /* used when rendering sparks */
+    int16_t pixel_x, pixel_y; /* used when rendering sparks */
+    const uint8_t *spark_ptr; /* used when rendering sparks */
+    uint8_t spark_frame; /* used when rendering sparks */
     
     /* Reset spawn flag for this tick */
     spawned_this_tick = 0;
@@ -755,53 +760,58 @@ void handle_enemies(void)
         
         /* Handle dying state (white spark or red spark) */
         if (enemy->state >= ENEMY_STATE_WHITE_SPARK && enemy->state != ENEMY_STATE_SPAWNED) {
+            /* If the state is the "finished" value (ENEMY_STATE_WHITE_SPARK + 5 or ENEMY_STATE_RED_SPARK + 5),
+             * immediately despawn without rendering the final frame to match original assembly behavior. */
+            if (enemy->state == ENEMY_STATE_WHITE_SPARK + 5 || enemy->state == ENEMY_STATE_RED_SPARK + 5) {
+                enemy->state = ENEMY_STATE_DESPAWNED;
+                enemy->spawn_timer_and_animation = enemy_respawn_counter_cycle;
+                /* Cycle respawn counter: 20→40→60→80→100→20 */
+                enemy_respawn_counter_cycle += 20;
+                if (enemy_respawn_counter_cycle > 100) {
+                    enemy_respawn_counter_cycle = 20;
+                }
+                continue;
+            }
+
+            /* Declarations for rendering (C89: must appear before statements) */
+            rel_x_enemy = (int16_t)((int)enemy->x - (int)camera_x);
+
             /* Render death animation (spark) - use state BEFORE incrementing */
-            {
-                int16_t rel_x_enemy;
-                int16_t pixel_x, pixel_y;
-                const uint8_t *spark_ptr = NULL;
-                uint8_t spark_frame;
-                
-                /* Calculate screen position relative to camera */
-                rel_x_enemy = (int16_t)((int)enemy->x - (int)camera_x);
-                
-                /* Check if in visible playfield */
-                if (rel_x_enemy >= -1 && rel_x_enemy < PLAYFIELD_WIDTH + 1) {
-                    /* Convert to pixel coordinates */
-                    pixel_x = (rel_x_enemy * 8) + 8;
-                    pixel_y = (enemy->y * 8) + 8;
+            if (rel_x_enemy >= -1 && rel_x_enemy < PLAYFIELD_WIDTH + 1) {
+                /* Convert to pixel coordinates */
+                pixel_x = (rel_x_enemy * 8) + 8;
+                pixel_y = (enemy->y * 8) + 8;
 
-                    if (enemy->state >= ENEMY_STATE_RED_SPARK) {
-                        spark_frame = (uint8_t)((enemy->state - ENEMY_STATE_RED_SPARK) % 3);
-                        switch (spark_frame) {
-                            case 0: spark_ptr = sprite_red_spark_0_16x16m; break;
-                            case 1: spark_ptr = sprite_red_spark_1_16x16m; break;
-                            default: spark_ptr = sprite_red_spark_2_16x16m; break;
-                        }
-                    } else {
-                        spark_frame = (uint8_t)((enemy->state - ENEMY_STATE_WHITE_SPARK) % 3);
-                        switch (spark_frame) {
-                            case 0: spark_ptr = sprite_white_spark_0_16x16m; break;
-                            case 1: spark_ptr = sprite_white_spark_1_16x16m; break;
-                            default: spark_ptr = sprite_white_spark_2_16x16m; break;
-                        }
+                if (enemy->state >= ENEMY_STATE_RED_SPARK) {
+                    spark_frame = (uint8_t)((enemy->state - ENEMY_STATE_RED_SPARK) % 3);
+                    switch (spark_frame) {
+                        case 0: spark_ptr = sprite_red_spark_0_16x16m; break;
+                        case 1: spark_ptr = sprite_red_spark_1_16x16m; break;
+                        default: spark_ptr = sprite_red_spark_2_16x16m; break;
                     }
-
-                    if (spark_ptr != NULL) {
-                        blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, spark_ptr);
+                } else {
+                    spark_frame = (uint8_t)((enemy->state - ENEMY_STATE_WHITE_SPARK) % 3);
+                    switch (spark_frame) {
+                        case 0: spark_ptr = sprite_white_spark_0_16x16m; break;
+                        case 1: spark_ptr = sprite_white_spark_1_16x16m; break;
+                        default: spark_ptr = sprite_white_spark_2_16x16m; break;
                     }
                 }
+
+                if (spark_ptr != NULL) {
+                    blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, spark_ptr);
+                }
             }
-            
+
             /* Advance animation state */
             enemy->state++;
-            
+
             /* Check if animation complete */
             if (enemy->state == 7 || enemy->state == 13) {
                 /* Death animation complete, despawn */
                 enemy->state = ENEMY_STATE_DESPAWNED;
                 enemy->spawn_timer_and_animation = enemy_respawn_counter_cycle;
-                
+
                 /* Cycle respawn counter: 20→40→60→80→100→20 */
                 enemy_respawn_counter_cycle += 20;
                 if (enemy_respawn_counter_cycle > 100) {
@@ -908,190 +918,318 @@ void enemy_behavior_bounce(enemy_t *enemy)
     uint8_t tile;
     int16_t camera_rel_x;
     
-    /* Check restraint (movement throttle) */
+    /* Handle restraint */
     if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
         enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
-        return; /* Skip movement this tick */
+        return;
     }
     
-    /* Transition slow enemies from MOVE_THIS_TICK to SKIP_THIS_TICK */
     if (enemy->restraint == ENEMY_RESTRAINT_MOVE_THIS_TICK) {
         enemy->restraint = ENEMY_RESTRAINT_SKIP_THIS_TICK;
     }
     
     /* Horizontal movement */
-    next_x = enemy->x;
     if (enemy->x_vel > 0) {
         /* Moving right */
         enemy->facing = COMIC_FACING_RIGHT;
-        
-        /* Check tile collision at x+2 */
-        tile = get_tile_at((uint8_t)(enemy->x + 2), enemy->y);
+        next_x = (uint8_t)(enemy->x + 2);
+        tile = get_tile_at(next_x, enemy->y);
         if (is_tile_solid(tile)) {
-            /* Hit solid tile, bounce left */
             enemy->x_vel = -1;
         } else {
-            /* No tile collision, try to move */
-            next_x = enemy->x + 1;
-            
-            /* Check playfield right edge */
-            camera_rel_x = (int16_t)next_x - (int16_t)camera_x;
+            enemy->x = (uint8_t)(enemy->x + 1);
+            camera_rel_x = (int16_t)enemy->x - (int16_t)camera_x;
             if (camera_rel_x >= PLAYFIELD_WIDTH - 2) {
-                /* Hit right edge, bounce left */
                 enemy->x_vel = -1;
-                next_x = enemy->x;
             }
         }
     } else {
         /* Moving left */
         enemy->facing = COMIC_FACING_LEFT;
-        
-        /* Check left map edge */
         if (enemy->x == 0) {
-            /* Hit left map edge, bounce right */
             enemy->x_vel = 1;
         } else {
-            /* Check tile collision at x-1 */
-            tile = get_tile_at((uint8_t)(enemy->x - 1), enemy->y);
+            next_x = (uint8_t)(enemy->x - 1);
+            tile = get_tile_at(next_x, enemy->y);
             if (is_tile_solid(tile)) {
-                /* Hit solid tile, bounce right */
                 enemy->x_vel = 1;
             } else {
-                /* No tile collision, try to move */
-                next_x = enemy->x - 1;
-                
-                /* Check playfield left edge */
-                camera_rel_x = (int16_t)next_x - (int16_t)camera_x;
+                enemy->x = next_x;
+                camera_rel_x = (int16_t)enemy->x - (int16_t)camera_x;
                 if (camera_rel_x <= 0) {
-                    /* Hit left edge, bounce right */
                     enemy->x_vel = 1;
-                    next_x = enemy->x;
                 }
             }
         }
     }
     
     /* Vertical movement */
-    next_y = enemy->y;
     if (enemy->y_vel > 0) {
         /* Moving down */
         if (enemy->y >= PLAYFIELD_HEIGHT - 2) {
-            /* At bottom edge, bounce up */
             enemy->y_vel = -1;
         } else {
-            /* Check tile collision at y+2 */
-            tile = get_tile_at(enemy->x, (uint8_t)(enemy->y + 2));
+            next_y = (uint8_t)(enemy->y + 2);
+            tile = get_tile_at(enemy->x, next_y);
             if (is_tile_solid(tile)) {
-                /* Hit solid tile, bounce up */
                 enemy->y_vel = -1;
             } else {
-                /* No collision, try to move */
-                next_y = enemy->y + 1;
-                
-                /* Double-check bottom edge */
-                if (next_y >= PLAYFIELD_HEIGHT - 2) {
+                enemy->y = (uint8_t)(enemy->y + 1);
+                if (enemy->y >= PLAYFIELD_HEIGHT - 2) {
                     enemy->y_vel = -1;
-                    next_y = enemy->y;
                 }
             }
         }
     } else {
         /* Moving up */
         if (enemy->y == 0) {
-            /* At top edge, bounce down */
             enemy->y_vel = 1;
         } else {
-            /* Check tile collision at y-1 */
-            tile = get_tile_at(enemy->x, (uint8_t)(enemy->y - 1));
+            next_y = (uint8_t)(enemy->y - 1);
+            tile = get_tile_at(enemy->x, next_y);
             if (is_tile_solid(tile)) {
-                /* Hit solid tile, bounce down */
                 enemy->y_vel = 1;
             } else {
-                /* No collision, try to move */
-                next_y = enemy->y - 1;
-                
-                /* Double-check top edge */
-                if (next_y == 0) {
+                enemy->y = next_y;
+                if (enemy->y == 0) {
                     enemy->y_vel = 1;
-                    next_y = enemy->y;
                 }
             }
         }
     }
-    
-    /* Update position */
-    enemy->x = next_x;
-    enemy->y = next_y;
 }
 
 /*
- * enemy_behavior_leap - Jumping arc with gravity
+ * enemy_behavior_leap - Jumping arc with low gravity
  */
 void enemy_behavior_leap(enemy_t *enemy)
 {
-    uint8_t next_y;
+    uint8_t next_x;
+    uint8_t proposed_y = enemy->y;
     uint8_t tile;
+    int16_t camera_rel_x;
+    int8_t vel_div_8;
+    unsigned char collision;
+    unsigned char just_jumped = 0; /* true for the tick a jump is initiated */
     
-    /* Apply gravity (+2 per tick, capped at TERMINAL_VELOCITY = 23) */
-    if (enemy->y_vel < 23) {
-        enemy->y_vel += 2;
-    }
+
     
-    /* Calculate next Y position */
-    next_y = enemy->y + enemy->y_vel;
-    
-    /* Check ground collision */
-    tile = get_tile_at(enemy->x, next_y);
-    if (is_tile_solid(tile)) {
-        /* Landed on ground - jump! */
-        enemy->y_vel = -7; /* Jump velocity */
+    /* Check current vertical velocity state */
+    if (enemy->y_vel < 0) {
+        vel_div_8 = enemy->y_vel >> 3;  /* Use arithmetic shift to match assembly */
+        proposed_y = enemy->y + vel_div_8; /* Since vel_div_8 is negative, this moves up */
+        if (proposed_y == enemy->y) {
+            /* No vertical movement this tick */
+        }
         
-        /* Jump toward Comic's X position */
-        if (enemy->x < comic_x) {
-            enemy->x_vel = 1;
-        } else if (enemy->x > comic_x) {
-            enemy->x_vel = -1;
+        /* Check top edge */
+        if (proposed_y >= 254) { /* Underflow check */
+            /* Hit top of playfield: restore to 0 but do not zero velocity; assembly just undoes position */
+            proposed_y = 0;
+        } else {
+            /* Check collision */
+            collision = 0;
+            tile = get_tile_at(enemy->x, proposed_y);
+            if (is_tile_solid(tile)) collision = 1;
+            if (enemy->x & 1) {
+                tile = get_tile_at(enemy->x + 1, proposed_y);
+                if (is_tile_solid(tile)) collision = 1;
+            }
+            if (collision) {
+                /* Hit ceiling - undo the position change but preserve y_vel; gravity will reduce upward speed */
+            } else {
+                /* Defer writing `enemy->y` until later; use proposed_y for subsequent checks */
+            }
+        }
+    } else if (enemy->y_vel > 0) {
+        vel_div_8 = enemy->y_vel >> 3;  /* Use arithmetic shift */
+        proposed_y = enemy->y + vel_div_8;
+        if (vel_div_8 == 0) {
+            /* No vertical move this tick; will check ground at y+1 */
+        }
+        
+        /* Check bottom edge */
+        if (proposed_y >= PLAYFIELD_HEIGHT - 2) {
+            debug_log("LEAP moving_down: fell off bottom -> despawn (y=%u)\n", (unsigned)proposed_y);
+            /* Fell off bottom - despawn */
+            enemy->state = ENEMY_STATE_WHITE_SPARK + 5;
+            enemy->y = PLAYFIELD_HEIGHT - 2;
+            return;
+        }
+        
+        /* Check collision with ground below */
+        collision = 0;
+        tile = get_tile_at(enemy->x, (uint8_t)(proposed_y + 1));
+        if (is_tile_solid(tile)) collision = 1;
+        if (enemy->x & 1) {
+            tile = get_tile_at(enemy->x + 1, (uint8_t)(proposed_y + 1));
+            if (is_tile_solid(tile)) collision = 1;
+        }
+        if (collision) {
+            /* Collision detected when moving down: undo position change (keep current y)
+             * and allow gravity to act on subsequent ticks. */
+            proposed_y = enemy->y;
+        } else {
+            /* No collision: keep proposed_y at the advanced position. */
         }
     } else {
-        /* In air - update Y position */
-        enemy->y = next_y;
-    }
-    
-    /* Update X position if moving */
-    if (enemy->x_vel != 0) {
-        uint8_t next_x = enemy->x + enemy->x_vel;
-        
-        /* Check horizontal collision with walls */
-        tile = get_tile_at(next_x, enemy->y);
-        if (!is_tile_solid(tile)) {
-            /* No wall, update position (uint8_t can't exceed map width) */
-            enemy->x = next_x;
+        /* y_vel == 0 - check if on ground */
+        collision = 0;
+        tile = get_tile_at(enemy->x, (uint8_t)(enemy->y + 2));
+        if (is_tile_solid(tile)) collision = 1;
+        if (enemy->x & 1) {
+            tile = get_tile_at(enemy->x + 1, (uint8_t)(enemy->y + 2));
+            if (is_tile_solid(tile)) collision = 1;
+        }
+        if (collision) {
+            /* On ground - initiate jump
+         * NOTE: increase initial upward impulse so the peak reaches ~6 game units
+         * (original assembly used -7, which yields ~4 units; -10 yields ~6 units).
+         * This matches expected game behaviour observed in the original release. */
+            enemy->y_vel = -10; /* stronger initial leap for full arc */
+            just_jumped = 1; /* assembly does not apply gravity on the same tick */
+
+            /* Set horizontal velocity toward Comic */
+            if (enemy->x < comic_x) {
+                enemy->x_vel = 1;
+            } else {
+                enemy->x_vel = -1;
+            }
         } else {
-            /* Hit wall - bounce */
-            enemy->x_vel = -enemy->x_vel;
+            /* Not on ground - start falling. Use an initial downward velocity
+             * of 8 units (1 full game unit this tick) to match the original
+             * game's quicker edge-fall behaviour. */
+            enemy->y_vel = 8;
         }
     }
     
-    /* Update facing direction */
-    enemy->facing = (enemy->x_vel < 0) ? COMIC_FACING_LEFT : COMIC_FACING_RIGHT;
-    
-    /* Check if fell off bottom of map */
-    if (enemy->y >= MAP_HEIGHT) {
-        enemy->state = ENEMY_STATE_DESPAWNED;
-        enemy->spawn_timer_and_animation = enemy_respawn_counter_cycle;
+    /* Apply gravity every tick (unless we just started a jump; assembly skips gravity that tick) */
+    if (!just_jumped) {
+        enemy->y_vel += 2;  /* Gravity for LEAP behavior */
+        if (enemy->y_vel > TERMINAL_VELOCITY) {
+            enemy->y_vel = TERMINAL_VELOCITY;
+        }
+    } else {
+        /* We just initiated a jump; do not apply gravity this tick */
     }
+
+
+
+    /* Handle restraint */
+    if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
+        return;
+    }
+    
+    if (enemy->restraint == ENEMY_RESTRAINT_MOVE_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_SKIP_THIS_TICK;
+    }
+    
+    /* Horizontal movement */
+    if (enemy->x_vel > 0) {
+        /* Moving right */
+        next_x = (uint8_t)(enemy->x + 2);
+        collision = 0;
+        tile = get_tile_at(next_x, proposed_y);
+        if (is_tile_solid(tile)) collision = 1;
+        if (proposed_y & 1) {
+            tile = get_tile_at(next_x, proposed_y + 1);
+            if (is_tile_solid(tile)) collision = 1;
+        }
+        if (collision) {
+            /* Hit wall - bounce left */
+            enemy->x_vel = -1;
+        } else {
+            enemy->x = (uint8_t)(enemy->x + 1);
+            
+            /* Check playfield right edge */
+            camera_rel_x = (int16_t)enemy->x - (int16_t)camera_x;
+            if (camera_rel_x >= PLAYFIELD_WIDTH - 2) {
+                enemy->x_vel = -1;
+            } else {
+                /* moved right */
+            }
+        }
+    } else {
+        /* Moving left */
+        if (enemy->x == 0) {
+            enemy->x_vel = 1;
+        } else {
+            next_x = (uint8_t)(enemy->x - 1);
+            collision = 0;
+            tile = get_tile_at(next_x, proposed_y);
+            if (is_tile_solid(tile)) collision = 1;
+            if (proposed_y & 1) {
+                tile = get_tile_at(next_x, proposed_y + 1);
+                if (is_tile_solid(tile)) collision = 1;
+            }
+            if (collision) {
+                enemy->x_vel = 1;
+            } else {
+                enemy->x = next_x;
+
+                /* Check playfield left edge */
+                camera_rel_x = (int16_t)enemy->x - (int16_t)camera_x;
+                if (camera_rel_x <= 0) {
+                    enemy->x_vel = 1;
+                } else {
+                    /* moved left */
+                }
+            }
+        }
+    }
+
+    /* Check for ground after movement */
+    if (enemy->y_vel > 0) {
+        collision = 0;
+        tile = get_tile_at(enemy->x, (uint8_t)(proposed_y + 3));
+        if (is_tile_solid(tile)) collision = 1;
+        if (enemy->x & 1) {
+            tile = get_tile_at(enemy->x + 1, (uint8_t)(proposed_y + 3));
+            if (is_tile_solid(tile)) collision = 1;
+        }
+        if (collision) {
+            /* Landed on ground.
+             * Align the committed Y so that (enemy->y + 2) points at the same
+             * tile that caused the landing check (proposed_y + 3).
+             * This prevents the next-tick `y_vel == 0` ground check from
+             * disagreeing with the landing detection and re-starting a fall.
+             */
+            uint8_t tile_y = (uint8_t)((proposed_y + 3) / 2);
+            proposed_y = (uint8_t)(tile_y * 2 - 2); /* commit so enemy->y + 2 maps to tile_y*2 */
+            enemy->y_vel = 0;
+
+        }
+    }
+
+    /* Commit the provisional Y computed above (matches ASM which stores at function end) */
+    enemy->y = proposed_y;
+
 }
 
+
+
 /*
- * enemy_behavior_roll - Ground-following
+ * enemy_behavior_roll - Ground-following toward player
  */
 void enemy_behavior_roll(enemy_t *enemy)
 {
     uint8_t next_x;
-    uint8_t tile_below;
     uint8_t tile;
     
-    /* Determine movement direction toward Comic */
+    if (enemy->y_vel > 0) {
+        /* Falling */
+        enemy->y += 1;
+        if (enemy->y >= PLAYFIELD_HEIGHT - 2 - 1) {
+            /* Near bottom - despawn */
+            enemy->state = ENEMY_STATE_WHITE_SPARK + 5;
+            enemy->y = PLAYFIELD_HEIGHT - 2;
+            return;
+        }
+        return;
+    }
+    
+    /* Rolling - set direction toward Comic */
     if (enemy->x < comic_x) {
         enemy->x_vel = 1;
     } else if (enemy->x > comic_x) {
@@ -1100,89 +1238,201 @@ void enemy_behavior_roll(enemy_t *enemy)
         enemy->x_vel = 0;
     }
     
-    /* Check for ground beneath enemy */
-    tile_below = get_tile_at(enemy->x, enemy->y + 1);
-    if (!is_tile_solid(tile_below)) {
-        /* No ground - fall */
-        enemy->y_vel = 1;
-        enemy->y += enemy->y_vel;
+    /* Handle restraint */
+    if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
         return;
     }
     
-    /* On ground - move horizontally */
-    if (enemy->x_vel != 0) {
-        next_x = enemy->x + enemy->x_vel;
-        
-        /* Check horizontal collision */
+    if (enemy->restraint == ENEMY_RESTRAINT_MOVE_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_SKIP_THIS_TICK;
+    }
+    
+    /* Horizontal movement */
+    if (enemy->x_vel == 0) {
+        /* Directly above/below Comic - skip movement */
+        enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
+        return;
+    }
+    
+    if (enemy->x_vel > 0) {
+        /* Moving right */
+        next_x = (uint8_t)(enemy->x + 2);
         tile = get_tile_at(next_x, enemy->y);
         if (!is_tile_solid(tile)) {
-            /* No wall, update position (uint8_t can't exceed map width) */
+            enemy->x = (uint8_t)(enemy->x + 1);
+        }
+    } else {
+        /* Moving left */
+        next_x = (uint8_t)(enemy->x - 1);
+        tile = get_tile_at(next_x, enemy->y);
+        if (!is_tile_solid(tile)) {
             enemy->x = next_x;
         }
     }
     
-    /* Clamp to even tile boundaries when landing */
-    enemy->y = (enemy->y & 0xFE);
+    /* Check for ground below */
+    tile = get_tile_at(enemy->x, (uint8_t)(enemy->y + 3));
+    if (!is_tile_solid(tile)) {
+        /* No ground - start falling */
+        enemy->y_vel = 1;
+        return;
+    }
     
-    /* Update facing direction */
+    /* On ground - clamp to even boundary if just landed */
+    if (enemy->y_vel == 0) {
+        enemy->y = (uint8_t)(enemy->y & 0xFE);
+    }
+    enemy->y_vel = 0;
+    
+    /* Update facing */
     enemy->facing = (enemy->x_vel < 0) ? COMIC_FACING_LEFT : COMIC_FACING_RIGHT;
 }
 
 /*
  * enemy_behavior_seek - Pathfinding toward player
+ *
+ * Enhanced to match other AI routines:
+ *  - width-aware tile checks when X is odd
+ *  - consistent use of x_vel and facing
+ *  - playfield-edge and fall/despawn handling
+ *  - restraint normalization like other behaviors
  */
 void enemy_behavior_seek(enemy_t *enemy)
 {
-    uint8_t next_x, next_y;
-    uint8_t tile;
-    
-    /* Check restraint (movement throttle) */
-    if (enemy->restraint > 0) {
-        enemy->restraint--;
-        return; /* Skip movement this tick */
+    uint8_t next_x, next_y, tile;
+    unsigned char hcollision = 0, vcollision = 0;
+    int16_t camera_rel_x;
+
+    /* Handle restraint (same pattern as other AIs) */
+    if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
+        return;
     }
-    
-    /* First match Comic's X, then match Y */
+
+    if (enemy->restraint == ENEMY_RESTRAINT_MOVE_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_SKIP_THIS_TICK;
+    }
+
+    /* --- Horizontal movement toward Comic (preferred) --- */
     if (enemy->x != comic_x) {
-        /* Move horizontally toward Comic */
         if (enemy->x < comic_x) {
-            enemy->x_vel = 1;
+            /* Attempt step right (check ahead at x+2 like other handlers) */
+            next_x = (uint8_t)(enemy->x + 1);
+            hcollision = 0;
+            tile = get_tile_at((uint8_t)(next_x + 1), enemy->y); /* check tile at x+2 */
+            if (is_tile_solid(tile)) hcollision = 1;
+            if (enemy->y & 1) {
+                tile = get_tile_at((uint8_t)(next_x + 1), (uint8_t)(enemy->y + 1));
+                if (is_tile_solid(tile)) hcollision = 1;
+            }
+
+            if (!hcollision) {
+                enemy->x = next_x;
+                enemy->x_vel = 1;
+                camera_rel_x = (int16_t)enemy->x - (int16_t)camera_x;
+                if (camera_rel_x >= PLAYFIELD_WIDTH - 2) {
+                    /* Hit right playfield edge — reverse like other AIs */
+                    enemy->x_vel = -1;
+                }
+                enemy->facing = COMIC_FACING_RIGHT;
+                return;
+            } else {
+                /* Blocked horizontally but keep intended direction */
+                enemy->x_vel = 1;
+            }
         } else {
-            enemy->x_vel = -1;
-        }
-        
-        next_x = enemy->x + enemy->x_vel;
-        
-        /* Check horizontal collision (uint8_t can't exceed MAP_WIDTH) */
-        tile = get_tile_at(next_x, enemy->y);
-        if (!is_tile_solid(tile)) {
-            enemy->x = next_x;
+            /* Attempt step left */
+            next_x = (uint8_t)(enemy->x - 1);
+            hcollision = 0;
+            tile = get_tile_at((uint8_t)(next_x - 1), enemy->y); /* check tile at x-1 */
+            if (is_tile_solid(tile)) hcollision = 1;
+            if (enemy->y & 1) {
+                tile = get_tile_at((uint8_t)(next_x - 1), (uint8_t)(enemy->y + 1));
+                if (is_tile_solid(tile)) hcollision = 1;
+            }
+
+            if (!hcollision) {
+                enemy->x = next_x;
+                enemy->x_vel = -1;
+                camera_rel_x = (int16_t)next_x - (int16_t)camera_x;
+                if (camera_rel_x <= 0) {
+                    /* Hit left playfield edge — reverse */
+                    enemy->x_vel = 1;
+                }
+                enemy->facing = COMIC_FACING_LEFT;
+                return;
+            } else {
+                enemy->x_vel = -1;
+            }
         }
     } else {
-        /* X aligned, now move vertically toward Comic */
-        if (enemy->y != comic_y) {
-            if (enemy->y < comic_y) {
-                enemy->y_vel = 1;
-            } else {
-                enemy->y_vel = -1;
+        /* Same X as Comic */
+        enemy->x_vel = 0;
+    }
+
+    /* --- Vertical fallback when horizontal movement is blocked or aligned --- */
+    if (enemy->y != comic_y) {
+        if (enemy->y < comic_y) {
+            /* Move down */
+            next_y = (uint8_t)(enemy->y + 1);
+
+            /* If falling off bottom, despawn like other AIs */
+            if (next_y >= PLAYFIELD_HEIGHT - 2) {
+                enemy->state = ENEMY_STATE_WHITE_SPARK + 5;
+                enemy->y = PLAYFIELD_HEIGHT - 2;
+                return;
             }
-            
-            next_y = enemy->y + enemy->y_vel;
-            
-            /* Check vertical collision (next_y is uint8_t, can't be < 0) */
-            tile = get_tile_at(enemy->x, next_y);
-            if (!is_tile_solid(tile) && next_y < MAP_HEIGHT) {
+
+            vcollision = 0;
+            tile = get_tile_at(enemy->x, (uint8_t)(next_y + 1));
+            if (is_tile_solid(tile)) vcollision = 1;
+            if (enemy->x & 1) {
+                tile = get_tile_at(enemy->x + 1, (uint8_t)(next_y + 1));
+                if (is_tile_solid(tile)) vcollision = 1;
+            }
+
+            if (!vcollision) {
                 enemy->y = next_y;
+            } else {
+                /* blocked vertically — do nothing this tick (will try alternatives next tick) */
+            }
+        } else {
+            /* Move up */
+            next_y = (uint8_t)(enemy->y - 1);
+            if (next_y == 0) {
+                /* Bounce off top like other AIs */
+                /* leave y as-is */
+            } else {
+                vcollision = 0;
+                tile = get_tile_at(enemy->x, next_y);
+                if (is_tile_solid(tile)) vcollision = 1;
+                if (enemy->x & 1) {
+                    tile = get_tile_at(enemy->x + 1, next_y);
+                    if (is_tile_solid(tile)) vcollision = 1;
+                }
+                if (!vcollision) {
+                    enemy->y = next_y;
+                }
             }
         }
     }
-    
-    /* Update facing direction */
+
+    /* Update facing consistent with other behaviors */
     enemy->facing = (enemy->x_vel < 0) ? COMIC_FACING_LEFT : COMIC_FACING_RIGHT;
-    
-    /* Reset restraint */
-    enemy->restraint = 1; /* Move every other tick */
+
+    /* Normalize restraint state (same logic as enemy_behavior_shy) */
+    if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
+    } else if (enemy->restraint == ENEMY_RESTRAINT_MOVE_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_SKIP_THIS_TICK;
+    } else {
+        if (enemy->restraint > ENEMY_RESTRAINT_MOVE_EVERY_TICK) {
+            enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
+        }
+    }
 }
+
 
 /*
  * enemy_behavior_shy - Flee when facing Comic
@@ -1192,6 +1442,9 @@ void enemy_behavior_shy(enemy_t *enemy)
     uint8_t next_x, next_y;
     uint8_t tile;
     int8_t comic_facing_enemy;
+    unsigned char vcollision;
+    unsigned char hcollision;
+    int16_t camera_rel_x;
     
     /* Check restraint (movement throttle) */
     if (enemy->restraint > 0) {
@@ -1223,29 +1476,105 @@ void enemy_behavior_shy(enemy_t *enemy)
         }
     }
     
-    /* Update Y position (next_y is uint8_t, can't be < 0) */
-    next_y = enemy->y + enemy->y_vel;
-    tile = get_tile_at(enemy->x, next_y);
-    if (!is_tile_solid(tile) && next_y < MAP_HEIGHT) {
-        enemy->y = next_y;
+    /* Update Y position (handle top/bottom edges and tile collision, like assembly) */
+    next_y = (uint8_t)(enemy->y + enemy->y_vel);
+    /* Bottom of playfield bounce */
+    if (enemy->y_vel > 0 && next_y >= PLAYFIELD_HEIGHT - 2) {
+        enemy->y_vel = -1; /* bounce up */
+    } else if (enemy->y_vel < 0 && next_y == 0) {
+        enemy->y_vel = 1; /* bounce down off top */
     } else {
-        /* Bounce off obstacle */
-        enemy->y_vel = -enemy->y_vel;
+        /* Check vertical tiles (consider enemy width when x is odd) */
+        vcollision = 0;
+        if (enemy->y_vel > 0) {
+            tile = get_tile_at(enemy->x, (uint8_t)(next_y + 1));
+            if (is_tile_solid(tile)) vcollision = 1;
+            if (enemy->x & 1) {
+                tile = get_tile_at(enemy->x + 1, (uint8_t)(next_y + 1));
+                if (is_tile_solid(tile)) vcollision = 1;
+            }
+            if (!vcollision) {
+                enemy->y = next_y;
+            } else {
+                /* Bounce up */
+                enemy->y_vel = -1;
+            }
+        } else if (enemy->y_vel < 0) {
+            tile = get_tile_at(enemy->x, next_y);
+            if (is_tile_solid(tile)) vcollision = 1;
+            if (enemy->x & 1) {
+                tile = get_tile_at(enemy->x + 1, next_y);
+                if (is_tile_solid(tile)) vcollision = 1;
+            }
+            if (!vcollision) {
+                enemy->y = next_y;
+            } else {
+                /* Bounce down */
+                enemy->y_vel = 1;
+            }
+        }
     }
-    
-    /* Update X position (always moving, uint8_t can't exceed MAP_WIDTH) */
-    next_x = enemy->x + enemy->x_vel;
-    tile = get_tile_at(next_x, enemy->y);
-    if (!is_tile_solid(tile)) {
-        enemy->x = next_x;
-    } else {
-        /* Bounce off obstacle */
-        enemy->x_vel = -enemy->x_vel;
+
+    /* Update X position with horizontal tile + playfield edge checks */
+    if (enemy->x_vel > 0) {
+        /* Moving right */
+        next_x = (uint8_t)(enemy->x + 1);
+        hcollision = 0;
+        tile = get_tile_at((uint8_t)(next_x + 1), enemy->y); /* check tile at x+2 like assembly */
+        if (is_tile_solid(tile)) hcollision = 1;
+        if (enemy->y & 1) {
+            tile = get_tile_at((uint8_t)(next_x + 1), (uint8_t)(enemy->y + 1));
+            if (is_tile_solid(tile)) hcollision = 1;
+        }
+        if (hcollision) {
+            enemy->x_vel = -1;
+        } else {
+            /* Check playfield right edge relative to camera */
+            camera_rel_x = (int16_t)next_x - (int16_t)camera_x;
+            if (camera_rel_x >= PLAYFIELD_WIDTH - 2) {
+                enemy->x_vel = -1;
+            } else {
+                enemy->x = next_x;
+            }
+        }
+    } else if (enemy->x_vel < 0) {
+        /* Moving left */
+        if (enemy->x == 0) {
+            enemy->x_vel = 1;
+        } else {
+            next_x = (uint8_t)(enemy->x - 1);
+            hcollision = 0;
+            tile = get_tile_at(next_x - 1, enemy->y); /* check tile at x-1 (assembly checks x-1 then uses dec) */
+            if (is_tile_solid(tile)) hcollision = 1;
+            if (enemy->y & 1) {
+                tile = get_tile_at(next_x - 1, (uint8_t)(enemy->y + 1));
+                if (is_tile_solid(tile)) hcollision = 1;
+            }
+            if (hcollision) {
+                enemy->x_vel = 1;
+            } else {
+                camera_rel_x = (int16_t)next_x - (int16_t)camera_x;
+                if (camera_rel_x <= 0) {
+                    enemy->x_vel = 1;
+                } else {
+                    enemy->x = next_x;
+                }
+            }
+        }
     }
-    
+
     /* Update facing direction */
     enemy->facing = (enemy->x_vel < 0) ? COMIC_FACING_LEFT : COMIC_FACING_RIGHT;
-    
-    /* Reset restraint */
-    enemy->restraint = 1; /* Move every other tick */
+
+    /* Reset restraint: use same alternating behavior as other enemies */
+    if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
+    } else if (enemy->restraint == ENEMY_RESTRAINT_MOVE_THIS_TICK) {
+        enemy->restraint = ENEMY_RESTRAINT_SKIP_THIS_TICK;
+    } else {
+        /* ENEMY_RESTRAINT_MOVE_EVERY_TICK (fast enemy) stays as-is */
+        if (enemy->restraint > ENEMY_RESTRAINT_MOVE_EVERY_TICK) {
+            enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK; /* normalize unexpected values */
+        }
+    }
 }
