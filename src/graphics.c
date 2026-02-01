@@ -59,6 +59,9 @@ extern uint8_t comic_has_teleport_wand;
 extern uint8_t comic_has_corkscrew;
 extern uint8_t comic_has_shield;
 extern uint8_t comic_has_lantern;
+extern uint8_t comic_has_gems;         /* 1 if Gems collected, 0 otherwise */
+extern uint8_t comic_has_crown;        /* 1 if Crown collected, 0 otherwise */
+extern uint8_t comic_has_gold;         /* 1 if Gold collected, 0 otherwise */
 extern uint8_t comic_firepower;        /* Number of active fireball slots (controls Blastola Cola inventory display) */
 extern uint8_t comic_num_treasures;    /* Number of treasures collected (0-3, controls Crown/Gold/Gems display) */
 extern uint8_t comic_jump_power;       /* Jump power level (controls Boots display at >4) */
@@ -1113,17 +1116,17 @@ void render_inventory_display(void)
     }
     
     /* Row 3 (Y=160) - Treasures */
-    if (comic_num_treasures > 0) {
+    if (comic_has_gems) {
         /* Render Gems at (232, 160) - first treasure */
         blit_sprite_16x16_masked(232, 160, sprite_gems_even_16x16m);
     }
     
-    if (comic_num_treasures > 1) {
+    if (comic_has_crown) {
         /* Render Crown at (256, 160) - second treasure */
         blit_sprite_16x16_masked(256, 160, sprite_crown_even_16x16m);
     }
     
-    if (comic_num_treasures > 2) {
+    if (comic_has_gold) {
         /* Render Gold at (280, 160) - third treasure */
         blit_sprite_16x16_masked(280, 160, sprite_gold_even_16x16m);
     }

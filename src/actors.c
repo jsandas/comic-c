@@ -60,6 +60,9 @@ extern uint8_t tileset_last_passable;      /* Last passable tile ID (tiles > thi
 extern uint8_t items_collected[8][16];     /* Bitmap: items_collected[level][stage] */
 extern uint8_t item_animation_counter;     /* 0 or 1, toggles for item animation */
 extern uint8_t comic_num_treasures;        /* Number of treasures collected (0-3) */
+extern uint8_t comic_has_gems;             /* 1 if Gems collected, 0 otherwise */
+extern uint8_t comic_has_crown;            /* 1 if Crown collected, 0 otherwise */
+extern uint8_t comic_has_gold;             /* 1 if Gold collected, 0 otherwise */
 extern uint8_t win_counter;                /* Win countdown counter; set to 200 when treasures == 3 */
 
 /* Respawn timing */
@@ -583,18 +586,36 @@ void handle_item(void)
                     comic_has_door_key = 1;
                     break;
                 case ITEM_CROWN:
+                    if (!comic_has_crown) {
+                        comic_has_crown = 1;
+                        if (comic_num_treasures < 3) {
+                            comic_num_treasures++;
+                            if (comic_num_treasures == 3) {
+                                win_counter = 200;
+                            }
+                        }
+                    }
+                    break;
                 case ITEM_GOLD:
+                    if (!comic_has_gold) {
+                        comic_has_gold = 1;
+                        if (comic_num_treasures < 3) {
+                            comic_num_treasures++;
+                            if (comic_num_treasures == 3) {
+                                win_counter = 200;
+                            }
+                        }
+                    }
+                    break;
                 case ITEM_GEMS:
-                    /* Treasure collection and victory condition check:
-                     * Collecting the three treasures (Crown, Gold, Gems) triggers the win condition.
-                     * When comic_num_treasures reaches 3, set win_counter to 200.
-                     * The game loop decrements win_counter each tick, and when it reaches 1,
-                     * it triggers game_end_sequence() for the victory animation. */
-                    if (comic_num_treasures < 3) {
-                        comic_num_treasures++;
-                        /* If all three treasures collected, trigger victory sequence */
-                        if (comic_num_treasures == 3) {
-                            win_counter = 200;  /* Set countdown to begin victory sequence when counter reaches 1 */
+                    if (!comic_has_gems) {
+                        comic_has_gems = 1;
+                        if (comic_num_treasures < 3) {
+                            comic_num_treasures++;
+                            /* If all three treasures collected, trigger victory sequence */
+                            if (comic_num_treasures == 3) {
+                                win_counter = 200;  /* Set countdown to begin victory sequence when counter reaches 1 */
+                            }
                         }
                     }
                     break;
