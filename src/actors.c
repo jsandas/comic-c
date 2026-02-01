@@ -63,7 +63,7 @@ extern uint8_t comic_num_treasures;        /* Number of treasures collected (0-3
 extern uint8_t comic_has_gems;             /* 1 if Gems collected, 0 otherwise */
 extern uint8_t comic_has_crown;            /* 1 if Crown collected, 0 otherwise */
 extern uint8_t comic_has_gold;             /* 1 if Gold collected, 0 otherwise */
-extern uint8_t win_counter;                /* Win countdown counter; set to 200 when treasures == 3 */
+extern uint8_t win_counter;                /* Win countdown counter; set to 20 when treasures == 3 */
 
 /* Respawn timing */
 extern uint8_t enemy_respawn_counter_cycle; /* Cycles: 20→40→60→80→100→20 */
@@ -591,7 +591,7 @@ void handle_item(void)
                         if (comic_num_treasures < 3) {
                             comic_num_treasures++;
                             if (comic_num_treasures == 3) {
-                                win_counter = 200;
+                                win_counter = 20;
                             }
                         }
                     }
@@ -602,7 +602,7 @@ void handle_item(void)
                         if (comic_num_treasures < 3) {
                             comic_num_treasures++;
                             if (comic_num_treasures == 3) {
-                                win_counter = 200;
+                                win_counter = 20;
                             }
                         }
                     }
@@ -614,7 +614,7 @@ void handle_item(void)
                             comic_num_treasures++;
                             /* If all three treasures collected, trigger victory sequence */
                             if (comic_num_treasures == 3) {
-                                win_counter = 200;  /* Set countdown to begin victory sequence when counter reaches 1 */
+                                win_counter = 20;  /* Set countdown to begin victory sequence when counter reaches 1 */
                             }
                         }
                     }
