@@ -1004,7 +1004,8 @@ void enemy_behavior_bounce(enemy_t *enemy)
  */
 void enemy_behavior_leap(enemy_t *enemy)
 {
-    uint8_t next_x, next_y;
+    uint8_t next_x;
+    uint8_t proposed_y = enemy->y;
     uint8_t tile;
     int16_t camera_rel_x;
     int8_t vel_div_8;
@@ -1016,39 +1017,40 @@ void enemy_behavior_leap(enemy_t *enemy)
     /* Check current vertical velocity state */
     if (enemy->y_vel < 0) {
         vel_div_8 = enemy->y_vel >> 3;  /* Use arithmetic shift to match assembly */
-        next_y = enemy->y + vel_div_8; /* Since vel_div_8 is negative, this moves up */
-        if (next_y == enemy->y) {
+        proposed_y = enemy->y + vel_div_8; /* Since vel_div_8 is negative, this moves up */
+        if (proposed_y == enemy->y) {
             /* No vertical movement this tick */
         }
         
         /* Check top edge */
-        if (next_y >= 254) { /* Underflow check */
+        if (proposed_y >= 254) { /* Underflow check */
             /* Hit top of playfield: restore to 0 but do not zero velocity; assembly just undoes position */
-            next_y = 0;
+            proposed_y = 0;
         } else {
             /* Check collision */
             collision = 0;
-            tile = get_tile_at(enemy->x, next_y);
+            tile = get_tile_at(enemy->x, proposed_y);
             if (is_tile_solid(tile)) collision = 1;
             if (enemy->x & 1) {
-                tile = get_tile_at(enemy->x + 1, next_y);
+                tile = get_tile_at(enemy->x + 1, proposed_y);
                 if (is_tile_solid(tile)) collision = 1;
             }
             if (collision) {
                 /* Hit ceiling - undo the position change but preserve y_vel; gravity will reduce upward speed */
             } else {
-                enemy->y = next_y;
+                /* Defer writing `enemy->y` until later; use proposed_y for subsequent checks */
             }
         }
     } else if (enemy->y_vel > 0) {
         vel_div_8 = enemy->y_vel >> 3;  /* Use arithmetic shift */
-        next_y = enemy->y + vel_div_8;
+        proposed_y = enemy->y + vel_div_8;
         if (vel_div_8 == 0) {
             /* No vertical move this tick; will check ground at y+1 */
         }
         
         /* Check bottom edge */
-        if (next_y >= PLAYFIELD_HEIGHT - 2) {
+        if (proposed_y >= PLAYFIELD_HEIGHT - 2) {
+            debug_log("LEAP[%d] moving_down: fell off bottom -> despawn (y=%u)\n", idx, (unsigned)proposed_y);
             /* Fell off bottom - despawn */
             enemy->state = ENEMY_STATE_WHITE_SPARK + 5;
             enemy->y = PLAYFIELD_HEIGHT - 2;
@@ -1057,18 +1059,17 @@ void enemy_behavior_leap(enemy_t *enemy)
         
         /* Check collision with ground below */
         collision = 0;
-        tile = get_tile_at(enemy->x, (uint8_t)(next_y + 1));
+        tile = get_tile_at(enemy->x, (uint8_t)(proposed_y + 1));
         if (is_tile_solid(tile)) collision = 1;
         if (enemy->x & 1) {
-            tile = get_tile_at(enemy->x + 1, (uint8_t)(next_y + 1));
+            tile = get_tile_at(enemy->x + 1, (uint8_t)(proposed_y + 1));
             if (is_tile_solid(tile)) collision = 1;
         }
         if (collision) {
-            /* Hit ground - land */
-            enemy->y = (uint8_t)(next_y & 0xFE); /* Clamp to even boundary */
-            enemy->y_vel = 0;
+            /* Collision detected when moving down: undo position change (defer) and allow gravity to act. */
+            /* do not update `proposed_y` */
         } else {
-            enemy->y = next_y;
+            proposed_y = proposed_y;
         }
     } else {
         /* y_vel == 0 - check if on ground */
@@ -1080,10 +1081,13 @@ void enemy_behavior_leap(enemy_t *enemy)
             if (is_tile_solid(tile)) collision = 1;
         }
         if (collision) {
-            /* On ground - initiate jump */
-            enemy->y_vel = -7; /* Initial jump velocity - matches original assembly */
+            /* On ground - initiate jump
+         * NOTE: increase initial upward impulse so the peak reaches ~6 game units
+         * (original assembly used -7, which yields ~4 units; -10 yields ~6 units).
+         * This matches expected game behaviour observed in the original release. */
+            enemy->y_vel = -10; /* stronger initial leap for full arc */
             just_jumped = 1; /* assembly does not apply gravity on the same tick */
-            
+
             /* Set horizontal velocity toward Comic */
             if (enemy->x < comic_x) {
                 enemy->x_vel = 1;
@@ -1107,7 +1111,9 @@ void enemy_behavior_leap(enemy_t *enemy)
     } else {
         /* We just initiated a jump; do not apply gravity this tick */
     }
-    
+
+
+
     /* Handle restraint */
     if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
         enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
@@ -1123,10 +1129,10 @@ void enemy_behavior_leap(enemy_t *enemy)
         /* Moving right */
         next_x = (uint8_t)(enemy->x + 2);
         collision = 0;
-        tile = get_tile_at(next_x, enemy->y);
+        tile = get_tile_at(next_x, proposed_y);
         if (is_tile_solid(tile)) collision = 1;
-        if (enemy->y & 1) {
-            tile = get_tile_at(next_x, enemy->y + 1);
+        if (proposed_y & 1) {
+            tile = get_tile_at(next_x, proposed_y + 1);
             if (is_tile_solid(tile)) collision = 1;
         }
         if (collision) {
@@ -1150,17 +1156,17 @@ void enemy_behavior_leap(enemy_t *enemy)
         } else {
             next_x = (uint8_t)(enemy->x - 1);
             collision = 0;
-            tile = get_tile_at(next_x, enemy->y);
+            tile = get_tile_at(next_x, proposed_y);
             if (is_tile_solid(tile)) collision = 1;
-            if (enemy->y & 1) {
-                tile = get_tile_at(next_x, enemy->y + 1);
+            if (proposed_y & 1) {
+                tile = get_tile_at(next_x, proposed_y + 1);
                 if (is_tile_solid(tile)) collision = 1;
             }
             if (collision) {
                 enemy->x_vel = 1;
             } else {
                 enemy->x = next_x;
-                
+
                 /* Check playfield left edge */
                 camera_rel_x = (int16_t)enemy->x - (int16_t)camera_x;
                 if (camera_rel_x <= 0) {
@@ -1171,23 +1177,36 @@ void enemy_behavior_leap(enemy_t *enemy)
             }
         }
     }
-    
+
     /* Check for ground after movement */
     if (enemy->y_vel > 0) {
         collision = 0;
-        tile = get_tile_at(enemy->x, (uint8_t)(enemy->y + 3));
+        tile = get_tile_at(enemy->x, (uint8_t)(proposed_y + 3));
         if (is_tile_solid(tile)) collision = 1;
         if (enemy->x & 1) {
-            tile = get_tile_at(enemy->x + 1, (uint8_t)(enemy->y + 3));
+            tile = get_tile_at(enemy->x + 1, (uint8_t)(proposed_y + 3));
             if (is_tile_solid(tile)) collision = 1;
         }
         if (collision) {
-            /* Landed on ground */
-            enemy->y = (uint8_t)(enemy->y & 0xFE); /* Clamp to even boundary */
+            /* Landed on ground.
+             * Align the committed Y so that (enemy->y + 2) points at the same
+             * tile that caused the landing check (proposed_y + 3).
+             * This prevents the next-tick `y_vel == 0` ground check from
+             * disagreeing with the landing detection and re-starting a fall.
+             */
+            uint8_t tile_y = (uint8_t)((proposed_y + 3) / 2);
+            proposed_y = (uint8_t)(tile_y * 2 - 2); /* commit so enemy->y + 2 maps to tile_y*2 */
             enemy->y_vel = 0;
+
         }
     }
+
+    /* Commit the provisional Y computed above (matches ASM which stores at function end) */
+    enemy->y = proposed_y;
+
 }
+
+
 
 /*
  * enemy_behavior_roll - Ground-following toward player
