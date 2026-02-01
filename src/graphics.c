@@ -63,7 +63,7 @@ extern uint8_t comic_has_gems;         /* 1 if Gems collected, 0 otherwise */
 extern uint8_t comic_has_crown;        /* 1 if Crown collected, 0 otherwise */
 extern uint8_t comic_has_gold;         /* 1 if Gold collected, 0 otherwise */
 extern uint8_t comic_firepower;        /* Number of active fireball slots (controls Blastola Cola inventory display) */
-extern uint8_t comic_num_treasures;    /* Number of treasures collected (0-3, controls Crown/Gold/Gems display) */
+extern uint8_t comic_num_treasures;    /* Number of treasures collected (0-3, used for win/victory logic) */
 extern uint8_t comic_jump_power;       /* Jump power level (controls Boots display at >4) */
 
 /* Score data (defined in game_main.c) */
