@@ -1325,6 +1325,8 @@ void enemy_behavior_roll(enemy_t *enemy)
             enemy->y = PLAYFIELD_HEIGHT - 2;
             return;
         }
+        /* Continue to horizontal movement section */
+        goto horizontal_movement;
     }
     
     /* Rolling - set direction toward Comic */
@@ -1335,7 +1337,8 @@ void enemy_behavior_roll(enemy_t *enemy)
     } else {
         enemy->x_vel = 0;
     }
-    
+
+horizontal_movement:
     /* Handle restraint */
     if (enemy->restraint == ENEMY_RESTRAINT_SKIP_THIS_TICK) {
         enemy->restraint = ENEMY_RESTRAINT_MOVE_THIS_TICK;
