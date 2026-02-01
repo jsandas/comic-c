@@ -1480,7 +1480,6 @@ void enemy_behavior_seek(enemy_t *enemy)
 void enemy_behavior_shy(enemy_t *enemy)
 {
     uint8_t next_x, next_y;
-    uint8_t tile;
     int8_t comic_facing_enemy;
     unsigned char vcollision;
     unsigned char hcollision;
@@ -1527,12 +1526,7 @@ void enemy_behavior_shy(enemy_t *enemy)
         /* Check vertical tiles (consider enemy width when x is odd) */
         vcollision = 0;
         if (enemy->y_vel > 0) {
-            tile = get_tile_at(enemy->x, (uint8_t)(next_y + 1));
-            if (is_tile_solid(tile)) vcollision = 1;
-            if (enemy->x & 1) {
-                tile = get_tile_at(enemy->x + 1, (uint8_t)(next_y + 1));
-                if (is_tile_solid(tile)) vcollision = 1;
-            }
+            vcollision = check_vertical_enemy_map_collision(enemy->x, (uint8_t)(next_y + 1));
             if (!vcollision) {
                 enemy->y = next_y;
             } else {
@@ -1540,12 +1534,7 @@ void enemy_behavior_shy(enemy_t *enemy)
                 enemy->y_vel = -1;
             }
         } else if (enemy->y_vel < 0) {
-            tile = get_tile_at(enemy->x, next_y);
-            if (is_tile_solid(tile)) vcollision = 1;
-            if (enemy->x & 1) {
-                tile = get_tile_at(enemy->x + 1, next_y);
-                if (is_tile_solid(tile)) vcollision = 1;
-            }
+            vcollision = check_vertical_enemy_map_collision(enemy->x, next_y);
             if (!vcollision) {
                 enemy->y = next_y;
             } else {
@@ -1559,13 +1548,7 @@ void enemy_behavior_shy(enemy_t *enemy)
     if (enemy->x_vel > 0) {
         /* Moving right */
         next_x = (uint8_t)(enemy->x + 1);
-        hcollision = 0;
-        tile = get_tile_at((uint8_t)(next_x + 1), enemy->y); /* check tile at x+2 like assembly */
-        if (is_tile_solid(tile)) hcollision = 1;
-        if (enemy->y & 1) {
-            tile = get_tile_at((uint8_t)(next_x + 1), (uint8_t)(enemy->y + 1));
-            if (is_tile_solid(tile)) hcollision = 1;
-        }
+        hcollision = check_horizontal_enemy_map_collision((uint8_t)(next_x + 1), enemy->y);
         if (hcollision) {
             enemy->x_vel = -1;
         } else {
@@ -1583,13 +1566,7 @@ void enemy_behavior_shy(enemy_t *enemy)
             enemy->x_vel = 1;
         } else {
             next_x = (uint8_t)(enemy->x - 1);
-            hcollision = 0;
-            tile = get_tile_at(next_x - 1, enemy->y); /* check tile at x-1 (assembly checks x-1 then uses dec) */
-            if (is_tile_solid(tile)) hcollision = 1;
-            if (enemy->y & 1) {
-                tile = get_tile_at(next_x - 1, (uint8_t)(enemy->y + 1));
-                if (is_tile_solid(tile)) hcollision = 1;
-            }
+            hcollision = check_horizontal_enemy_map_collision(next_x - 1, enemy->y);
             if (hcollision) {
                 enemy->x_vel = 1;
             } else {
