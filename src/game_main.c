@@ -2846,26 +2846,19 @@ static void game_over(void)
  */
 static void do_high_scores(void)
 {
-    union REGS regs;
-    
-    /* Set video mode to 13h (320×200 16-color) */
-    regs.h.ah = 0x00;  /* AH=0x00: set video mode */
-    regs.h.al = 0x13;  /* AL=0x13: 320×200 16-color EGA mode */
-    int86(0x10, &regs, &regs);
-    
-    /* Load and display the high scores graphic (sys005.ega) into video buffer 0x0000
-     * The sprite data is a full 320x200 EGA graphic (32000 bytes) */
+    /* Load the high scores graphic (sys005.ega) into one of the gameplay buffers
+     * and display it, similar to how the title sequence loads graphics */
     if (load_fullscreen_graphic("sys005.ega", GRAPHICS_BUFFER_GAMEPLAY_A) == 0) {
         /* Switch to display the high scores graphic */
         switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_A);
-    }
-    
-    /* Clear the BIOS keyboard buffer and wait for a keystroke */
-    clear_bios_keyboard_buffer();
-    {
-        union REGS regs;
-        regs.h.ah = 0x00;  /* Get keystroke */
-        int86(0x16, &regs, &regs);
+        
+        /* Clear the BIOS keyboard buffer and wait for a keystroke */
+        clear_bios_keyboard_buffer();
+        {
+            union REGS regs;
+            regs.h.ah = 0x00;  /* Get keystroke */
+            int86(0x16, &regs, &regs);
+        }
     }
 }
 
