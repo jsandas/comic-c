@@ -2831,6 +2831,45 @@ static void game_over(void)
 }
 
 /*
+ * do_high_scores - Display the high scores screen
+ * 
+ * Displays the high scores graphic (sys005.ega) and waits for a keystroke.
+ * This is called after the game over or win screen is dismissed.
+ * 
+ * In the original assembly, this function also:
+ * - Ranks the player's score against existing high scores
+ * - Prompts for a name if the score qualifies
+ * - Saves high scores to COMIC.HGH
+ * 
+ * For now, we display the graphic and wait for input. Full implementation
+ * would require file I/O and text mode rendering.
+ */
+static void do_high_scores(void)
+{
+    union REGS regs;
+    
+    /* Set video mode to 13h (320×200 16-color) */
+    regs.h.ah = 0x00;  /* AH=0x00: set video mode */
+    regs.h.al = 0x13;  /* AL=0x13: 320×200 16-color EGA mode */
+    int86(0x10, &regs, &regs);
+    
+    /* Load and display the high scores graphic (sys005.ega) into video buffer 0x0000
+     * The sprite data is a full 320x200 EGA graphic (32000 bytes) */
+    if (load_fullscreen_graphic("sys005.ega", GRAPHICS_BUFFER_GAMEPLAY_A) == 0) {
+        /* Switch to display the high scores graphic */
+        switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_A);
+    }
+    
+    /* Clear the BIOS keyboard buffer and wait for a keystroke */
+    clear_bios_keyboard_buffer();
+    {
+        union REGS regs;
+        regs.h.ah = 0x00;  /* Get keystroke */
+        int86(0x16, &regs, &regs);
+    }
+}
+
+/*
  * game_end_sequence - Play victory sequence when player wins
  * 
  * Called when all three treasures have been collected. This function:
@@ -2932,7 +2971,7 @@ static void game_end_sequence(void)
     }
     
     /* Call do_high_scores and then terminate */
-    /* TODO: implement do_high_scores() if needed */
+    do_high_scores();
     terminate_program();
 }
 
