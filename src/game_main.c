@@ -2844,7 +2844,6 @@ static void game_over(void)
  */
 static void game_end_sequence(void)
 {
-    uint8_t life_counter;
     uint16_t points_awarded;
     uint16_t pixel_offset;
     
@@ -2856,45 +2855,66 @@ static void game_end_sequence(void)
         /* Play score tally sound */
         play_sound(SOUND_SCORE_TALLY, 3);
         award_points(10);  /* 10 * 100 = 1000 points per loop, 20 loops = 20,000 total */
+        
+        /* Update score display to show the points being added */
+        blit_map_playfield_offscreen();
+        render_score_display();
+        swap_video_buffers();
+        
         wait_n_ticks(1);
     }
     
     /* Award points for remaining lives (10,000 points per life) */
-    life_counter = comic_num_lives;
-    while (life_counter > 0) {
+    while (comic_num_lives > 0) {
         /* Award 10,000 points for this life (10 x 1,000 points) */
         for (points_awarded = 0; points_awarded < 10; points_awarded++) {
             /* Play score tally sound */
             play_sound(SOUND_SCORE_TALLY, 3);
             award_points(10);  /* 10 * 100 = 1000 points per loop, 10 loops = 10,000 per life */
+            
+            /* Update score display to show the points being added */
+            blit_map_playfield_offscreen();
+            render_score_display();
+            swap_video_buffers();
+            
             wait_n_ticks(1);
         }
         
-        life_counter--;
+        /* Decrement and display the life icon removal (matches assembly behavior) */
+        lose_a_life();
+        
         wait_n_ticks(3);  /* Brief pause between lives */
     }
     
     /* Play the title theme */
     play_sound(SOUND_TITLE, 4);
     
-    /* Load and display the win graphic (sys002.ega)
-     * TODO: Implement RLE decompression and display of win graphic
-     * For now, just show the map */
-    blit_map_playfield_offscreen();
-    swap_video_buffers();
-    
-    /* Wait for graphic display and fade in */
-    wait_n_ticks(20);
-    
-    /* Clear keyboard buffer and wait for keystroke */
-    clear_bios_keyboard_buffer();
-    {
-        union REGS regs;
-        regs.h.ah = 0x00;  /* Get keystroke */
-        int86(0x16, &regs, &regs);
+    /* Load the win graphic into the offscreen video buffer.
+     * Load sys002.ega into one of the temporary buffers */
+    if (load_fullscreen_graphic("sys002.ega", GRAPHICS_BUFFER_TITLE_TEMP1) == 0) {
+        /* Apply palette effects */
+        palette_darken();
+        switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
+        palette_fade_in();
+        
+        /* Wait for graphic display to settle */
+        wait_n_ticks(20);
+        
+        /* Clear keyboard buffer and wait for keystroke */
+        clear_bios_keyboard_buffer();
+        {
+            union REGS regs;
+            regs.h.ah = 0x00;  /* Get keystroke */
+            int86(0x16, &regs, &regs);
+        }
     }
     
-    /* Show the game over screen (same as loss, per assembly code) */
+    /* Show the game over screen (same as loss, per assembly code)
+     * First, restore the offscreen buffer to a gameplay buffer for rendering.
+     * Since we've been displaying non-gameplay buffers, we need to reset state. */
+    offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_B;
+    
+    /* Render the map and game over graphic into the offscreen buffer */
     blit_map_playfield_offscreen();
     
     /* Blit the GAME OVER graphic (same 128x48 at position 40,64) */
@@ -2903,7 +2923,7 @@ static void game_end_sequence(void)
     
     swap_video_buffers();
     
-    /* Clear keyboard buffer and wait for keystroke before high scores */
+    /* Jump to the game_over keystroke handling (tail call equivalent) */
     clear_bios_keyboard_buffer();
     {
         union REGS regs;
