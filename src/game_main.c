@@ -2764,13 +2764,11 @@ static void blit_game_over_graphic(uint16_t pixel_offset)
         /* Offset source pointer to correct plane (768 bytes per plane) */
         src = (const uint8_t *)sprite_R4_game_over_128x48 + (plane_index * 768);
         
-        /* Set plane write mask */
+        /* Set plane write mask for normal write mode (Write Mode 0) */
         _outp(0x3CE, 0x05);     /* GC Index: Graphics Mode */
-        _outp(0x3CF, 0x02);     /* Graphics Mode: Write Mode 2 */
-        _outp(0x3CE, 0x08);     /* GC Index: Bit Mask */
-        _outp(0x3CF, 0xFF);     /* Bit Mask: all bits */
+        _outp(0x3CF, 0x00);     /* Graphics Mode: Write Mode 0 (normal) */
         _outp(0x3C4, 0x02);     /* SC Index: Map Mask */
-        _outp(0x3C5, plane);    /* Map Mask: current plane */
+        _outp(0x3C5, plane);    /* Map Mask: write to current plane only */
         
         /* Blit the graphic */
         for (row = 0; row < 48; row++) {
@@ -2782,7 +2780,7 @@ static void blit_game_over_graphic(uint16_t pixel_offset)
         }
     }
     
-    /* Restore graphics mode */
+    /* Restore graphics mode to default */
     _outp(0x3CE, 0x05);
     _outp(0x3CF, 0x00);
     _outp(0x3C4, 0x02);
@@ -2846,11 +2844,12 @@ static void game_over(void)
  */
 static void do_high_scores(void)
 {
-    /* Load the high scores graphic (sys005.ega) into one of the gameplay buffers
-     * and display it, similar to how the title sequence loads graphics */
-    if (load_fullscreen_graphic("sys005.ega", GRAPHICS_BUFFER_GAMEPLAY_A) == 0) {
-        /* Switch to display the high scores graphic */
-        switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_A);
+    /* Load the high scores graphic (sys005.ega) into a temporary buffer
+     * Use GRAPHICS_BUFFER_TITLE_TEMP1 which is large enough for fullscreen graphics,
+     * similar to how the title sequence loads sys000.ega, sys001.ega, etc. */
+    if (load_fullscreen_graphic("sys005.ega", GRAPHICS_BUFFER_TITLE_TEMP1) == 0) {
+        /* Successfully loaded - switch to display the high scores graphic */
+        switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
         
         /* Clear the BIOS keyboard buffer and wait for a keystroke */
         clear_bios_keyboard_buffer();
@@ -2942,18 +2941,19 @@ static void game_end_sequence(void)
     }
     
     /* Show the game over screen (same as loss, per assembly code)
-     * First, restore the offscreen buffer to a gameplay buffer for rendering.
-     * Since we've been displaying non-gameplay buffers, we need to reset state. */
+     * Render to gameplay buffer B (which won't be in use anymore).
+     * The blitting functions expect offscreen_video_buffer_ptr to point to a gameplay buffer. */
     offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_B;
     
-    /* Render the map and game over graphic into the offscreen buffer */
+    /* Render the map and game over graphic into gameplay buffer B */
     blit_map_playfield_offscreen();
     
     /* Blit the GAME OVER graphic (same 128x48 at position 40,64) */
     pixel_offset = 40 / 8 + (64 * (SCREEN_WIDTH / 8));
     blit_game_over_graphic(pixel_offset);
     
-    swap_video_buffers();
+    /* Display the rendered game over screen */
+    switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
     
     /* Jump to the game_over keystroke handling (tail call equivalent) */
     clear_bios_keyboard_buffer();
