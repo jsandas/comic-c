@@ -6,23 +6,25 @@ This project converts the assembly codebase to C while maintaining exact behavio
 
 ## Project Status
 
-**Phase 1: Foundation** ✅ COMPLETE
-- Local Open Watcom 2 build environment setup
-- C language entry point and initialization
-- Data file loader converted (`.PT` file format)
-- Level data migration (LAKE, FOREST complete)
+**Overall** ✅ Phase 4 complete (core game systems and UI rendering implemented)
 
-**Phase 2: Game Logic** 🔄 IN PROGRESS
-- Level data migration and file loading infrastructure
-- Next: Game loop implementation, rendering system, physics
+**Implemented**
+- Full game loop, rendering, physics, and collision
+- Actor systems (enemies, fireballs, items) with AI behaviors
+- Interrupt handlers and PC speaker sound system
+- Sprite loading and rendering (SHP, items, effects)
+- Level data for all 8 levels and level/stage loading
+- UI rendering (score, inventory, firepower, HP/shield)
+
+**Current focus** 🔄 Testing and validation against the original game
 
 ## Quick Start
 
 ### Prerequisites
 - Open Watcom 2 (installed locally in `watcom2/` directory)
 - Make
-- Game assets from: https://github.com/jsandas/comic
-  - Place `.SHP`, `.TT2`, `.PT`, `.EGA` files in `reference/original/`
+- Download original revision 5 game (https://archive.org/download/TheAdventuresOfCaptainComic/AdventuresOfCaptainComicEpisode1The-PlanetOfDeathR5sw1991michaelA.Denioaction.zip) 
+and extract contents to `reference/original/`
 
 ### Build Instructions
 
@@ -34,8 +36,7 @@ source setvars.sh    # Configure Open Watcom paths
 make compile         # Compiles using local Open Watcom 2
 
 # Run the game (in DOSBox)
-cd tests
-./run-dosbox.sh      # Launches DOSBox-X with the compiled executable
+./tests/run-dosbox.sh      # Launches DOSBox-X with the compiled executable
 ```
 
 ### Development Workflow
@@ -51,7 +52,7 @@ vim src/game_main.c
 make compile
 
 # Test in DOSBox
-cd tests && ./run-dosbox.sh
+./tests/run-dosbox.sh
 
 # Clean build artifacts
 make clean
@@ -61,31 +62,36 @@ make clean
 
 - **`setvars.sh`** - Environment setup script for Open Watcom 2
 - **`Makefile`** - Build targets (`compile`, `clean`)
-- **`include/`** - C header files
-  - `globals.h` - Game state variables and data structures
-  - `file_loaders.h` - Data file format definitions
-  - `graphics.h` - Graphics and rendering functions
-  - `level_data.h` - Level data structures
+- **`include/`** - C headers for core systems
+  - `globals.h` - Shared game state
+  - `actors.h`, `physics.h`, `doors.h` - Gameplay systems
+  - `graphics.h`, `sprite_data.h` - Rendering and sprite data
+  - `sound.h`, `sound_data.h`, `music.h` - Audio system
+  - `level_data.h`, `file_loaders.h` - Level definitions and file formats
 - **`src/`** - C source files
-  - `game_main.c` - Main entry point and game initialization
-  - `file_loaders.c` - Data file loaders
-  - `graphics.c` - Graphics and rendering
-  - `level_data.c` - Level definitions
+  - `game_main.c` - Entry point, game loop, level loading
+  - `actors.c`, `physics.c`, `doors.c` - Gameplay systems
+  - `graphics.c`, `sprite_data.c` - Rendering and sprite data
+  - `sound.c`, `sound_data.c`, `music.c` - Audio system
+  - `file_loaders.c`, `level_data.c` - File loading and level data
 - **`build/`** - Build artifacts (generated)
   - `obj/` - Object files
   - `COMIC.EXE` - Final DOS executable
-- **`reference/`** - Original assembly reference
+- **`reference/`** - Original assembly reference and assets
   - `disassembly/R5sw1991.asm` - Fully commented disassembly
   - `disassembly/djlink/` - OMF format linker
   - `original/` - Game assets (`.SHP`, `.TT2`, `.PT`, `.EGA` files)
-- **`tests/`** - Testing framework
-  - `savestates/` - DOSBox save states (1.sav-4.sav)
-  - `scenarios/` - Test scenario documentation
+- **`tests/`** - Testing and validation
   - `dosbox_deterministic.conf` - Reproducible DOSBox config
+  - `savestates/` - DOSBox save states
+  - `scenarios/` - Test scenario documentation
+  - `run-dosbox.sh` - DOSBox launcher
 - **`docs/`** - Documentation
   - `REFACTOR_PLAN.md` - Overall strategy and roadmap
   - `CODING_STANDARDS.md` - C code style guide
-  - `AGENT_INSTRUCTIONS.md` - AI assistant guidelines
+  - `GAME_LOOP_FLOW.md` - Game loop and behavior notes
+- **`utils/`** - Development helpers (asset conversion scripts)
+- **`watcom2/`** - Bundled Open Watcom toolchain
 
 ## Architecture
 
