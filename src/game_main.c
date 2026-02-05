@@ -1071,7 +1071,7 @@ static const char* get_scancode_name(uint8_t scancode)
 static int save_keymap_to_file(uint8_t *keymap_data)
 {
     union REGS regs;
-    uint16_t file_handle;
+    int file_handle;
     uint16_t bytes_written;
     
     /* Create or truncate the file */
