@@ -1765,13 +1765,9 @@ int load_new_level(void)
     
     /* Lantern check: If in castle without lantern, black out tiles */
     if (current_level_number == LEVEL_NUMBER_CASTLE) {
-        /* TODO: Check comic_has_lantern when that variable is available */
-        /* For now, skip the blackout */
-        /* if (comic_has_lantern != 1) { */
-        /*     for (i = 0; i < sizeof(tileset_graphics); i++) { */
-        /*         tileset_graphics[i] = 0; */
-        /*     } */
-        /* } */
+        if (comic_has_lantern != 1) {
+            memset(tileset_graphics, 0, sizeof(tileset_graphics));
+        }
     }
     
     /* Load the three .PT files for this level - non-critical */
