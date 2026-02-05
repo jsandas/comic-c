@@ -367,6 +367,11 @@ static const char KEYBOARD_CONFIG_CONFIRM[] =
 static const char KEYBOARD_CONFIG_SAVE[] = 
     "\n\r                            Save setup to disk? (y/n)$";
 
+static const char KEYBOARD_CONFIG_SAVE_ERROR[] = 
+    "\n\r                           Error: Could not save to disk\n"
+    "\r                              Check disk space and permissions\n"
+    "\r                                 Press any key...$";
+
 static const char JOYSTICK_CALIB_MESSAGE[] = 
     "Joystick Calibration\r\n"
     "(Simplified - skipped)\r\n"
@@ -1267,8 +1272,12 @@ save_confirm_loop:
     /* Check response: only 'y'/'Y' saves, 'n'/'N' skips, others loop */
     if (response == 'y' || response == 'Y') {
         if (!save_keymap_to_file(keymap)) {
-            /* File save failed - just continue without saving */
-            /* In original, this would terminate the program */
+            /* File save failed - display error message and wait for user acknowledgment */
+            regs.h.ah = 0x09;
+            regs.x.dx = DOS_OFFSET(KEYBOARD_CONFIG_SAVE_ERROR);
+            int86(0x21, &regs, &regs);
+            regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
+            int86(0x16, &regs, &regs);
         }
     } else if (response != 'n' && response != 'N') {
         /* Invalid response, ask again */
