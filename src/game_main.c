@@ -2924,12 +2924,11 @@ static void game_end_sequence(void)
     /* Play the title theme */
     play_sound(SOUND_TITLE, 4);
     
-    /* Load the win graphic into the offscreen video buffer.
-     * Load sys002.ega into one of the temporary buffers */
-    if (load_fullscreen_graphic("sys002.ega", GRAPHICS_BUFFER_TITLE_TEMP1) == 0) {
-        /* Apply palette effects (switch buffer first to avoid darkening current screen) */
-        switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
+    /* Load the win graphic into the offscreen gameplay buffer (matches assembly) */
+    if (load_fullscreen_graphic("sys002.ega", offscreen_video_buffer_ptr) == 0) {
+        /* Apply palette effects */
         palette_darken();
+        swap_video_buffers();  /* Display the win graphic and toggle to the other buffer */
         palette_fade_in();
         
         /* Wait for graphic display to settle */
@@ -2944,20 +2943,15 @@ static void game_end_sequence(void)
         }
     }
     
-    /* Show the game over screen (same as loss, per assembly code)
-     * Render to gameplay buffer B (which won't be in use anymore).
-     * The blitting functions expect offscreen_video_buffer_ptr to point to a gameplay buffer. */
-    offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_B;
-    
-    /* Render the map and game over graphic into gameplay buffer B */
+    /* Show the game over screen (now using the other gameplay buffer) */
     blit_map_playfield_offscreen();
     
     /* Blit the GAME OVER graphic (same 128x48 at position 40,64) */
     pixel_offset = 40 / 8 + (64 * (SCREEN_WIDTH / 8));
     blit_game_over_graphic(pixel_offset);
     
-    /* Display the rendered game over screen */
-    switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
+    /* Swap buffers to display the game over screen */
+    swap_video_buffers();
     
     /* Wait for keystroke before showing high scores */
     clear_bios_keyboard_buffer();
