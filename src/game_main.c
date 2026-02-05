@@ -916,6 +916,8 @@ int display_registration_notice(void)
 static uint8_t get_unmapped_scancode(uint8_t *temp_keymap, uint8_t num_mapped)
 {
     uint8_t scancode;
+    uint8_t code;
+    uint8_t is_break;
     uint8_t i;
     uint8_t is_valid;
     
@@ -929,22 +931,26 @@ static uint8_t get_unmapped_scancode(uint8_t *temp_keymap, uint8_t num_mapped)
         scancode = scancode_queue[scancode_queue_tail];
         scancode_queue_tail = (scancode_queue_tail + 1) % MAX_SCANCODE_QUEUE;
         
+        /* Separate break/make status from scancode value */
+        is_break = (scancode & 0x80) != 0;
+        code = scancode & 0x7F;
+        
         is_valid = 0;  /* Assume invalid until proven otherwise */
         
-        /* Skip break codes (bit 7 set) - only process make codes (key presses) */
-        if (scancode & 0x80) {
+        /* Only accept make codes (key presses), skip break codes (key releases) */
+        if (is_break) {
             /* Break code - skip and continue to next iteration */
-        } else if (scancode == SCANCODE_ESC) {
+        } else if (code == SCANCODE_ESC) {
             /* Check if Escape (reserved) - scancode 0x01 */
             /* is_valid already 0, skip this key */
-        } else if (scancode < 2 || scancode > 83) {
+        } else if (code < 2 || code > 83) {
             /* Check valid range (2-83 decimal) */
             /* is_valid already 0, out of range */
         } else {
             /* Valid scancode range, check against already-mapped scancodes */
             is_valid = 1;
             for (i = 0; i < num_mapped; i++) {
-                if (scancode == temp_keymap[i]) {
+                if (code == temp_keymap[i]) {
                     is_valid = 0;
                     break;
                 }
@@ -952,7 +958,7 @@ static uint8_t get_unmapped_scancode(uint8_t *temp_keymap, uint8_t num_mapped)
         }
     } while (!is_valid);
     
-    return scancode;
+    return code;
 }
 
 /*
