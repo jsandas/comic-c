@@ -1160,8 +1160,9 @@ int setup_keyboard_interactive(void)
     /* Keyboard setup loop - allows user to start over if not satisfied */
 setup_restart:
     
-    /* Clear any pending scancodes from the queue before starting configuration */
+    /* Clear any pending scancodes from the queue and BIOS buffer before starting configuration */
     clear_scancode_queue();
+    clear_bios_keyboard_buffer();
     
     /* Set video mode to 80x25 text (mode 2) */
     regs.h.ah = 0x00;  /* AH=0x00: set video mode */
