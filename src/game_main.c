@@ -924,16 +924,20 @@ static uint8_t get_unmapped_scancode(uint8_t *temp_keymap, uint8_t num_mapped)
         scancode = scancode_queue[scancode_queue_tail];
         scancode_queue_tail = (scancode_queue_tail + 1) % MAX_SCANCODE_QUEUE;
         
-        is_valid = 1;
+        is_valid = 0;  /* Assume invalid until proven otherwise */
         
-        /* Check if Escape (reserved) - scancode 0x01 */
-        if (scancode == SCANCODE_ESC) {
-            is_valid = 0;
+        /* Skip break codes (bit 7 set) - only process make codes (key presses) */
+        if (scancode & 0x80) {
+            /* Break code - skip and continue to next iteration */
+        } else if (scancode == SCANCODE_ESC) {
+            /* Check if Escape (reserved) - scancode 0x01 */
+            /* is_valid already 0, skip this key */
         } else if (scancode < 2 || scancode > 83) {
             /* Check valid range (2-83 decimal) */
-            is_valid = 0;
+            /* is_valid already 0, out of range */
         } else {
-            /* Check against already-mapped scancodes */
+            /* Valid scancode range, check against already-mapped scancodes */
+            is_valid = 1;
             for (i = 0; i < num_mapped; i++) {
                 if (scancode == temp_keymap[i]) {
                     is_valid = 0;
