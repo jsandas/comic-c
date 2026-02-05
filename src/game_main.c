@@ -339,6 +339,39 @@ static const char KEYBOARD_SETUP_MESSAGE[] =
     "(Simplified - using defaults)\r\n"
     "Press any key...\r\n$";
 
+/* Keyboard configuration strings */
+static const char KEYBOARD_CONFIG_HEADER[] = 
+    "\n\n\n\n\n\n\r                                  Define Keys\n$";
+
+static const char KEYBOARD_CONFIG_MOVE_LEFT[] = 
+    "\n\r                               Move Left  : $";
+
+static const char KEYBOARD_CONFIG_MOVE_RIGHT[] = 
+    "\n\r                               Move Right : $";
+
+static const char KEYBOARD_CONFIG_JUMP[] = 
+    "\n\r                               Jump       : $";
+
+static const char KEYBOARD_CONFIG_FIREBALL[] = 
+    "\n\r                               Fireball   : $";
+
+static const char KEYBOARD_CONFIG_OPEN_DOOR[] = 
+    "\n\r                               Open Door  : $";
+
+static const char KEYBOARD_CONFIG_TELEPORT[] = 
+    "\n\r                               Teleport   : $";
+
+static const char KEYBOARD_CONFIG_CONFIRM[] = 
+    "\n\n\r                               This setup OK? (y/n)$";
+
+static const char KEYBOARD_CONFIG_SAVE[] = 
+    "\n\r                            Save setup to disk? (y/n)$";
+
+static const char KEYBOARD_CONFIG_SAVE_ERROR[] = 
+    "\n\r                           Error: Could not save to disk\n"
+    "\r                              Check disk space and permissions\n"
+    "\r                                 Press any key...$";
+
 static const char JOYSTICK_CALIB_MESSAGE[] = 
     "Joystick Calibration\r\n"
     "(Simplified - skipped)\r\n"
@@ -863,9 +896,260 @@ int display_registration_notice(void)
 }
 
 /*
+ * get_unmapped_scancode - Wait for a valid, unmapped scancode from user
+ * 
+ * Loops until user presses a key that:
+ *   - Is not already mapped to another action
+ *   - Is not Escape (reserved)
+ *   - Is within valid scancode range (2-83 decimal)
+ * 
+ * Reads from the scancode_queue populated by the INT 9 interrupt handler,
+ * which captures ALL scancodes including modifier keys.
+ * 
+ * Input:
+ *   temp_keymap = array of 6 currently-mapped scancodes to check against
+ *   num_mapped = number of valid entries in temp_keymap (0-6)
+ * 
+ * Output:
+ *   Returns the new scancode
+ */
+static uint8_t get_unmapped_scancode(uint8_t *temp_keymap, uint8_t num_mapped)
+{
+    uint8_t scancode;
+    uint8_t code;
+    uint8_t is_break;
+    uint8_t i;
+    uint8_t is_valid;
+    
+    do {
+        /* Wait for a scancode to appear in the queue (populated by INT 9 handler) */
+        while (scancode_queue_head == scancode_queue_tail) {
+            /* Queue is empty, wait for interrupt handler to populate it */
+        }
+        
+        /* Get scancode from queue */
+        scancode = scancode_queue[scancode_queue_tail];
+        scancode_queue_tail = (scancode_queue_tail + 1) % MAX_SCANCODE_QUEUE;
+        
+        /* Separate break/make status from scancode value */
+        is_break = (scancode & 0x80) != 0;
+        code = scancode & 0x7F;
+        
+        is_valid = 0;  /* Assume invalid until proven otherwise */
+        
+        /* Only accept make codes (key presses), skip break codes (key releases) */
+        if (is_break) {
+            /* Break code - skip and continue to next iteration */
+        } else if (code == SCANCODE_ESC) {
+            /* Check if Escape (reserved) - scancode 0x01 */
+            /* is_valid already 0, skip this key */
+        } else if (code < 2 || code > 83) {
+            /* Check valid range (2-83 decimal) */
+            /* is_valid already 0, out of range */
+        } else {
+            /* Valid scancode range, check against already-mapped scancodes */
+            is_valid = 1;
+            for (i = 0; i < num_mapped; i++) {
+                if (code == temp_keymap[i]) {
+                    is_valid = 0;
+                    break;
+                }
+            }
+        }
+    } while (!is_valid);
+    
+    return code;
+}
+
+/*
+ * get_scancode_name - Get a human-readable name for a scancode
+ * 
+ * Returns a string representation of scancodes based on the original
+ * assembly code's SCANCODE_LABELS table.
+ * 
+ * Output:
+ *   Returns pointer to static string buffer
+ */
+static const char* get_scancode_name(uint8_t scancode)
+{
+    /* Scancode to name mapping from SCANCODE_LABELS (assembly code)
+     * Indices are offset by 1: scancode 1 = first entry, etc. */
+    switch (scancode) {
+        case 0x01: return "Esc";
+        case 0x02: return "1";
+        case 0x03: return "2";
+        case 0x04: return "3";
+        case 0x05: return "4";
+        case 0x06: return "5";
+        case 0x07: return "6";
+        case 0x08: return "7";
+        case 0x09: return "8";
+        case 0x0A: return "9";
+        case 0x0B: return "0";
+        case 0x0C: return "-";
+        case 0x0D: return "=";
+        case 0x0E: return "BackSp";
+        case 0x0F: return "Tab";
+        case 0x10: return "Q";
+        case 0x11: return "W";
+        case 0x12: return "E";
+        case 0x13: return "R";
+        case 0x14: return "T";
+        case 0x15: return "Y";
+        case 0x16: return "U";
+        case 0x17: return "I";
+        case 0x18: return "O";
+        case 0x19: return "P";
+        case 0x1A: return "[";
+        case 0x1B: return "]";
+        case 0x1C: return "Enter";
+        case 0x1D: return "Ctrl";
+        case 0x1E: return "A";
+        case 0x1F: return "S";
+        case 0x20: return "D";
+        case 0x21: return "F";
+        case 0x22: return "G";
+        case 0x23: return "H";
+        case 0x24: return "J";
+        case 0x25: return "K";
+        case 0x26: return "L";
+        case 0x27: return ";";
+        case 0x28: return "'";
+        case 0x29: return "`";
+        case 0x2A: return "LShift";
+        case 0x2B: return "\\";
+        case 0x2C: return "Z";
+        case 0x2D: return "X";
+        case 0x2E: return "C";
+        case 0x2F: return "V";
+        case 0x30: return "B";
+        case 0x31: return "N";
+        case 0x32: return "M";
+        case 0x33: return ",";
+        case 0x34: return ".";
+        case 0x35: return "/";
+        case 0x36: return "RShift";
+        case 0x37: return "*";
+        case 0x38: return "Alt";
+        case 0x39: return "Space";
+        case 0x3A: return "Caps";
+        case 0x3B: return "F1";
+        case 0x3C: return "F2";
+        case 0x3D: return "F3";
+        case 0x3E: return "F4";
+        case 0x3F: return "F5";
+        case 0x40: return "F6";
+        case 0x41: return "F7";
+        case 0x42: return "F8";
+        case 0x43: return "F9";
+        case 0x44: return "F10";
+        case 0x45: return "NumLk";
+        case 0x46: return "ScrlLk";
+        case 0x47: return "Home";
+        case 0x48: return "Up";
+        case 0x49: return "PgUp";
+        case 0x4A: return "NumPd-";
+        case 0x4B: return "Left";
+        case 0x4C: return "NumPd5";
+        case 0x4D: return "Right";
+        case 0x4E: return "NumPd+";
+        case 0x4F: return "End";
+        case 0x50: return "Down";
+        case 0x51: return "PgDn";
+        case 0x52: return "Ins";
+        case 0x53: return "Del";
+        default: {
+            /* For unknown keys, print the scancode number */
+            static char buf[8];
+            sprintf(buf, "0x%02x", scancode);
+            return buf;
+        }
+    }
+}
+
+/*
+ * save_keymap_to_file - Save the keymap array to KEYS.DEF file
+ * 
+ * Creates and writes the 6-byte keymap to the KEYS.DEF file.
+ * 
+ * Input:
+ *   keymap_data = pointer to 6-byte keymap array
+ * 
+ * Returns:
+ *   0 if save failed
+ *   1 if save succeeded
+ */
+static int save_keymap_to_file(uint8_t *keymap_data)
+{
+    union REGS regs;
+    int file_handle;
+    uint16_t bytes_written;
+    
+    /* Create or truncate the file */
+    regs.h.ah = 0x3C;  /* AH=0x3C: create or truncate file */
+    regs.h.cl = 0x00;  /* File attributes: normal */
+    regs.h.ch = 0x00;
+    regs.x.dx = DOS_OFFSET(FILENAME_KEYMAP);
+    int86(0x21, &regs, &regs);
+    
+    /* Check for creation failure (carry flag set) */
+    if (regs.x.cflag) {
+        return 0;  /* File creation failed */
+    }
+    
+    file_handle = regs.x.ax;
+    
+    /* Write 6 bytes to file */
+    regs.h.ah = 0x40;  /* AH=0x40: write to file */
+    regs.x.bx = file_handle;
+    regs.x.cx = 6;     /* Write 6 bytes */
+    regs.x.dx = DOS_OFFSET(keymap_data);
+    int86(0x21, &regs, &regs);
+    
+    /* Check for write failure (carry flag set) */
+    if (regs.x.cflag) {
+        /* Write failed, close file and return error */
+        regs.h.ah = 0x3E;  /* AH=0x3E: close file */
+        regs.x.bx = file_handle;
+        int86(0x21, &regs, &regs);
+        return 0;
+    }
+    
+    /* Verify that we wrote 6 bytes */
+    bytes_written = regs.x.ax;
+    if (bytes_written != 6) {
+        regs.h.ah = 0x3E;  /* AH=0x3E: close file */
+        regs.x.bx = file_handle;
+        int86(0x21, &regs, &regs);
+        return 0;
+    }
+    
+    /* Close the file */
+    regs.h.ah = 0x3E;  /* AH=0x3E: close file */
+    regs.x.bx = file_handle;
+    int86(0x21, &regs, &regs);
+    
+    /* Check for close failure (carry flag set) */
+    if (regs.x.cflag) {
+        return 0;  /* Close failed */
+    }
+    
+    return 1;  /* Success */
+}
+
+/*
  * setup_keyboard_interactive - Interactive keyboard configuration
  * 
- * Simplified stub for keyboard setup.
+ * Allows user to define custom key bindings for 6 game actions:
+ *   1. Move Left
+ *   2. Move Right
+ *   3. Jump
+ *   4. Fireball
+ *   5. Open Door
+ *   6. Teleport
+ * 
+ * After configuration, user can confirm the setup or start over.
+ * Optionally saves the configuration to KEYS.DEF file.
  * 
  * Returns:
  *   0 to return to startup notice
@@ -874,22 +1158,139 @@ int display_registration_notice(void)
 int setup_keyboard_interactive(void)
 {
     union REGS regs;
+    uint8_t temp_keymap[6];
+    uint8_t i;
+    char response;
+    const char *key_name;
+    /* Ask for keys in assembly order: Move Left, Right, Jump, Fireball, Open, Teleport */
+    const char *action_strings[] = {
+        KEYBOARD_CONFIG_MOVE_LEFT,      /* temp_keymap[0] - will go to keymap[2] */
+        KEYBOARD_CONFIG_MOVE_RIGHT,     /* temp_keymap[1] - will go to keymap[3] */
+        KEYBOARD_CONFIG_JUMP,           /* temp_keymap[2] - will go to keymap[0] */
+        KEYBOARD_CONFIG_FIREBALL,       /* temp_keymap[3] - will go to keymap[1] */
+        KEYBOARD_CONFIG_OPEN_DOOR,      /* temp_keymap[4] - will go to keymap[4] */
+        KEYBOARD_CONFIG_TELEPORT        /* temp_keymap[5] - will go to keymap[5] */
+    };
+    
+    /* Keyboard setup loop - allows user to start over if not satisfied */
+setup_restart:
+    
+    /* Clear any pending scancodes from the queue and BIOS buffer before starting configuration */
+    clear_scancode_queue();
+    clear_bios_keyboard_buffer();
     
     /* Set video mode to 80x25 text (mode 2) */
     regs.h.ah = 0x00;  /* AH=0x00: set video mode */
     regs.h.al = 0x02;  /* AL=0x02: 80x25 text */
     int86(0x10, &regs, &regs);
     
-    /* Display message */
+    /* Display config header */
     regs.h.ah = 0x09;  /* AH=0x09: write string to standard output */
-    regs.x.dx = DOS_OFFSET(KEYBOARD_SETUP_MESSAGE);
+    regs.x.dx = DOS_OFFSET(KEYBOARD_CONFIG_HEADER);
     int86(0x21, &regs, &regs);
     
-    /* Wait for keystroke */
+    /* Initialize temp_keymap to zeros */
+    for (i = 0; i < 6; i++) {
+        temp_keymap[i] = 0;
+    }
+    
+    /* Prompt for each of the 6 game actions in assembly order */
+    for (i = 0; i < 6; i++) {
+        /* Display action prompt */
+        regs.h.ah = 0x09;
+        regs.x.dx = DOS_OFFSET(action_strings[i]);
+        int86(0x21, &regs, &regs);
+        
+        /* Get unmapped scancode from user */
+        temp_keymap[i] = get_unmapped_scancode(temp_keymap, i);
+        
+        /* Display the key name that was pressed */
+        regs.h.ah = 0x0E;  /* AH=0x0E: teletype output */
+        regs.h.al = ' ';
+        regs.h.bh = 0;     /* Page 0 */
+        int86(0x10, &regs, &regs);
+        regs.h.ah = 0x0E;
+        regs.h.al = '[';
+        int86(0x10, &regs, &regs);
+        
+        /* Display scancode name */
+        key_name = get_scancode_name(temp_keymap[i]);
+        while (*key_name) {
+            regs.h.ah = 0x0E;
+            regs.h.al = *key_name++;
+            int86(0x10, &regs, &regs);
+        }
+        
+        regs.h.ah = 0x0E;
+        regs.h.al = ']';
+        int86(0x10, &regs, &regs);
+    }
+    
+    /* Clear keyboard buffers before asking for confirmation */
+    clear_scancode_queue();
+    clear_bios_keyboard_buffer();
+    
+    /* Ask for confirmation */
+setup_confirm_loop:
+    regs.h.ah = 0x09;
+    regs.x.dx = DOS_OFFSET(KEYBOARD_CONFIG_CONFIRM);
+    int86(0x21, &regs, &regs);
+    
+    /* Wait for y/n response */
+    regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
+    int86(0x16, &regs, &regs);
+    response = regs.h.al;  /* Character code for y/n check */
+    
+    /* Check response: only 'y'/'Y' proceeds, 'n'/'N' restarts, others loop */
+    if (response == 'n' || response == 'N') {
+        goto setup_restart;
+    } else if (response != 'y' && response != 'Y') {
+        /* Invalid response, ask again */
+        goto setup_confirm_loop;
+    }
+    
+    /* Copy temp_keymap to global keymap, rearranging from assembly order to keymap order
+     * Assembly order:     temp[0]=Left, temp[1]=Right, temp[2]=Jump, temp[3]=Fire, temp[4]=Open, temp[5]=Teleport
+     * Keymap order (C):   keymap[0]=Jump, keymap[1]=Fire, keymap[2]=Left, keymap[3]=Right, keymap[4]=Open, keymap[5]=Teleport
+     */
+    keymap[0] = temp_keymap[2];  /* Jump */
+    keymap[1] = temp_keymap[3];  /* Fire (Fireball) */
+    keymap[2] = temp_keymap[0];  /* Left */
+    keymap[3] = temp_keymap[1];  /* Right */
+    keymap[4] = temp_keymap[4];  /* Open */
+    keymap[5] = temp_keymap[5];  /* Teleport */
+    
+    /* Clear keyboard buffers before asking to save */
+    clear_scancode_queue();
+    clear_bios_keyboard_buffer();
+    
+    /* Ask about saving to disk */
+save_confirm_loop:
+    regs.h.ah = 0x09;
+    regs.x.dx = DOS_OFFSET(KEYBOARD_CONFIG_SAVE);
+    int86(0x21, &regs, &regs);
+    
+    /* Wait for y/n response */
     regs.h.ah = 0x00;
     int86(0x16, &regs, &regs);
+    response = regs.h.al;
     
-    return 1;  /* Continue to title */
+    /* Check response: only 'y'/'Y' saves, 'n'/'N' skips, others loop */
+    if (response == 'y' || response == 'Y') {
+        if (!save_keymap_to_file(keymap)) {
+            /* File save failed - display error message and wait for user acknowledgment */
+            regs.h.ah = 0x09;
+            regs.x.dx = DOS_OFFSET(KEYBOARD_CONFIG_SAVE_ERROR);
+            int86(0x21, &regs, &regs);
+            regs.h.ah = 0x00;  /* AH=0x00: get keystroke */
+            int86(0x16, &regs, &regs);
+        }
+    } else if (response != 'n' && response != 'N') {
+        /* Invalid response, ask again */
+        goto save_confirm_loop;
+    }
+    
+    return 1;  /* Continue to title sequence */
 }
 
 /*
