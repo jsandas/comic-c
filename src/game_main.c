@@ -2927,9 +2927,9 @@ static void game_end_sequence(void)
     /* Load the win graphic into the offscreen video buffer.
      * Load sys002.ega into one of the temporary buffers */
     if (load_fullscreen_graphic("sys002.ega", GRAPHICS_BUFFER_TITLE_TEMP1) == 0) {
-        /* Apply palette effects */
-        palette_darken();
+        /* Apply palette effects (switch buffer first to avoid darkening current screen) */
         switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
+        palette_darken();
         palette_fade_in();
         
         /* Wait for graphic display to settle */
