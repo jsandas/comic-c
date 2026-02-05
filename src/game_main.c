@@ -45,6 +45,10 @@ int _big_code_ = 1;
 /* Interrupt handler sentinel for verification */
 #define INTERRUPT_HANDLER_INSTALL_SENTINEL 0x25
 
+/* Return values for load_fullscreen_graphic() - returns 0 on success */
+#define LOAD_SUCCESS 0
+#define LOAD_FAILURE 1
+
 /* Helper macro to get the near offset of a pointer for DOS interrupts.
  * In the large memory model with a single data segment (DGROUP), this
  * extracts the 16-bit offset portion of a pointer for use in DS:DX addressing. */
@@ -360,6 +364,7 @@ static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
 static void handle_cheat_codes(void);
 static void game_over(void);
+static void do_high_scores(void);
 static void game_end_sequence(void);
 void award_points(uint16_t points);  /* Exported for use by actors.c */
 
@@ -2764,13 +2769,11 @@ static void blit_game_over_graphic(uint16_t pixel_offset)
         /* Offset source pointer to correct plane (768 bytes per plane) */
         src = (const uint8_t *)sprite_R4_game_over_128x48 + (plane_index * 768);
         
-        /* Set plane write mask */
-        _outp(0x3CE, 0x05);     /* GC Index: Graphics Mode */
-        _outp(0x3CF, 0x02);     /* Graphics Mode: Write Mode 2 */
-        _outp(0x3CE, 0x08);     /* GC Index: Bit Mask */
-        _outp(0x3CF, 0xFF);     /* Bit Mask: all bits */
-        _outp(0x3C4, 0x02);     /* SC Index: Map Mask */
-        _outp(0x3C5, plane);    /* Map Mask: current plane */
+        /* Set plane write mask for normal write mode (Write Mode 0) */
+        outp(0x3CE, 0x05);     /* GC Index: Graphics Mode */
+        outp(0x3CF, 0x00);     /* Graphics Mode: Write Mode 0 (normal) */
+        outp(0x3C4, 0x02);     /* SC Index: Map Mask */
+        outp(0x3C5, plane);    /* Map Mask: write to current plane only */
         
         /* Blit the graphic */
         for (row = 0; row < 48; row++) {
@@ -2782,11 +2785,11 @@ static void blit_game_over_graphic(uint16_t pixel_offset)
         }
     }
     
-    /* Restore graphics mode */
-    _outp(0x3CE, 0x05);
-    _outp(0x3CF, 0x00);
-    _outp(0x3C4, 0x02);
-    _outp(0x3C5, 0x0F);
+    /* Restore graphics mode to default */
+    outp(0x3CE, 0x05);
+    outp(0x3CF, 0x00);
+    outp(0x3C4, 0x02);
+    outp(0x3C5, 0x0F);
 }
 
 /*
@@ -2826,8 +2829,52 @@ static void game_over(void)
         int86(0x16, &regs, &regs);
     }
     
-    /* Jump to terminate program (original calls do_high_scores then terminate) */
+    /* Show high scores then terminate */
+    do_high_scores();
     terminate_program();
+}
+
+/*
+ * do_high_scores - Display the high scores screen
+ * 
+ * Attempts to load and display the high scores graphic (sys005.ega).
+ * 
+ * Note: load_fullscreen_graphic() returns 0 on success (non-standard convention).
+ * 
+ * If load succeeds (return value 0):
+ *   - Switches to display the loaded graphic
+ *   - Waits for a keystroke before returning
+ * 
+ * If load fails (return value non-zero):
+ *   - Returns immediately without displaying anything
+ * 
+ * Called from both game_over() and game_end_sequence() before terminating.
+ * 
+ * In the original assembly, this function also:
+ * - Ranks the player's score against existing high scores
+ * - Prompts for a name if the score qualifies
+ * - Saves high scores to COMIC.HGH
+ * 
+ * For now, we display the graphic and wait for input. Full implementation
+ * would require file I/O and text mode rendering.
+ */
+static void do_high_scores(void)
+{
+    /* Load the high scores graphic (sys005.ega) into a temporary buffer
+     * Use GRAPHICS_BUFFER_TITLE_TEMP1 which is large enough for fullscreen graphics,
+     * similar to how the title sequence loads sys000.ega, sys001.ega, etc. */
+    if (load_fullscreen_graphic("sys005.ega", GRAPHICS_BUFFER_TITLE_TEMP1) == LOAD_SUCCESS) {
+        /* Successfully loaded - switch to display the high scores graphic */
+        switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
+        
+        /* Clear the BIOS keyboard buffer and wait for a keystroke */
+        clear_bios_keyboard_buffer();
+        {
+            union REGS regs;
+            regs.h.ah = 0x00;  /* Get keystroke */
+            int86(0x16, &regs, &regs);
+        }
+    }
 }
 
 /*
@@ -2844,7 +2891,6 @@ static void game_over(void)
  */
 static void game_end_sequence(void)
 {
-    uint8_t life_counter;
     uint16_t points_awarded;
     uint16_t pixel_offset;
     
@@ -2856,54 +2902,70 @@ static void game_end_sequence(void)
         /* Play score tally sound */
         play_sound(SOUND_SCORE_TALLY, 3);
         award_points(10);  /* 10 * 100 = 1000 points per loop, 20 loops = 20,000 total */
+        
+        /* Update score display to show the points being added */
+        blit_map_playfield_offscreen();
+        render_score_display();
+        swap_video_buffers();
+        
         wait_n_ticks(1);
     }
     
     /* Award points for remaining lives (10,000 points per life) */
-    life_counter = comic_num_lives;
-    while (life_counter > 0) {
+    while (comic_num_lives > 0) {
         /* Award 10,000 points for this life (10 x 1,000 points) */
         for (points_awarded = 0; points_awarded < 10; points_awarded++) {
             /* Play score tally sound */
             play_sound(SOUND_SCORE_TALLY, 3);
             award_points(10);  /* 10 * 100 = 1000 points per loop, 10 loops = 10,000 per life */
+            
+            /* Update score display to show the points being added */
+            blit_map_playfield_offscreen();
+            render_score_display();
+            swap_video_buffers();
+            
             wait_n_ticks(1);
         }
         
-        life_counter--;
+        /* Decrement and display the life icon removal (matches assembly behavior) */
+        lose_a_life();
+        
         wait_n_ticks(3);  /* Brief pause between lives */
     }
     
     /* Play the title theme */
     play_sound(SOUND_TITLE, 4);
     
-    /* Load and display the win graphic (sys002.ega)
-     * TODO: Implement RLE decompression and display of win graphic
-     * For now, just show the map */
-    blit_map_playfield_offscreen();
-    swap_video_buffers();
-    
-    /* Wait for graphic display and fade in */
-    wait_n_ticks(20);
-    
-    /* Clear keyboard buffer and wait for keystroke */
-    clear_bios_keyboard_buffer();
-    {
-        union REGS regs;
-        regs.h.ah = 0x00;  /* Get keystroke */
-        int86(0x16, &regs, &regs);
+    /* Load the win graphic into the offscreen gameplay buffer (matches assembly) */
+    if (load_fullscreen_graphic("sys002.ega", offscreen_video_buffer_ptr) == LOAD_SUCCESS) {
+        /* Apply palette effects */
+        palette_darken();
+        swap_video_buffers();  /* Display the win graphic and toggle to the other buffer */
+        palette_fade_in();
+        
+        /* Wait for graphic display to settle */
+        wait_n_ticks(20);
+        
+        /* Clear keyboard buffer and wait for keystroke */
+        clear_bios_keyboard_buffer();
+        {
+            union REGS regs;
+            regs.h.ah = 0x00;  /* Get keystroke */
+            int86(0x16, &regs, &regs);
+        }
     }
     
-    /* Show the game over screen (same as loss, per assembly code) */
+    /* Show the game over screen (now using the other gameplay buffer) */
     blit_map_playfield_offscreen();
     
     /* Blit the GAME OVER graphic (same 128x48 at position 40,64) */
     pixel_offset = 40 / 8 + (64 * (SCREEN_WIDTH / 8));
     blit_game_over_graphic(pixel_offset);
     
+    /* Swap buffers to display the game over screen */
     swap_video_buffers();
     
-    /* Clear keyboard buffer and wait for keystroke before high scores */
+    /* Wait for keystroke before showing high scores */
     clear_bios_keyboard_buffer();
     {
         union REGS regs;
@@ -2912,7 +2974,7 @@ static void game_end_sequence(void)
     }
     
     /* Call do_high_scores and then terminate */
-    /* TODO: implement do_high_scores() if needed */
+    do_high_scores();
     terminate_program();
 }
 
