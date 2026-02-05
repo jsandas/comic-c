@@ -45,6 +45,10 @@ int _big_code_ = 1;
 /* Interrupt handler sentinel for verification */
 #define INTERRUPT_HANDLER_INSTALL_SENTINEL 0x25
 
+/* Return values for load_fullscreen_graphic() - returns 0 on success */
+#define LOAD_SUCCESS 0
+#define LOAD_FAILURE 1
+
 /* Helper macro to get the near offset of a pointer for DOS interrupts.
  * In the large memory model with a single data segment (DGROUP), this
  * extracts the 16-bit offset portion of a pointer for use in DS:DX addressing. */
@@ -2859,7 +2863,7 @@ static void do_high_scores(void)
     /* Load the high scores graphic (sys005.ega) into a temporary buffer
      * Use GRAPHICS_BUFFER_TITLE_TEMP1 which is large enough for fullscreen graphics,
      * similar to how the title sequence loads sys000.ega, sys001.ega, etc. */
-    if (load_fullscreen_graphic("sys005.ega", GRAPHICS_BUFFER_TITLE_TEMP1) == 0) {
+    if (load_fullscreen_graphic("sys005.ega", GRAPHICS_BUFFER_TITLE_TEMP1) == LOAD_SUCCESS) {
         /* Successfully loaded - switch to display the high scores graphic */
         switch_video_buffer(GRAPHICS_BUFFER_TITLE_TEMP1);
         
@@ -2933,7 +2937,7 @@ static void game_end_sequence(void)
     play_sound(SOUND_TITLE, 4);
     
     /* Load the win graphic into the offscreen gameplay buffer (matches assembly) */
-    if (load_fullscreen_graphic("sys002.ega", offscreen_video_buffer_ptr) == 0) {
+    if (load_fullscreen_graphic("sys002.ega", offscreen_video_buffer_ptr) == LOAD_SUCCESS) {
         /* Apply palette effects */
         palette_darken();
         swap_video_buffers();  /* Display the win graphic and toggle to the other buffer */
