@@ -1220,6 +1220,7 @@ setup_restart:
     clear_bios_keyboard_buffer();
     
     /* Ask for confirmation */
+setup_confirm_loop:
     regs.h.ah = 0x09;
     regs.x.dx = DOS_OFFSET(KEYBOARD_CONFIG_CONFIRM);
     int86(0x21, &regs, &regs);
@@ -1229,9 +1230,12 @@ setup_restart:
     int86(0x16, &regs, &regs);
     response = regs.h.al;  /* Character code for y/n check */
     
-    /* If user wants to start over */
+    /* Check response: only 'y'/'Y' proceeds, 'n'/'N' restarts, others loop */
     if (response == 'n' || response == 'N') {
         goto setup_restart;
+    } else if (response != 'y' && response != 'Y') {
+        /* Invalid response, ask again */
+        goto setup_confirm_loop;
     }
     
     /* Copy temp_keymap to global keymap, rearranging from assembly order to keymap order
@@ -1250,6 +1254,7 @@ setup_restart:
     clear_bios_keyboard_buffer();
     
     /* Ask about saving to disk */
+save_confirm_loop:
     regs.h.ah = 0x09;
     regs.x.dx = DOS_OFFSET(KEYBOARD_CONFIG_SAVE);
     int86(0x21, &regs, &regs);
@@ -1259,12 +1264,15 @@ setup_restart:
     int86(0x16, &regs, &regs);
     response = regs.h.al;
     
-    /* Save to file if user requested */
+    /* Check response: only 'y'/'Y' saves, 'n'/'N' skips, others loop */
     if (response == 'y' || response == 'Y') {
         if (!save_keymap_to_file(keymap)) {
             /* File save failed - just continue without saving */
             /* In original, this would terminate the program */
         }
+    } else if (response != 'n' && response != 'N') {
+        /* Invalid response, ask again */
+        goto save_confirm_loop;
     }
     
     return 1;  /* Continue to title sequence */
