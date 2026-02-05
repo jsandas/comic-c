@@ -2959,7 +2959,7 @@ static void game_end_sequence(void)
     /* Display the rendered game over screen */
     switch_video_buffer(GRAPHICS_BUFFER_GAMEPLAY_B);
     
-    /* Jump to the game_over keystroke handling (tail call equivalent) */
+    /* Wait for keystroke before showing high scores */
     clear_bios_keyboard_buffer();
     {
         union REGS regs;
