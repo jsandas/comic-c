@@ -2765,10 +2765,10 @@ static void blit_game_over_graphic(uint16_t pixel_offset)
         src = (const uint8_t *)sprite_R4_game_over_128x48 + (plane_index * 768);
         
         /* Set plane write mask for normal write mode (Write Mode 0) */
-        _outp(0x3CE, 0x05);     /* GC Index: Graphics Mode */
-        _outp(0x3CF, 0x00);     /* Graphics Mode: Write Mode 0 (normal) */
-        _outp(0x3C4, 0x02);     /* SC Index: Map Mask */
-        _outp(0x3C5, plane);    /* Map Mask: write to current plane only */
+        outp(0x3CE, 0x05);     /* GC Index: Graphics Mode */
+        outp(0x3CF, 0x00);     /* Graphics Mode: Write Mode 0 (normal) */
+        outp(0x3C4, 0x02);     /* SC Index: Map Mask */
+        outp(0x3C5, plane);    /* Map Mask: write to current plane only */
         
         /* Blit the graphic */
         for (row = 0; row < 48; row++) {
@@ -2781,10 +2781,10 @@ static void blit_game_over_graphic(uint16_t pixel_offset)
     }
     
     /* Restore graphics mode to default */
-    _outp(0x3CE, 0x05);
-    _outp(0x3CF, 0x00);
-    _outp(0x3C4, 0x02);
-    _outp(0x3C5, 0x0F);
+    outp(0x3CE, 0x05);
+    outp(0x3CF, 0x00);
+    outp(0x3C4, 0x02);
+    outp(0x3C5, 0x0F);
 }
 
 /*
