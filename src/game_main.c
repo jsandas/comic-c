@@ -2833,7 +2833,9 @@ static void game_over(void)
 /*
  * do_high_scores - Display the high scores screen
  * 
- * Displays the high scores graphic (sys005.ega) and waits for a keystroke.
+ * Attempts to load and display the high scores graphic (sys005.ega).
+ * If successful, waits for a keystroke before returning.
+ * If the graphic fails to load, returns immediately.
  * Called from both game_over() and game_end_sequence() before terminating.
  * 
  * In the original assembly, this function also:
