@@ -360,6 +360,7 @@ static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
 static void handle_cheat_codes(void);
 static void game_over(void);
+static void do_high_scores(void);
 static void game_end_sequence(void);
 void award_points(uint16_t points);  /* Exported for use by actors.c */
 
@@ -2824,7 +2825,8 @@ static void game_over(void)
         int86(0x16, &regs, &regs);
     }
     
-    /* Jump to terminate program (original calls do_high_scores then terminate) */
+    /* Show high scores then terminate */
+    do_high_scores();
     terminate_program();
 }
 
@@ -2832,7 +2834,7 @@ static void game_over(void)
  * do_high_scores - Display the high scores screen
  * 
  * Displays the high scores graphic (sys005.ega) and waits for a keystroke.
- * This is called after the game over or win screen is dismissed.
+ * Called from both game_over() and game_end_sequence() before terminating.
  * 
  * In the original assembly, this function also:
  * - Ranks the player's score against existing high scores
