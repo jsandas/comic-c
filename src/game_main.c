@@ -1126,9 +1126,9 @@ static int save_keymap_to_file(uint8_t *keymap_data)
  * setup_keyboard_interactive - Interactive keyboard configuration
  * 
  * Allows user to define custom key bindings for 6 game actions:
- *   1. Jump
- *   2. Move Left
- *   3. Move Right
+ *   1. Move Left
+ *   2. Move Right
+ *   3. Jump
  *   4. Fireball
  *   5. Open Door
  *   6. Teleport
