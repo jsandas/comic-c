@@ -127,6 +127,5 @@ extern const uint8_t __far sprite_score_digit_9_8x16[64];
 /* Large screen sprites */
 extern const uint8_t __far sprite_game_over_128x48[3072];
 extern const uint8_t __far sprite_pause_128x48[3072];
-extern const uint8_t __far sprite_high_scores_320x200[32000];
 
 #endif /* SPRITE_DATA_H */
