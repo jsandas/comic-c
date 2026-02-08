@@ -142,6 +142,7 @@ game_loop:
 - If cs:key_state_fire = 1 AND fireball_meter > 0:
   - Call try_to_fire
   - Manage fireball_meter (decreases when firing, increases when not)
+  - fireball_meter increases/decreases at a rate of 1 unit per 2 ticks via fireball_meter_counter (alternates 2, 1, 2, 1...; decrements meter when counter is 2 and firing, increments when counter is 1 and not firing)
 
 .blit_map_and_comic:
 - Call blit_map_playfield_offscreen
@@ -537,3 +538,23 @@ game_end_sequence:
 - Display high scores
 - Jump to terminate_program
 ```
+
+---
+
+## Notes and Clarifications
+
+This section addresses minor implementation details and edge cases from the assembly code that may not be immediately obvious from the high-level flow above.
+
+### Door Activation Logic
+- The door proximity check uses an unsigned comparison: `comic_x - door_x` must be 0, 1, or 2 (inclusive). Negative differences (e.g., if Comic is left of the door) are treated as large positive values due to unsigned arithmetic, effectively skipping activation.
+
+### Floor Detection Details
+- Solidity checks use `tileset_last_passable` as the threshold: tiles with IDs > `tileset_last_passable` are considered solid.
+- When Comic is on an odd x-coordinate (between tiles), both the current tile and the one to the right are checked for solidity.
+
+### Fireball Meter Logic
+- The meter adjusts at 1 unit per 2 ticks via `fireball_meter_counter`, which cycles 2→1→2→1...
+- Decrements occur when firing and counter is 2; increments when not firing and counter is 1.
+
+### Pause Handling
+- After pausing, the code waits for ESC key release to prevent flicker from held keys. This is a simple busy-wait loop.
