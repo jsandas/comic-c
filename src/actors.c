@@ -94,9 +94,9 @@ static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uin
 /* ===== Helper Functions ===== */
 
 /*
- * comic_takes_damage - Reduce Comic's HP and start shield/death animation
+ * comic_takes_damage - Handle damage when Comic is hit by an enemy
  * 
- * If Comic has shield, remove shield instead of losing HP.
+ * Clears any pending HP increases to prevent them from negating damage.
  * If HP is already 0 when taking damage, trigger death animation sequence.
  * If HP > 0, decrement HP (sound plays in decrement_comic_hp).
  */
