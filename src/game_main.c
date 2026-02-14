@@ -248,7 +248,6 @@ uint8_t comic_has_door_key = 0;
 uint8_t comic_has_teleport_wand = 0;
 uint8_t comic_firepower = 0;           /* Number of active fireball slots (0-5) */
 uint8_t comic_has_corkscrew = 0;       /* 1 if Corkscrew item collected */
-uint8_t comic_has_shield = 0;          /* 1 if Shield item collected */
 uint8_t comic_has_lantern = 0;         /* 1 if Lantern item collected (only affects darkness in Castle level) */
 
 /* Score - 3 bytes (24-bit value) to store up to 999,999 points */
@@ -3546,19 +3545,16 @@ static void handle_cheat_codes(void)
     
     /* S key: Grant Shield (edge-triggered on press) */
     if (key_state_cheat_shield && !previous_key_state_cheat_shield) {
-        if (comic_has_shield == 0) {
-            comic_has_shield = 1;
-            /* Check if Comic already has full HP */
-            if (comic_hp >= MAX_HP) {
-                /* Full HP: award an extra life */
-                award_extra_life();
-            } else {
-                /* Not full: schedule only the missing HP increments */
-                comic_hp_pending_increase = MAX_HP - comic_hp;
-            }
-            /* Play item collection sound for feedback */
-            play_sound(SOUND_COLLECT_ITEM, 3);
+        /* Shield instantly refills HP */
+        if (comic_hp >= MAX_HP) {
+            /* Full HP: award an extra life */
+            award_extra_life();
+        } else {
+            /* Not full: schedule HP increase */
+            comic_hp_pending_increase = MAX_HP;
         }
+        /* Play item collection sound for feedback */
+        play_sound(SOUND_COLLECT_ITEM, 3);
     }
     
     /* P key: Warp to next level (edge-triggered on press) */

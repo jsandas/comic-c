@@ -57,7 +57,6 @@ static void set_palette_register(uint8_t index, uint8_t color);
 extern uint8_t comic_has_door_key;
 extern uint8_t comic_has_teleport_wand;
 extern uint8_t comic_has_corkscrew;
-extern uint8_t comic_has_shield;
 extern uint8_t comic_has_lantern;
 extern uint8_t comic_has_gems;         /* 1 if Gems collected, 0 otherwise */
 extern uint8_t comic_has_crown;        /* 1 if Crown collected, 0 otherwise */
