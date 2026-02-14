@@ -3545,7 +3545,10 @@ static void handle_cheat_codes(void)
     
     /* S key: Grant Shield (edge-triggered on press) */
     if (key_state_cheat_shield && !previous_key_state_cheat_shield) {
-        /* Shield starts an HP refill via pending increase */
+        /* Shield starts an HP refill via pending increase.
+         * Note: Unlike item collection, this cheat can be used repeatedly to grant
+         * multiple extra lives if Comic is at full HP. This is intentional for testing
+         * purposes - cheat codes provide more flexible testing than item mechanics. */
         if (comic_hp >= MAX_HP) {
             /* Full HP: award an extra life */
             award_extra_life();
