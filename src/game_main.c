@@ -3545,7 +3545,7 @@ static void handle_cheat_codes(void)
     
     /* S key: Grant Shield (edge-triggered on press) */
     if (key_state_cheat_shield && !previous_key_state_cheat_shield) {
-        /* Shield instantly refills HP */
+        /* Shield starts an HP refill via pending increase */
         if (comic_hp >= MAX_HP) {
             /* Full HP: award an extra life */
             award_extra_life();
