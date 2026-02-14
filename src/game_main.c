@@ -3550,8 +3550,8 @@ static void handle_cheat_codes(void)
             /* Full HP: award an extra life */
             award_extra_life();
         } else {
-            /* Not full: schedule HP increase */
-            comic_hp_pending_increase = MAX_HP;
+            /* Not full: schedule only the missing HP increments */
+            comic_hp_pending_increase = MAX_HP - comic_hp;
         }
         /* Play item collection sound for feedback */
         play_sound(SOUND_COLLECT_ITEM, 3);

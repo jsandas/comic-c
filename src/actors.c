@@ -594,14 +594,13 @@ void handle_item(void)
                     break;
                 case ITEM_SHIELD:
                     /* Shield instantly refills HP (matches original assembly behavior).
-                     * Set comic_hp_pending_increase to fill HP from current to MAX_HP.
-                     * If already at MAX_HP, award_extra_life() awards bonus points. */
+                     * Schedule HP increase to fill from current to MAX_HP only. */
                     if (comic_hp >= MAX_HP) {
                         /* Full HP: award an extra life */
                         award_extra_life();
                     } else {
-                        /* Not full: schedule MAX_HP units of HP increase */
-                        comic_hp_pending_increase = MAX_HP;
+                        /* Not full: schedule only the missing HP increments */
+                        comic_hp_pending_increase = MAX_HP - comic_hp;
                     }
                     break;
                 case ITEM_TELEPORT_WAND:
