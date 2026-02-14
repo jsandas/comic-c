@@ -34,7 +34,6 @@ extern uint8_t comic_facing;               /* COMIC_FACING_RIGHT or COMIC_FACING
 extern uint8_t comic_firepower;            /* Number of active fireball slots (0-5) */
 extern uint8_t comic_has_corkscrew;        /* 1 if Corkscrew item collected, 0 otherwise */
 extern uint8_t comic_hp;                   /* Current hit points (0-10) */
-extern uint8_t comic_has_shield;           /* 1 if Shield item collected, 0 otherwise */
 extern uint8_t comic_has_door_key;         /* 1 if door key collected, 0 otherwise */
 extern uint8_t comic_has_teleport_wand;    /* 1 if teleport wand collected, 0 otherwise */
 extern uint8_t comic_has_lantern;          /* 1 if Lantern item collected, 0 otherwise */
@@ -95,18 +94,21 @@ static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uin
 /* ===== Helper Functions ===== */
 
 /*
- * comic_takes_damage - Reduce Comic's HP and start shield/death animation
+ * comic_takes_damage - Handle damage when Comic is hit by an enemy
  * 
- * If Comic has shield, remove shield instead of losing HP.
+ * Clears any pending HP increases to prevent them from negating damage.
  * If HP is already 0 when taking damage, trigger death animation sequence.
  * If HP > 0, decrement HP (sound plays in decrement_comic_hp).
  */
 static void comic_takes_damage(void)
 {
-    if (comic_has_shield) {
-        comic_has_shield = 0;
-        play_sound(SOUND_DAMAGE, 2);
-    } else if (comic_hp == 0) {
+    /* Clear any pending HP increases to prevent them from canceling out damage.
+     * Without this, if HP is being gradually filled (at game start, after respawn,
+     * or after picking up a shield), the damage would be immediately negated by
+     * the pending HP increment that happens in the same or next game tick. */
+    comic_hp_pending_increase = 0;
+    
+    if (comic_hp == 0) {
         /* HP is already 0 - Comic dies from this hit.
          * Only play SOUND_DEATH via comic_death_animation, NOT SOUND_DAMAGE.
          * This matches assembly behavior: no decrement_comic_hp() call here. */
@@ -591,14 +593,13 @@ void handle_item(void)
                     comic_has_lantern = 1;
                     break;
                 case ITEM_SHIELD:
-                    comic_has_shield = 1;
-                    /* Check if Comic already has full HP */
+                    /* Shield instantly refills HP (matches original assembly behavior).
+                     * Schedule HP increase to fill from current to MAX_HP only. */
                     if (comic_hp >= MAX_HP) {
                         /* Full HP: award an extra life */
                         award_extra_life();
                     } else {
-                        /* Not full: schedule only the missing HP increments
-                         * For example, if comic_hp=3 and MAX_HP=6, schedule 3 increments */
+                        /* Not full: schedule only the missing HP increments */
                         comic_hp_pending_increase = MAX_HP - comic_hp;
                     }
                     break;
