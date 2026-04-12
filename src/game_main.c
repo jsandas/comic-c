@@ -252,6 +252,8 @@ uint8_t comic_has_lantern = 0;         /* 1 if Lantern item collected (only affe
 
 /* Score - 3 bytes (24-bit value) to store up to 999,999 points */
 uint8_t score_bytes[3] = {0, 0, 0};  /* Little-endian: byte 0 is LSB, byte 2 is MSB */
+/* Counts carry events from score_bytes[0] into score_bytes[1] (every 10,000 points). */
+static uint8_t score_10000_counter = 0;
 /* Score macros (score_get_value and score_set_value) are defined in globals.h */
 
 /* Item collection tracking (per level and stage) */
@@ -3399,12 +3401,14 @@ void award_points(uint16_t points)
 {
     uint8_t carry = 0;
     uint8_t i;
+    uint8_t carried_into_second_digit = 0;
     
     /* Add points to byte[0] with carry propagation */
     score_bytes[0] += (uint8_t)points;
     if (score_bytes[0] >= 100) {
         carry = 1;
         score_bytes[0] -= 100;
+        carried_into_second_digit = 1;
     } else {
         carry = 0;
     }
@@ -3425,6 +3429,15 @@ void award_points(uint16_t points)
         score_bytes[0] = 99;
         score_bytes[1] = 99;
         score_bytes[2] = 99;
+    }
+
+    /* Match original behavior: every 5 carries into score byte 1 awards an extra life. */
+    if (carried_into_second_digit) {
+        score_10000_counter++;
+        if (score_10000_counter >= 5) {
+            score_10000_counter = 0;
+            award_extra_life();
+        }
     }
 }
 
@@ -3979,6 +3992,9 @@ void game_loop(void)
 int main(void)
 {
     int i, j;
+
+    /* Initialize score carry counter used for 50,000-point extra lives. */
+    score_10000_counter = 0;
     
     /* Initialize items_collected array */
     for (i = 0; i < 8; i++) {
