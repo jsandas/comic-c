@@ -6,7 +6,7 @@ This directory contains the validation framework for ensuring functional compati
 
 ## Functional Test Scenarios
 
-We have 5 test scenarios ordered by complexity, focused on validating core game logic:
+We have 6 test scenarios ordered by complexity, focused on validating core game logic:
 
 ### Test 1: Collision Detection (Pure Logic)
 - **Tests:** Tile collision detection, platform collision, boundary checking
@@ -38,6 +38,12 @@ We have 5 test scenarios ordered by complexity, focused on validating core game 
 - **Validation:** Enter door, verify new level loads correctly, exit and return to original level
 - **Example:** Level state should be preserved when revisiting
 
+### Test 6: Score-Based Extra Life (Regression)
+- **Tests:** Extra life award every 50,000 points via score carry counter
+- **Why Added:** Prevent regression of assembly-accurate life award behavior
+- **Validation:** Verify no life award before 50,000 and exactly one life award at each 50,000 boundary
+- **Example:** Score 49,900 -> no life; score 50,000 -> +1 life
+
 ## Directory Structure
 
 ```
@@ -49,7 +55,8 @@ tests/
 │   ├── scenario_2_init.md        # Game initialization test description
 │   ├── scenario_3_items.md       # Item collection test description
 │   ├── scenario_4_enemy.md       # Enemy behavior test description
-│   └── scenario_5_transitions.md # Level transition test description
+│   ├── scenario_5_transitions.md # Level transition test description
+│   └── scenario_6_score_extra_life.md # Score carry / extra life regression test
 ├── savestates/                   # DOSBox-X save states (for checkpoint testing)
 │   ├── level1_start.sav          # Player spawned, ready to test
 │   ├── level1_with_enemy.sav     # Enemy present for testing
