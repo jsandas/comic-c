@@ -3833,6 +3833,10 @@ void game_loop(void)
         /* Handle teleportation */
         if (comic_is_teleporting != 0) {
             handle_teleport();
+            /* Consume any teleport edge captured during the active teleport.
+             * Without this, the goto below bypasses the normal reset path and
+             * a stale press can trigger begin_teleport() on the first non-teleport tick. */
+            teleport_key_pressed = 0;
             /* Match assembly (.check_teleport => handle_teleport => jmp .handle_nonplayer_actors):
              * skip pause and fire entirely during teleport, go straight to actor handling. */
             skip_rendering = 1;
