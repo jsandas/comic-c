@@ -111,14 +111,12 @@ Legend: Aligned, Partial, Diverged, Intentional
   - Assembly counter advance in item rendering path: R5sw1991.asm:6507-6510
   - C toggled in item handling and incremented in swap: src/actors.c:562 and src/game_main.c:2568-2570
 
-4. Enemy death spark underlay missing
-- Evidence:
+4. Enemy death spark underlay missing ~~**FIXED 2026-04-12**~~
+- Fix applied:
+  - Dying enemies now blit their current animation frame beneath the spark for normalized spark frames 2..4, matching the assembly flow: src/actors.c
+- Was:
   - Assembly blits enemy under spark for early spark frames: R5sw1991.asm:4824-4846
-  - C dying branch renders spark only: src/actors.c:894-956
-- Impact:
-  - Visible death animation difference.
-- Recommendation:
-  - Add enemy-under-spark render for first spark frames to match assembly.
+  - C dying branch rendered spark only: src/actors.c:894-956
 
 ## Medium Priority
 
