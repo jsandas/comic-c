@@ -2562,11 +2562,6 @@ void swap_video_buffers(void)
         offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
     }
 
-    /* Advance item animation counter (0 -> 1 -> 0) */
-    item_animation_counter++;
-    if (item_animation_counter >= 2) {
-        item_animation_counter = 0;
-    }
 }
 
 static void increment_comic_hp(void)

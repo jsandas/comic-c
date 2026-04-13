@@ -558,9 +558,6 @@ void handle_item(void)
         return; /* Off-screen */
     }
     
-    /* Toggle animation counter */
-    item_animation_counter = (item_animation_counter == 0) ? 1 : 0;
-    
     /* Check collision with Comic */
     x_diff = (int16_t)((int)item_x - (int)comic_x);
     y_diff = (int16_t)((int)item_y - (int)comic_y);
@@ -699,6 +696,11 @@ void handle_item(void)
 
         if (sprite_ptr != NULL) {
             blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, sprite_ptr);
+            /* Advance animation counter (0->1->0) after render, matching assembly */
+            item_animation_counter++;
+            if (item_animation_counter >= 2) {
+                item_animation_counter = 0;
+            }
         }
     }
 }

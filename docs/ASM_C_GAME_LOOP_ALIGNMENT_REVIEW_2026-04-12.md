@@ -77,8 +77,8 @@ Legend: Aligned, Partial, Diverged, Intentional
 
 13. Item update/render path
 - Assembly: item animation counter advances in collect_item_or_blit_offscreen (R5sw1991.asm:6453-6510)
-- C: item animation counter toggles in handle_item and also advances in swap_video_buffers (src/actors.c:562 and src/game_main.c:2568-2570)
-- Status: Diverged
+- C: item animation counter advances after blit in handle_item only (src/actors.c)
+- Status: Aligned (fixed 2026-04-12)
 
 ## Confirmed Differences and Omissions
 
@@ -101,14 +101,15 @@ Legend: Aligned, Partial, Diverged, Intentional
 - Recommendation:
   - Add a strict post-physics gate to skip open/teleport/left/right/floor path when physics was entered from an in-air state that tick.
 
-3. Item animation counter advances in two places in C
-- Evidence:
+3. Item animation counter advances in two places in C ~~**FIXED 2026-04-12**~~
+- Fix applied:
+  - Removed early toggle from handle_item (was firing before collision check and on off-screen frames).
+  - Removed unconditional advance from swap_video_buffers.
+  - Counter now advances once, after the blit, in handle_item's render path only: src/actors.c
+  - Sequence now matches assembly: even frame → counter 0→1, odd frame → counter 1→2→0.
+- Was:
   - Assembly counter advance in item rendering path: R5sw1991.asm:6507-6510
-  - C toggles in item handling and increments in swap: src/actors.c:562 and src/game_main.c:2568-2570
-- Impact:
-  - Effective animation cadence differs from assembly; likely faster alternation.
-- Recommendation:
-  - Keep a single source of truth for item_animation_counter advancement. Prefer matching assembly cadence by advancing only in item path.
+  - C toggled in item handling and incremented in swap: src/actors.c:562 and src/game_main.c:2568-2570
 
 4. Enemy death spark underlay missing
 - Evidence:
