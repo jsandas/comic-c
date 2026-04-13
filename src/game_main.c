@@ -3401,14 +3401,14 @@ void award_points(uint16_t points)
 {
     uint8_t carry = 0;
     uint8_t i;
-    uint8_t carried_into_second_digit = 0;
+    uint8_t carry_into_byte1 = 0;
     
     /* Add points to byte[0] with carry propagation */
     score_bytes[0] += (uint8_t)points;
     if (score_bytes[0] >= 100) {
         carry = 1;
         score_bytes[0] -= 100;
-        carried_into_second_digit = 1;
+        carry_into_byte1 = 1;
     } else {
         carry = 0;
     }
@@ -3424,15 +3424,21 @@ void award_points(uint16_t points)
         }
     }
     
-    /* If still have carry after byte 2, cap at maximum score 999,999 */
+    /* If still have carry after byte 2, cap at maximum score 999,999.
+     * Also clear carry_into_byte1: the carry that drove byte[1]
+     * above 99 did not produce a real score increment (the score has been
+     * clamped), so it must not be counted for extra-life purposes. */
     if (carry) {
         score_bytes[0] = 99;
         score_bytes[1] = 99;
         score_bytes[2] = 99;
+        carry_into_byte1 = 0;
     }
 
-    /* Match original behavior: every 5 carries into score byte 1 awards an extra life. */
-    if (carried_into_second_digit) {
+    /* Match original behavior: every 5 carries into score byte 1 awards an extra life.
+     * Guard: carry_into_byte1 is 0 when the score was clamped above, so
+     * overflow at max score never counts toward the extra-life threshold. */
+    if (carry_into_byte1) {
         score_10000_counter++;
         if (score_10000_counter >= 5) {
             score_10000_counter = 0;
