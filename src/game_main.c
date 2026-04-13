@@ -3826,16 +3826,29 @@ void game_loop(void)
         }
         /* Handle falling, jumping, and movement only if not teleporting */
         else {
+            /* Snapshot whether physics will run this tick.
+             * Assembly .check_falling_or_jumping / .check_jump_input both take the
+             * jmp handle_fall_or_jump path when in air or when jump is initiated,
+             * and handle_fall_or_jump returns directly to .check_pause_input,
+             * SKIPPING .check_open_input, .check_teleport_input, .check_left_input,
+             * .check_right_input and .check_for_floor entirely.
+             * We capture this before physics so we can replicate that skip below. */
+            uint8_t was_in_air = comic_is_falling_or_jumping;
+
             /* Call physics to handle gravity and collisions (single call per frame) */
             handle_fall_or_jump();
             
-            /* Check open input (doors) - only if not falling/jumping and open key is pressed */
-            if (comic_is_falling_or_jumping == 0 && key_state_open == 1) {
+            /* Check open input (doors) - only if:
+             *   - Not currently or previously in air (assembly skips this when physics ran)
+             *   - Not falling/jumping now
+             *   - Open key is pressed */
+            if (!was_in_air && comic_is_falling_or_jumping == 0 && key_state_open == 1) {
                 check_door_activation();
             }
             
-            /* Check teleport input - only if not falling/jumping and teleport key was pressed this frame */
-            if (comic_is_falling_or_jumping == 0 && teleport_key_pressed && comic_has_teleport_wand != 0) {
+            /* Check teleport input - only if not previously in air, not falling/jumping,
+             * and teleport key was pressed this frame */
+            if (!was_in_air && comic_is_falling_or_jumping == 0 && teleport_key_pressed && comic_has_teleport_wand != 0) {
                 begin_teleport();
                 /* Match assembly (.check_teleport_input => begin_teleport => jmp .check_teleport):
                  * execute the first teleport frame immediately in this tick, then skip
