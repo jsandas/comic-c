@@ -3819,8 +3819,10 @@ void game_loop(void)
         /* Handle teleportation */
         if (comic_is_teleporting != 0) {
             handle_teleport();
-            /* Teleport handles its own rendering, skip rendering phase */
+            /* Match assembly (.check_teleport => handle_teleport => jmp .handle_nonplayer_actors):
+             * skip pause and fire entirely during teleport, go straight to actor handling. */
             skip_rendering = 1;
+            goto handle_nonplayer_actors;
         }
         /* Handle falling, jumping, and movement only if not teleporting */
         else {
@@ -3835,9 +3837,13 @@ void game_loop(void)
             /* Check teleport input - only if not falling/jumping and teleport key was pressed this frame */
             if (comic_is_falling_or_jumping == 0 && teleport_key_pressed && comic_has_teleport_wand != 0) {
                 begin_teleport();
-                /* begin_teleport sets comic_is_teleporting, which will be handled
-                 * at the top of the next loop iteration. Skip to actor handling. */
+                /* Match assembly (.check_teleport_input => begin_teleport => jmp .check_teleport):
+                 * execute the first teleport frame immediately in this tick, then skip
+                 * pause and fire and go straight to actor handling. */
+                handle_teleport();
                 skip_rendering = 1;
+                teleport_key_pressed = 0;
+                goto handle_nonplayer_actors;
             }
             /* Handle left/right movement - only if not falling/jumping, not teleporting,
              * and did NOT just land this tick (assembly jumps to pause after landing). */
@@ -3944,6 +3950,10 @@ void game_loop(void)
             render_comic_hp_meter();
         }
         
+        /* Label for goto from teleport branches: assembly skips pause/fire during
+         * teleport and jumps directly here (.handle_nonplayer_actors). */
+        handle_nonplayer_actors:
+
         /* Handle enemies, fireballs, and items */
         handle_enemies();
         handle_fireballs();
