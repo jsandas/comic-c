@@ -2564,11 +2564,6 @@ void swap_video_buffers(void)
         offscreen_video_buffer_ptr = GRAPHICS_BUFFER_GAMEPLAY_A;
     }
 
-    /* Advance item animation counter (0 -> 1 -> 0) */
-    item_animation_counter++;
-    if (item_animation_counter >= 2) {
-        item_animation_counter = 0;
-    }
 }
 
 static void increment_comic_hp(void)
@@ -3838,25 +3833,48 @@ void game_loop(void)
         /* Handle teleportation */
         if (comic_is_teleporting != 0) {
             handle_teleport();
-            /* Teleport handles its own rendering, skip rendering phase */
+            /* Consume any teleport edge captured during the active teleport.
+             * Without this, the goto below bypasses the normal reset path and
+             * a stale press can trigger begin_teleport() on the first non-teleport tick. */
+            teleport_key_pressed = 0;
+            /* Match assembly (.check_teleport => handle_teleport => jmp .handle_nonplayer_actors):
+             * skip pause and fire entirely during teleport, go straight to actor handling. */
             skip_rendering = 1;
+            goto handle_nonplayer_actors;
         }
         /* Handle falling, jumping, and movement only if not teleporting */
         else {
+            /* Snapshot whether physics will run this tick.
+             * Assembly .check_falling_or_jumping / .check_jump_input both take the
+             * jmp handle_fall_or_jump path when in air or when jump is initiated,
+             * and handle_fall_or_jump returns directly to .check_pause_input,
+             * SKIPPING .check_open_input, .check_teleport_input, .check_left_input,
+             * .check_right_input and .check_for_floor entirely.
+             * We capture this before physics so we can replicate that skip below. */
+            uint8_t was_in_air = comic_is_falling_or_jumping;
+
             /* Call physics to handle gravity and collisions (single call per frame) */
             handle_fall_or_jump();
             
-            /* Check open input (doors) - only if not falling/jumping and open key is pressed */
-            if (comic_is_falling_or_jumping == 0 && key_state_open == 1) {
+            /* Check open input (doors) - only if:
+             *   - Not currently or previously in air (assembly skips this when physics ran)
+             *   - Not falling/jumping now
+             *   - Open key is pressed */
+            if (!was_in_air && comic_is_falling_or_jumping == 0 && key_state_open == 1) {
                 check_door_activation();
             }
             
-            /* Check teleport input - only if not falling/jumping and teleport key was pressed this frame */
-            if (comic_is_falling_or_jumping == 0 && teleport_key_pressed && comic_has_teleport_wand != 0) {
+            /* Check teleport input - only if not previously in air, not falling/jumping,
+             * and teleport key was pressed this frame */
+            if (!was_in_air && comic_is_falling_or_jumping == 0 && teleport_key_pressed && comic_has_teleport_wand != 0) {
                 begin_teleport();
-                /* begin_teleport sets comic_is_teleporting, which will be handled
-                 * at the top of the next loop iteration. Skip to actor handling. */
+                /* Match assembly (.check_teleport_input => begin_teleport => jmp .check_teleport):
+                 * execute the first teleport frame immediately in this tick, then skip
+                 * pause and fire and go straight to actor handling. */
+                handle_teleport();
                 skip_rendering = 1;
+                teleport_key_pressed = 0;
+                goto handle_nonplayer_actors;
             }
             /* Handle left/right movement - only if not falling/jumping, not teleporting,
              * and did NOT just land this tick (assembly jumps to pause after landing). */
@@ -3963,6 +3981,10 @@ void game_loop(void)
             render_comic_hp_meter();
         }
         
+        /* Label for goto from teleport branches: assembly skips pause/fire during
+         * teleport and jumps directly here (.handle_nonplayer_actors). */
+        handle_nonplayer_actors:
+
         /* Handle enemies, fireballs, and items */
         handle_enemies();
         handle_fireballs();

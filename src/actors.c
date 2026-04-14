@@ -90,6 +90,7 @@ static void comic_takes_damage(void);
 static uint8_t is_tile_solid(uint8_t tile_id);
 static uint8_t get_tile_at(uint8_t x, uint8_t y);
 static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uint8_t facing, uint16_t *out_frame_size);
+static void render_enemy_sprite(const enemy_t *enemy, uint8_t shp_index, int16_t rel_x_enemy, int16_t pixel_y);
 
 /* ===== Helper Functions ===== */
 
@@ -336,6 +337,32 @@ static const uint8_t *get_enemy_frame(uint8_t shp_index, uint8_t anim_index, uin
     return shp_get_frame(shp_index, (uint8_t)(base_index + frame_in_seq));
 }
 
+/*
+ * render_enemy_sprite - Blit the current enemy frame if it is inside the playfield
+ */
+static void render_enemy_sprite(const enemy_t *enemy, uint8_t shp_index, int16_t rel_x_enemy, int16_t pixel_y)
+{
+    int16_t pixel_x;
+    uint16_t frame_size = 0;
+    const uint8_t *frame_ptr;
+
+    if (rel_x_enemy < 0 || rel_x_enemy > PLAYFIELD_WIDTH - 2) {
+        return;
+    }
+
+    pixel_x = (rel_x_enemy * 8) + 8;
+    frame_ptr = get_enemy_frame(shp_index, enemy->spawn_timer_and_animation, enemy->facing, &frame_size);
+    if (frame_ptr == NULL) {
+        return;
+    }
+
+    if (frame_size == 160) {
+        blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, frame_ptr);
+    } else if (frame_size == 320) {
+        blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, frame_ptr);
+    }
+}
+
 /* ===== Fireball System ===== */
 
 /*
@@ -558,9 +585,6 @@ void handle_item(void)
         return; /* Off-screen */
     }
     
-    /* Toggle animation counter */
-    item_animation_counter = (item_animation_counter == 0) ? 1 : 0;
-    
     /* Check collision with Comic */
     x_diff = (int16_t)((int)item_x - (int)comic_x);
     y_diff = (int16_t)((int)item_y - (int)comic_y);
@@ -699,6 +723,11 @@ void handle_item(void)
 
         if (sprite_ptr != NULL) {
             blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, sprite_ptr);
+            /* Advance animation counter (0->1->0) after render, matching assembly */
+            item_animation_counter++;
+            if (item_animation_counter >= 2) {
+                item_animation_counter = 0;
+            }
         }
     }
 }
@@ -865,6 +894,7 @@ void handle_enemies(void)
     int16_t pixel_x, pixel_y; /* used when rendering sparks */
     const uint8_t *spark_ptr; /* used when rendering sparks */
     uint8_t spark_frame; /* used when rendering sparks */
+    uint8_t normalized_spark_state; /* white/red spark frame normalized to white spark range */
     
     /* Reset spawn flag for this tick */
     spawned_this_tick = 0;
@@ -907,12 +937,20 @@ void handle_enemies(void)
 
             /* Declarations for rendering (C89: must appear before statements) */
             rel_x_enemy = (int16_t)((int)enemy->x - (int)camera_x);
+            normalized_spark_state = enemy->state;
+            if (normalized_spark_state >= ENEMY_STATE_RED_SPARK) {
+                normalized_spark_state = (uint8_t)(normalized_spark_state - (ENEMY_STATE_RED_SPARK - ENEMY_STATE_WHITE_SPARK));
+            }
 
             /* Render death animation (spark) - use state BEFORE incrementing */
             if (rel_x_enemy >= -1 && rel_x_enemy < PLAYFIELD_WIDTH + 1) {
                 /* Convert to pixel coordinates */
                 pixel_x = (rel_x_enemy * 8) + 8;
                 pixel_y = (enemy->y * 8) + 8;
+
+                if (normalized_spark_state <= ENEMY_STATE_WHITE_SPARK + 2) {
+                    render_enemy_sprite(enemy, enemy_shp_index[i], rel_x_enemy, pixel_y);
+                }
 
                 if (enemy->state >= ENEMY_STATE_RED_SPARK) {
                     spark_frame = (uint8_t)((enemy->state - ENEMY_STATE_RED_SPARK) % 3);
@@ -1007,33 +1045,15 @@ void handle_enemies(void)
             /* Render enemy sprite if in playfield */
             {
                 int16_t rel_x_enemy;
-                int16_t pixel_x, pixel_y;
-                uint16_t frame_size = 0;
-                const uint8_t *frame_ptr;
+                int16_t pixel_y;
                 uint8_t shp_index = enemy_shp_index[i];
                 
                 /* Calculate screen position relative to camera */
                 rel_x_enemy = (int16_t)((int)enemy->x - (int)camera_x);
                 
-                /* Check if in visible playfield (match assembly bounds: 0 to PLAYFIELD_WIDTH - 2) */
-                if (rel_x_enemy >= 0 && rel_x_enemy <= PLAYFIELD_WIDTH - 2) {
-                    /* Convert to pixel coordinates (8 pixels per game unit) + playfield offset */
-                    pixel_x = (rel_x_enemy * 8) + 8;
-                    pixel_y = (enemy->y * 8) + 8;
-
-                    frame_ptr = get_enemy_frame(shp_index, enemy->spawn_timer_and_animation, enemy->facing, &frame_size);
-                    
-                    if (frame_ptr != NULL) {
-                        if (frame_size == 160) {
-                            /* Use masked blit for 16x16 .SHP sprites */
-                            blit_sprite_16x16_masked((uint16_t)pixel_x, (uint16_t)pixel_y, frame_ptr);
-                        } else if (frame_size == 320) {
-                            blit_sprite_16x32_masked((uint16_t)pixel_x, (uint16_t)pixel_y, frame_ptr);
-                        }
-                    }
-                } else {
-                    /* Enemy is offscreen, skip rendering */
-                }
+                /* Convert to pixel coordinates (8 pixels per game unit) + playfield offset */
+                pixel_y = (enemy->y * 8) + 8;
+                render_enemy_sprite(enemy, shp_index, rel_x_enemy, pixel_y);
             }
         }
     }
