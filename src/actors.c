@@ -415,16 +415,32 @@ void handle_fireballs(void)
         return;
     }
     
-    /* Update each active fireball */
+    /* Pass 1: movement + animation + render over the first comic_firepower slots */
     for (i = 0; i < comic_firepower && i < MAX_NUM_FIREBALLS; i++) {
         /* Skip inactive fireballs */
-        if (fireballs[i].x == FIREBALL_DEAD || fireballs[i].y == FIREBALL_DEAD) {
+        if (fireballs[i].x == FIREBALL_DEAD && fireballs[i].y == FIREBALL_DEAD) {
             continue;
         }
         
         /* Apply horizontal velocity */
         fireballs[i].x += fireballs[i].vel;
         
+        /* Check despawn conditions (off-screen) before corkscrew/animation */
+        if (fireballs[i].x < camera_x) {
+            /* Off left edge */
+            fireballs[i].x = FIREBALL_DEAD;
+            fireballs[i].y = FIREBALL_DEAD;
+            continue;
+        }
+
+        rel_x = (int16_t)((int)fireballs[i].x - (int)camera_x);
+        if (rel_x > (PLAYFIELD_WIDTH - 2)) {
+            /* Off right edge */
+            fireballs[i].x = FIREBALL_DEAD;
+            fireballs[i].y = FIREBALL_DEAD;
+            continue;
+        }
+
         /* Apply corkscrew motion if Comic has Corkscrew item */
         if (comic_has_corkscrew) {
             if (fireballs[i].corkscrew_phase == 2) {
@@ -443,23 +459,30 @@ void handle_fireballs(void)
         if (fireballs[i].animation >= fireballs[i].num_animation_frames) {
             fireballs[i].animation = 0;
         }
-        
-        /* Check despawn conditions (off-screen) */
-        if (fireballs[i].x < camera_x) {
-            /* Off left edge */
-            fireballs[i].x = FIREBALL_DEAD;
-            fireballs[i].y = FIREBALL_DEAD;
+
+        /* Render fireball sprite in playfield */
+        {
+            int16_t pixel_x, pixel_y;
+            const uint8_t *sprite_ptr;
+
+            pixel_x = (rel_x * 8) + 8;
+            pixel_y = (fireballs[i].y * 8) + 8;
+
+            sprite_ptr = (fireballs[i].animation == 0)
+                ? sprite_fireball_0_16x8m
+                : sprite_fireball_1_16x8m;
+
+            blit_sprite_16x8_masked((uint16_t)pixel_x, (uint16_t)pixel_y, sprite_ptr);
+        }
+    }
+
+    /* Pass 2: collision scan over all fireball slots (assembly behavior) */
+    for (i = 0; i < MAX_NUM_FIREBALLS; i++) {
+        /* Skip inactive fireballs */
+        if (fireballs[i].x == FIREBALL_DEAD && fireballs[i].y == FIREBALL_DEAD) {
             continue;
         }
-        
-        rel_x = (int16_t)((int)fireballs[i].x - (int)camera_x);
-        if (rel_x > (PLAYFIELD_WIDTH - 2)) {
-            /* Off right edge */
-            fireballs[i].x = FIREBALL_DEAD;
-            fireballs[i].y = FIREBALL_DEAD;
-            continue;
-        }
-        
+
         /* Check collision with all enemies */
         for (j = 0; j < MAX_NUM_ENEMIES; j++) {
             int8_t y_diff, x_diff;
@@ -489,28 +512,6 @@ void handle_fireballs(void)
             play_sound(SOUND_HIT_ENEMY, 1);
             
             break; /* Fireball consumed, check next fireball */
-        }
-        
-        /* Render fireball sprite if still active and in playfield */
-        if (fireballs[i].x != FIREBALL_DEAD && fireballs[i].y != FIREBALL_DEAD) {
-            int16_t pixel_x, pixel_y;
-            const uint8_t *sprite_ptr;
-            
-            /* Calculate screen position relative to camera */
-            rel_x = (int16_t)((int)fireballs[i].x - (int)camera_x);
-            
-            /* Check if in visible playfield (0-23 game units) */
-            if (rel_x >= 0 && rel_x < PLAYFIELD_WIDTH) {
-                /* Convert to pixel coordinates (8 pixels per game unit) + playfield offset */
-                pixel_x = (rel_x * 8) + 8;
-                pixel_y = (fireballs[i].y * 8) + 8;
-
-                sprite_ptr = (fireballs[i].animation == 0)
-                    ? sprite_fireball_0_16x8m
-                    : sprite_fireball_1_16x8m;
-
-                blit_sprite_16x8_masked((uint16_t)pixel_x, (uint16_t)pixel_y, sprite_ptr);
-            }
         }
     }
 }

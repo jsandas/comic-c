@@ -100,9 +100,11 @@ void try_to_fire(void);
  * 
  * For each active fireball (first comic_firepower slots):
  *   - Apply horizontal velocity (±2 per tick)
+ *   - Check despawn conditions (off-screen)
  *   - Apply corkscrew motion if Comic has Corkscrew item (vertical oscillation)
  *   - Advance animation frame
- *   - Check despawn conditions (off-screen)
+ *   - Render fireball sprite
+ * Then perform a separate collision pass over all MAX_NUM_FIREBALLS slots.
  *   - Check collision with all enemies
  *   - Award points and kill enemy on collision
  * 
