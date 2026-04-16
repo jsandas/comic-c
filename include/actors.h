@@ -100,9 +100,11 @@ void try_to_fire(void);
  * 
  * For each active fireball (first comic_firepower slots):
  *   - Apply horizontal velocity (±2 per tick)
+ *   - Check despawn conditions (off-screen)
  *   - Apply corkscrew motion if Comic has Corkscrew item (vertical oscillation)
  *   - Advance animation frame
- *   - Check despawn conditions (off-screen)
+ *   - Render fireball sprite
+ * Then perform a separate collision pass over all MAX_NUM_FIREBALLS slots.
  *   - Check collision with all enemies
  *   - Award points and kill enemy on collision
  * 
@@ -128,7 +130,7 @@ void handle_item(void);
  * handle_enemies - Update all enemies (AI, spawning, collision, rendering)
  * 
  * For each enemy slot (4 per stage):
- *   - If despawned: decrement spawn timer, spawn when timer reaches 0
+ *   - If despawned: decrement spawn timer, spawn when timer underflows (0 -> 255)
  *   - If spawned: execute AI behavior, check collision, render
  *   - If dying: advance death animation, render spark
  * 
@@ -149,7 +151,7 @@ void handle_enemies(void);
 /*
  * maybe_spawn_enemy - Attempt to spawn one enemy
  * 
- * Helper function called by handle_enemies when an enemy's spawn timer reaches 0.
+ * Helper function called by handle_enemies when an enemy's spawn timer underflows.
  * Only spawns 1 enemy per tick to avoid overwhelming the player.
  * 
  * Returns:
