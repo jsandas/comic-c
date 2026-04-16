@@ -397,6 +397,7 @@ static void clear_bios_keyboard_buffer(void);
 static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
 static void handle_cheat_codes(void);
+static void dos_idle(void);
 static void game_over(void);
 static void do_high_scores(void);
 static void game_end_sequence(void);
@@ -429,27 +430,18 @@ void disable_pc_speaker(void)
  *   ticks = number of ticks to wait
  * Output:
  *   game_tick_flag is set to 0
- * 
- * Uses DOS INT 1Ah to read the system timer for timing.
  */
 void wait_n_ticks(uint16_t ticks)
 {
-    union REGS regs;
-    uint32_t start_ticks, current_ticks;
-    
-    /* Get starting tick count from BIOS */
-    regs.h.ah = 0x00;  /* AH=0x00: read system timer */
-    int86(0x1A, &regs, &regs);
-    start_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
-    
-    /* Wait for the requested number of ticks to elapse */
-    do {
-        regs.h.ah = 0x00;
-        int86(0x1A, &regs, &regs);
-        current_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
-    } while ((current_ticks - start_ticks) < ticks);
-    
-    game_tick_flag = 0;
+    while (ticks > 0) {
+        while (game_tick_flag != 1) {
+            /* Match game-loop wait behavior while yielding CPU between IRQ0 updates. */
+            dos_idle();
+        }
+
+        game_tick_flag = 0;
+        ticks--;
+    }
 }
 
 /*
@@ -2909,13 +2901,6 @@ void load_new_stage(void)
     
     /* Pre-render the entire map into RENDERED_MAP_BUFFER */
     render_map();
-
-    /* Ensure the initial frame is drawn and displayed: replicate the
-     * assembly behavior of blitting and swapping buffers at load time. */
-    blit_map_playfield_offscreen();
-    /* Skip blitting Comic here - if doing beam_in, Comic should not be visible yet;
-     * if not doing beam_in (entering via door), the game loop will render Comic normally */
-    swap_video_buffers();
 
 #ifdef ENABLE_SHP_SMOKE_TEST
     /* Smoke test: if a 16x32 SHP frame is loaded for shp index 0, blit its
