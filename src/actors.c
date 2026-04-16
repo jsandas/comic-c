@@ -930,6 +930,9 @@ void handle_enemies(void)
                 case ENEMY_BEHAVIOR_SHY:
                     enemy_behavior_shy(enemy);
                     break;
+                default:
+                    /* Match ASM behavior: skip unknown behavior codes entirely this tick. */
+                    continue;
             }
             
             /* Check despawn distance (30 game units from Comic) */
@@ -975,11 +978,11 @@ void handle_enemies(void)
         /* Despawned state in ASM is enemy.state < ENEMY_STATE_SPAWNED. */
         if (enemy->state < ENEMY_STATE_SPAWNED) {
             /* Assembly semantics: decrement every tick and spawn on underflow
-             * (borrow from 0 -> 0xFF), not when reaching zero. */
+             * (borrow from 0 -> UINT8_MAX), not when reaching zero. */
             enemy->spawn_timer_and_animation--;
 
-            /* Attempt to spawn only on underflow (0 -> 255) */
-            if (enemy->spawn_timer_and_animation == 0xFF) {
+            /* Attempt to spawn only on underflow (0 -> UINT8_MAX) */
+            if (enemy->spawn_timer_and_animation == UINT8_MAX) {
                 maybe_spawn_enemy(i);
             }
             continue;
