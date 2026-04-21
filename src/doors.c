@@ -233,15 +233,17 @@ void exit_door_animation(void)
                    (PLAYFIELD_OFFSET_X / 8) + camera_relative_x;
     door_blit_offset = pixel_offset;
     
-    /* Initial delay */
-    wait_n_ticks(3);
-    
     /* Play door sound */
     play_sound(SOUND_DOOR, 4);
     
-    /* Frame 1: Door fully closed */
+    /* Frame 1: Door fully closed - render new stage map immediately so it's
+     * visible before the initial delay (prevents the previous stage's final
+     * frame from lingering on screen during the wait). */
     blit_map_playfield_offscreen();
     wait_1_tick_and_swap();
+    
+    /* Initial delay after first frame is visible */
+    wait_n_ticks(2);
     
     /* Frame 2: Door halfway open (Comic behind door) */
     blit_map_playfield_offscreen();
