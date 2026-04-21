@@ -2316,6 +2316,8 @@ void blit_map_playfield_offscreen(void)
     const uint16_t max_camera_x = rendered_bytes_per_row - playfield_bytes_per_row; /* 232 */
     uint8_t plane;
     uint16_t row;
+    uint16_t src_start;
+    uint16_t dst_start;
 
     /* Validate camera position is within rendered map bounds.
      * If camera_x exceeds max_camera_x, the max_src_bytes calculation would underflow.
@@ -2326,46 +2328,25 @@ void blit_map_playfield_offscreen(void)
         return;
     }
 
+    src_start = RENDERED_MAP_BUFFER + camera_x;
+    dst_start = offscreen_video_buffer_ptr + (8 * screen_bytes_per_row) + (8 / 8);
+
     for (plane = 0; plane < 4; plane++) {
         /* Enable reading and writing for this plane */
         enable_ega_plane_read_write(plane);
 
-        for (row = 0; row < playfield_pixel_rows; row++) {
-            /* Source offset calculation using larger type to prevent overflow
-             * Max value: 0x4000 + (159 * 256) + camera_x ≈ 57K, fits in uint16_t
-             * but use unsigned long for intermediate to be safe */
-            unsigned long src_calc = RENDERED_MAP_BUFFER + ((unsigned long)row * rendered_bytes_per_row) + camera_x;
-            uint16_t src_offset;
-            uint16_t dst_offset;
-            uint16_t max_src_bytes;
-            uint16_t bytes_to_copy;
-            
-            /* Validate calculation fits within segment before assigning to uint16_t */
-            if (src_calc > 65535UL) {
-                /* Source offset would overflow; skip this row */
-                continue;
-            }
-            src_offset = (uint16_t)src_calc;
-            
-            dst_offset = offscreen_video_buffer_ptr + ((8 + row) * screen_bytes_per_row) + (8 / 8);
+        {
+            uint8_t __far *src_row = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, src_start);
+            uint8_t __far *dst_row = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, dst_start);
 
-            /* Calculate maximum bytes available to read from this row.
-             * Formula: remaining bytes in row = row_start + 256 - src_offset_within_row
-             * Which simplifies to: (256 - camera_x - 0) = 256 - camera_x bytes available
-             * for the first row. But this depends on the row number in the rendered buffer.
-             * 
-             * Safer approach: bytes available = bytes from camera_x to end of rendered row
-             * = rendered_bytes_per_row - camera_x = 256 - camera_x
-             * (This is constant across all rows since stride is uniform) */
-            max_src_bytes = rendered_bytes_per_row - camera_x;
-            
-            bytes_to_copy = playfield_bytes_per_row;
-            if (bytes_to_copy > max_src_bytes) {
-                bytes_to_copy = max_src_bytes;
+            for (row = 0; row < playfield_pixel_rows; row++) {
+                uint8_t col;
+                for (col = 0; col < playfield_bytes_per_row; col++) {
+                    dst_row[col] = src_row[col];
+                }
+                src_row += rendered_bytes_per_row;
+                dst_row += screen_bytes_per_row;
             }
-
-            /* Copy the row for this plane using helper that performs far-pointer copy */
-            copy_plane_bytes(src_offset, dst_offset, bytes_to_copy);
         }
     }
 }
@@ -2697,50 +2678,38 @@ static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, co
  */
 static void render_map(void)
 {
-    uint8_t tile_x;
-    uint8_t tile_y;
-    uint16_t tile_index;
-    uint8_t tile_id;
     uint8_t plane;
-    uint16_t clear_offset;
-    uint16_t clear_row;
-    uint8_t __far *clear_ptr;
-    uint16_t i;
-    
+    uint8_t tile_y;
+    uint8_t tile_x;
+    uint8_t pixel_row;
+    uint16_t map_row_base;
+    uint16_t src_offset;
+    uint16_t dst_offset;
+    uint8_t tile_id;
+    const uint8_t *tile_map_row;
+    uint8_t __far *dst_row;
 
+    /* Render directly into all 160x256 bytes per plane. No explicit clear pass is
+     * needed because every byte in the rendered-map region is overwritten below. */
     for (plane = 0; plane < 4; plane++) {
-        /* Set Sequencer Map Mask for this plane */
-        outp(0x3c4, 0x02);      /* SC Index: Map Mask */
+        outp(0x3c4, 0x02);       /* SC Index: Map Mask */
         outp(0x3c5, 1 << plane); /* SC Data: plane mask */
-        
-        /* Clear all rows of this plane */
-        for (clear_row = 0; clear_row < 160; clear_row++) {
-            clear_offset = RENDERED_MAP_BUFFER + (clear_row * 256);
-            clear_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, clear_offset);
-            
-            /* Write 256 bytes of zero to this row */
-            for (i = 0; i < 256; i++) {
-                clear_ptr[i] = 0;
+
+        for (tile_y = 0; tile_y < MAP_HEIGHT_TILES; tile_y++) {
+            map_row_base = (uint16_t)tile_y * MAP_WIDTH_TILES;
+            tile_map_row = (current_tiles_ptr != NULL) ? (current_tiles_ptr + map_row_base) : NULL;
+
+            for (pixel_row = 0; pixel_row < 16; pixel_row++) {
+                dst_offset = RENDERED_MAP_BUFFER + (((uint16_t)tile_y * 16 + pixel_row) << 8);
+                dst_row = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, dst_offset);
+
+                for (tile_x = 0; tile_x < MAP_WIDTH_TILES; tile_x++) {
+                    tile_id = (tile_map_row != NULL) ? tile_map_row[tile_x] : 0;
+                    src_offset = (uint16_t)tile_id * 128 + (uint16_t)plane * 32 + (uint16_t)pixel_row * 2;
+                    *dst_row++ = tileset_graphics[src_offset + 0];
+                    *dst_row++ = tileset_graphics[src_offset + 1];
+                }
             }
-        }
-    }
-    
-    /* Iterate through all tiles in the map (128×10) */
-    for (tile_y = 0; tile_y < MAP_HEIGHT_TILES; tile_y++) {
-        for (tile_x = 0; tile_x < MAP_WIDTH_TILES; tile_x++) {
-            /* Calculate index into tile map, casting to uint16_t to avoid overflow:
-             * tile_y (0-9) * MAP_WIDTH_TILES (128) + tile_x (0-127) = 0-1279 */
-            tile_index = (uint16_t)tile_y * MAP_WIDTH_TILES + tile_x;
-            
-            /* Get tile ID from current level's tile map */
-            if (current_tiles_ptr != NULL) {
-                tile_id = current_tiles_ptr[tile_index];
-            } else {
-                tile_id = 0;  /* No map loaded */
-            }
-            
-            /* Blit this tile to the rendered map buffer */
-            blit_tile_to_map(tile_id, tile_x, tile_y, tileset_graphics);
         }
     }
 }
