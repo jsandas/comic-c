@@ -187,6 +187,8 @@ uint8_t comic_hp_pending_increase = MAX_HP;  /* Fill HP at game start */
 uint16_t camera_x = 0;
 /* Landing sentinel: set by physics when hitting ground; clears each tick */
 uint8_t landed_this_tick = 0;
+/* Set by movement/door code when stage changes mid-tick. */
+uint8_t stage_transitioned_this_tick = 0;
 
 /* Death animation state - prevents re-entering death animation during enemy collisions */
 uint8_t inhibit_death_by_enemy_collision = 0;
@@ -3846,7 +3848,12 @@ void game_loop(void)
              *   - Not falling/jumping now
              *   - Open key is pressed */
             if (!was_in_air && comic_is_falling_or_jumping == 0 && key_state_open == 1) {
-                check_door_activation();
+                if (check_door_activation()) {
+                    /* Match assembly .check_open_input -> jmp activate_door:
+                     * do not continue pause/fire/render logic in this tick. */
+                    teleport_key_pressed = 0;
+                    continue;
+                }
             }
             
             /* Check teleport input - only if not previously in air, not falling/jumping,
@@ -3917,6 +3924,12 @@ void game_loop(void)
             
             /* Clear the teleport flag after checking */
             teleport_key_pressed = 0;
+        }
+
+        if (stage_transitioned_this_tick) {
+            /* Match assembly stage_edge_transition -> jmp load_new_stage -> jmp game_loop. */
+            stage_transitioned_this_tick = 0;
+            continue;
         }
         
         /* Check escape key (pause) */
