@@ -136,7 +136,7 @@ void debug_log_close(void);
 /* extern uint8_t tileset_graphics[]; */
 /* extern uint8_t *current_tiles_ptr; */
 
-/* Set when a stage/door transition occurs so game_loop can restart immediately
+/* Set when a stage-edge transition occurs so game_loop can restart immediately
  * like the original assembly tail-jump flow. */
 extern uint8_t stage_transitioned_this_tick;
 

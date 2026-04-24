@@ -187,7 +187,7 @@ uint8_t comic_hp_pending_increase = MAX_HP;  /* Fill HP at game start */
 uint16_t camera_x = 0;
 /* Landing sentinel: set by physics when hitting ground; clears each tick */
 uint8_t landed_this_tick = 0;
-/* Set by movement/door code when stage changes mid-tick. */
+/* Set by stage-edge movement code when a stage change occurs mid-tick. */
 uint8_t stage_transitioned_this_tick = 0;
 
 /* Death animation state - prevents re-entering death animation during enemy collisions */
