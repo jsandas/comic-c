@@ -233,9 +233,9 @@ void exit_door_animation(void)
                    (PLAYFIELD_OFFSET_X / 8) + camera_relative_x;
     door_blit_offset = pixel_offset;
     
-    /* Initial delay */
+    /* Assembly waits 3 ticks before starting door SFX/animation. */
     wait_n_ticks(3);
-    
+
     /* Play door sound */
     play_sound(SOUND_DOOR, 4);
     
@@ -258,6 +258,8 @@ void exit_door_animation(void)
     
     /* Frame 4: Door halfway closed (Comic in front) */
     blit_map_playfield_offscreen();
+    /* Keep the assembly's redundant draw order for frame-exact behavior. */
+    blit_door_halfopen_offscreen();
     blank_door_offscreen();
     blit_door_halfopen_offscreen();
     blit_comic_playfield_offscreen();

@@ -415,16 +415,32 @@ void handle_fireballs(void)
         return;
     }
     
-    /* Update each active fireball */
+    /* Pass 1: movement + animation + render over the first comic_firepower slots */
     for (i = 0; i < comic_firepower && i < MAX_NUM_FIREBALLS; i++) {
         /* Skip inactive fireballs */
-        if (fireballs[i].x == FIREBALL_DEAD || fireballs[i].y == FIREBALL_DEAD) {
+        if (fireballs[i].x == FIREBALL_DEAD && fireballs[i].y == FIREBALL_DEAD) {
             continue;
         }
         
         /* Apply horizontal velocity */
         fireballs[i].x += fireballs[i].vel;
         
+        /* Check despawn conditions (off-screen) before corkscrew/animation */
+        if (fireballs[i].x < camera_x) {
+            /* Off left edge */
+            fireballs[i].x = FIREBALL_DEAD;
+            fireballs[i].y = FIREBALL_DEAD;
+            continue;
+        }
+
+        rel_x = (int16_t)((int)fireballs[i].x - (int)camera_x);
+        if (rel_x > (PLAYFIELD_WIDTH - 2)) {
+            /* Off right edge */
+            fireballs[i].x = FIREBALL_DEAD;
+            fireballs[i].y = FIREBALL_DEAD;
+            continue;
+        }
+
         /* Apply corkscrew motion if Comic has Corkscrew item */
         if (comic_has_corkscrew) {
             if (fireballs[i].corkscrew_phase == 2) {
@@ -443,23 +459,30 @@ void handle_fireballs(void)
         if (fireballs[i].animation >= fireballs[i].num_animation_frames) {
             fireballs[i].animation = 0;
         }
-        
-        /* Check despawn conditions (off-screen) */
-        if (fireballs[i].x < camera_x) {
-            /* Off left edge */
-            fireballs[i].x = FIREBALL_DEAD;
-            fireballs[i].y = FIREBALL_DEAD;
+
+        /* Render fireball sprite in playfield */
+        {
+            int16_t pixel_x, pixel_y;
+            const uint8_t *sprite_ptr;
+
+            pixel_x = (rel_x * 8) + 8;
+            pixel_y = (fireballs[i].y * 8) + 8;
+
+            sprite_ptr = (fireballs[i].animation == 0)
+                ? sprite_fireball_0_16x8m
+                : sprite_fireball_1_16x8m;
+
+            blit_sprite_16x8_masked((uint16_t)pixel_x, (uint16_t)pixel_y, sprite_ptr);
+        }
+    }
+
+    /* Pass 2: collision scan over all fireball slots (assembly behavior) */
+    for (i = 0; i < MAX_NUM_FIREBALLS; i++) {
+        /* Skip inactive fireballs */
+        if (fireballs[i].x == FIREBALL_DEAD && fireballs[i].y == FIREBALL_DEAD) {
             continue;
         }
-        
-        rel_x = (int16_t)((int)fireballs[i].x - (int)camera_x);
-        if (rel_x > (PLAYFIELD_WIDTH - 2)) {
-            /* Off right edge */
-            fireballs[i].x = FIREBALL_DEAD;
-            fireballs[i].y = FIREBALL_DEAD;
-            continue;
-        }
-        
+
         /* Check collision with all enemies */
         for (j = 0; j < MAX_NUM_ENEMIES; j++) {
             int8_t y_diff, x_diff;
@@ -489,28 +512,6 @@ void handle_fireballs(void)
             play_sound(SOUND_HIT_ENEMY, 1);
             
             break; /* Fireball consumed, check next fireball */
-        }
-        
-        /* Render fireball sprite if still active and in playfield */
-        if (fireballs[i].x != FIREBALL_DEAD && fireballs[i].y != FIREBALL_DEAD) {
-            int16_t pixel_x, pixel_y;
-            const uint8_t *sprite_ptr;
-            
-            /* Calculate screen position relative to camera */
-            rel_x = (int16_t)((int)fireballs[i].x - (int)camera_x);
-            
-            /* Check if in visible playfield (0-23 game units) */
-            if (rel_x >= 0 && rel_x < PLAYFIELD_WIDTH) {
-                /* Convert to pixel coordinates (8 pixels per game unit) + playfield offset */
-                pixel_x = (rel_x * 8) + 8;
-                pixel_y = (fireballs[i].y * 8) + 8;
-
-                sprite_ptr = (fireballs[i].animation == 0)
-                    ? sprite_fireball_0_16x8m
-                    : sprite_fireball_1_16x8m;
-
-                blit_sprite_16x8_masked((uint16_t)pixel_x, (uint16_t)pixel_y, sprite_ptr);
-            }
         }
     }
 }
@@ -904,24 +905,91 @@ void handle_enemies(void)
         enemy_t *enemy = &enemies[i];
         int16_t x_diff, y_diff;
         
-        /* Handle despawned state */
-        if (enemy->state == ENEMY_STATE_DESPAWNED) {
-            /* Decrement spawn timer */
-            if (enemy->spawn_timer_and_animation > 0) {
-                enemy->spawn_timer_and_animation--;
+        /* Match assembly dispatch flow: spawned, despawned, then dying. */
+        if (enemy->state == ENEMY_STATE_SPAWNED) {
+            /* Advance animation frame */
+            enemy->spawn_timer_and_animation++;
+            if (enemy->spawn_timer_and_animation >= enemy->num_animation_frames) {
+                enemy->spawn_timer_and_animation = 0;
             }
             
-            /* Attempt to spawn when timer reaches 0 */
-            if (enemy->spawn_timer_and_animation == 0) {
-                /* Always try - maybe_spawn_enemy will check the global flag
-                 * If spawn fails, timer stays at 0 and will retry next tick */
+            /* Execute AI behavior */
+            switch (enemy->behavior & ~ENEMY_BEHAVIOR_FAST) {
+                case ENEMY_BEHAVIOR_BOUNCE:
+                    enemy_behavior_bounce(enemy);
+                    break;
+                case ENEMY_BEHAVIOR_LEAP:
+                    enemy_behavior_leap(enemy);
+                    break;
+                case ENEMY_BEHAVIOR_ROLL:
+                    enemy_behavior_roll(enemy);
+                    break;
+                case ENEMY_BEHAVIOR_SEEK:
+                    enemy_behavior_seek(enemy);
+                    break;
+                case ENEMY_BEHAVIOR_SHY:
+                    enemy_behavior_shy(enemy);
+                    break;
+                default:
+                    /* Match ASM behavior: skip unknown behavior codes entirely this tick. */
+                    continue;
+            }
+            
+            /* Check despawn distance (30 game units from Comic) */
+            x_diff = (int16_t)((int)enemy->x - (int)comic_x);
+            if (x_diff < -ENEMY_DESPAWN_RADIUS || x_diff > ENEMY_DESPAWN_RADIUS) {
+                enemy->state = ENEMY_STATE_DESPAWNED;
+                enemy->spawn_timer_and_animation = enemy_respawn_counter_cycle;
+                continue;
+            }
+            
+            /* Check collision with Comic */
+            y_diff = (int16_t)((int)enemy->y - (int)comic_y);
+            
+            /* Horizontal: abs(enemy.x - comic_x) < 2 */
+            if (x_diff >= -1 && x_diff <= 1) {
+                /* Vertical: 0 <= (enemy.y - comic_y) < 4 */
+                if (y_diff >= 0 && y_diff < 4) {
+                    /* Collision detected! */
+                    enemy->state = ENEMY_STATE_RED_SPARK; /* Start red spark death animation */
+                    
+                    /* Handle damage to Comic (shield loss, HP loss, or death) */
+                    comic_takes_damage();
+                    continue;
+                }
+            }
+            
+            /* Render enemy sprite if in playfield */
+            {
+                int16_t rel_x_enemy;
+                int16_t pixel_y;
+                uint8_t shp_index = enemy_shp_index[i];
+                
+                /* Calculate screen position relative to camera */
+                rel_x_enemy = (int16_t)((int)enemy->x - (int)camera_x);
+                
+                /* Convert to pixel coordinates (8 pixels per game unit) + playfield offset */
+                pixel_y = (enemy->y * 8) + 8;
+                render_enemy_sprite(enemy, shp_index, rel_x_enemy, pixel_y);
+            }
+            continue;
+        }
+
+        /* Despawned state in ASM is enemy.state < ENEMY_STATE_SPAWNED. */
+        if (enemy->state < ENEMY_STATE_SPAWNED) {
+            /* Assembly semantics: decrement every tick and spawn on underflow
+             * (borrow from 0 -> UINT8_MAX), not when reaching zero. */
+            enemy->spawn_timer_and_animation--;
+
+            /* Attempt to spawn only on underflow (0 -> UINT8_MAX) */
+            if (enemy->spawn_timer_and_animation == UINT8_MAX) {
                 maybe_spawn_enemy(i);
             }
             continue;
         }
-        
-        /* Handle dying state (white spark or red spark) */
-        if (enemy->state >= ENEMY_STATE_WHITE_SPARK && enemy->state != ENEMY_STATE_SPAWNED) {
+
+        /* Dying state: all values greater than ENEMY_STATE_SPAWNED. */
+        {
             /* If the state is the "finished" value (ENEMY_STATE_WHITE_SPARK + 5 or ENEMY_STATE_RED_SPARK + 5),
              * immediately despawn without rendering the final frame to match original assembly behavior. */
             if (enemy->state == ENEMY_STATE_WHITE_SPARK + 5 || enemy->state == ENEMY_STATE_RED_SPARK + 5) {
@@ -987,73 +1055,6 @@ void handle_enemies(void)
                 if (enemy_respawn_counter_cycle > 100) {
                     enemy_respawn_counter_cycle = 20;
                 }
-            }
-            continue;
-        }
-        
-        /* Handle spawned state */
-        if (enemy->state == ENEMY_STATE_SPAWNED) {
-            /* Advance animation frame */
-            enemy->spawn_timer_and_animation++;
-            if (enemy->spawn_timer_and_animation >= enemy->num_animation_frames) {
-                enemy->spawn_timer_and_animation = 0;
-            }
-            
-            /* Execute AI behavior */
-            switch (enemy->behavior & ~ENEMY_BEHAVIOR_FAST) {
-                case ENEMY_BEHAVIOR_BOUNCE:
-                    enemy_behavior_bounce(enemy);
-                    break;
-                case ENEMY_BEHAVIOR_LEAP:
-                    enemy_behavior_leap(enemy);
-                    break;
-                case ENEMY_BEHAVIOR_ROLL:
-                    enemy_behavior_roll(enemy);
-                    break;
-                case ENEMY_BEHAVIOR_SEEK:
-                    enemy_behavior_seek(enemy);
-                    break;
-                case ENEMY_BEHAVIOR_SHY:
-                    enemy_behavior_shy(enemy);
-                    break;
-            }
-            
-            /* Check despawn distance (30 game units from Comic) */
-            x_diff = (int16_t)((int)enemy->x - (int)comic_x);
-            if (x_diff < -ENEMY_DESPAWN_RADIUS || x_diff > ENEMY_DESPAWN_RADIUS) {
-                enemy->state = ENEMY_STATE_DESPAWNED;
-                enemy->spawn_timer_and_animation = enemy_respawn_counter_cycle;
-                continue;
-            }
-            
-            /* Check collision with Comic */
-            y_diff = (int16_t)((int)enemy->y - (int)comic_y);
-            
-            /* Horizontal: abs(enemy.x - comic_x) < 2 */
-            if (x_diff >= -1 && x_diff <= 1) {
-                /* Vertical: 0 <= (enemy.y - comic_y) < 4 */
-                if (y_diff >= 0 && y_diff < 4) {
-                    /* Collision detected! */
-                    enemy->state = ENEMY_STATE_RED_SPARK; /* Start red spark death animation */
-                    
-                    /* Handle damage to Comic (shield loss, HP loss, or death) */
-                    comic_takes_damage();
-                    continue;
-                }
-            }
-            
-            /* Render enemy sprite if in playfield */
-            {
-                int16_t rel_x_enemy;
-                int16_t pixel_y;
-                uint8_t shp_index = enemy_shp_index[i];
-                
-                /* Calculate screen position relative to camera */
-                rel_x_enemy = (int16_t)((int)enemy->x - (int)camera_x);
-                
-                /* Convert to pixel coordinates (8 pixels per game unit) + playfield offset */
-                pixel_y = (enemy->y * 8) + 8;
-                render_enemy_sprite(enemy, shp_index, rel_x_enemy, pixel_y);
             }
         }
     }

@@ -187,6 +187,8 @@ uint8_t comic_hp_pending_increase = MAX_HP;  /* Fill HP at game start */
 uint16_t camera_x = 0;
 /* Landing sentinel: set by physics when hitting ground; clears each tick */
 uint8_t landed_this_tick = 0;
+/* Set by stage-edge movement code when a stage change occurs mid-tick. */
+uint8_t stage_transitioned_this_tick = 0;
 
 /* Death animation state - prevents re-entering death animation during enemy collisions */
 uint8_t inhibit_death_by_enemy_collision = 0;
@@ -397,6 +399,7 @@ static void clear_bios_keyboard_buffer(void);
 static void clear_scancode_queue(void);
 static void update_keyboard_input(void);
 static void handle_cheat_codes(void);
+static void dos_idle(void);
 static void game_over(void);
 static void do_high_scores(void);
 static void game_end_sequence(void);
@@ -429,27 +432,18 @@ void disable_pc_speaker(void)
  *   ticks = number of ticks to wait
  * Output:
  *   game_tick_flag is set to 0
- * 
- * Uses DOS INT 1Ah to read the system timer for timing.
  */
 void wait_n_ticks(uint16_t ticks)
 {
-    union REGS regs;
-    uint32_t start_ticks, current_ticks;
-    
-    /* Get starting tick count from BIOS */
-    regs.h.ah = 0x00;  /* AH=0x00: read system timer */
-    int86(0x1A, &regs, &regs);
-    start_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
-    
-    /* Wait for the requested number of ticks to elapse */
-    do {
-        regs.h.ah = 0x00;
-        int86(0x1A, &regs, &regs);
-        current_ticks = ((uint32_t)regs.w.cx << 16) | regs.w.dx;
-    } while ((current_ticks - start_ticks) < ticks);
-    
-    game_tick_flag = 0;
+    while (ticks > 0) {
+        while (game_tick_flag != 1) {
+            /* Match game-loop wait behavior while yielding CPU between IRQ0 updates. */
+            dos_idle();
+        }
+
+        game_tick_flag = 0;
+        ticks--;
+    }
 }
 
 /*
@@ -2322,6 +2316,8 @@ void blit_map_playfield_offscreen(void)
     const uint16_t max_camera_x = rendered_bytes_per_row - playfield_bytes_per_row; /* 232 */
     uint8_t plane;
     uint16_t row;
+    uint16_t src_start;
+    uint16_t dst_start;
 
     /* Validate camera position is within rendered map bounds.
      * If camera_x exceeds max_camera_x, the max_src_bytes calculation would underflow.
@@ -2332,46 +2328,25 @@ void blit_map_playfield_offscreen(void)
         return;
     }
 
+    src_start = RENDERED_MAP_BUFFER + camera_x;
+    dst_start = offscreen_video_buffer_ptr + (8 * screen_bytes_per_row) + (8 / 8);
+
     for (plane = 0; plane < 4; plane++) {
         /* Enable reading and writing for this plane */
         enable_ega_plane_read_write(plane);
 
-        for (row = 0; row < playfield_pixel_rows; row++) {
-            /* Source offset calculation using larger type to prevent overflow
-             * Max value: 0x4000 + (159 * 256) + camera_x ≈ 57K, fits in uint16_t
-             * but use unsigned long for intermediate to be safe */
-            unsigned long src_calc = RENDERED_MAP_BUFFER + ((unsigned long)row * rendered_bytes_per_row) + camera_x;
-            uint16_t src_offset;
-            uint16_t dst_offset;
-            uint16_t max_src_bytes;
-            uint16_t bytes_to_copy;
-            
-            /* Validate calculation fits within segment before assigning to uint16_t */
-            if (src_calc > 65535UL) {
-                /* Source offset would overflow; skip this row */
-                continue;
-            }
-            src_offset = (uint16_t)src_calc;
-            
-            dst_offset = offscreen_video_buffer_ptr + ((8 + row) * screen_bytes_per_row) + (8 / 8);
+        {
+            uint8_t __far *src_row = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, src_start);
+            uint8_t __far *dst_row = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, dst_start);
 
-            /* Calculate maximum bytes available to read from this row.
-             * Formula: remaining bytes in row = row_start + 256 - src_offset_within_row
-             * Which simplifies to: (256 - camera_x - 0) = 256 - camera_x bytes available
-             * for the first row. But this depends on the row number in the rendered buffer.
-             * 
-             * Safer approach: bytes available = bytes from camera_x to end of rendered row
-             * = rendered_bytes_per_row - camera_x = 256 - camera_x
-             * (This is constant across all rows since stride is uniform) */
-            max_src_bytes = rendered_bytes_per_row - camera_x;
-            
-            bytes_to_copy = playfield_bytes_per_row;
-            if (bytes_to_copy > max_src_bytes) {
-                bytes_to_copy = max_src_bytes;
+            for (row = 0; row < playfield_pixel_rows; row++) {
+                uint8_t col;
+                for (col = 0; col < playfield_bytes_per_row; col++) {
+                    dst_row[col] = src_row[col];
+                }
+                src_row += rendered_bytes_per_row;
+                dst_row += screen_bytes_per_row;
             }
-
-            /* Copy the row for this plane using helper that performs far-pointer copy */
-            copy_plane_bytes(src_offset, dst_offset, bytes_to_copy);
         }
     }
 }
@@ -2703,50 +2678,38 @@ static void blit_tile_to_map(uint8_t tile_id, uint8_t tile_x, uint8_t tile_y, co
  */
 static void render_map(void)
 {
-    uint8_t tile_x;
-    uint8_t tile_y;
-    uint16_t tile_index;
-    uint8_t tile_id;
     uint8_t plane;
-    uint16_t clear_offset;
-    uint16_t clear_row;
-    uint8_t __far *clear_ptr;
-    uint16_t i;
-    
+    uint8_t tile_y;
+    uint8_t tile_x;
+    uint8_t pixel_row;
+    uint16_t map_row_base;
+    uint16_t src_offset;
+    uint16_t dst_offset;
+    uint8_t tile_id;
+    const uint8_t *tile_map_row;
+    uint8_t __far *dst_row;
 
+    /* Render directly into all 160x256 bytes per plane. No explicit clear pass is
+     * needed because every byte in the rendered-map region is overwritten below. */
     for (plane = 0; plane < 4; plane++) {
-        /* Set Sequencer Map Mask for this plane */
-        outp(0x3c4, 0x02);      /* SC Index: Map Mask */
+        outp(0x3c4, 0x02);       /* SC Index: Map Mask */
         outp(0x3c5, 1 << plane); /* SC Data: plane mask */
-        
-        /* Clear all rows of this plane */
-        for (clear_row = 0; clear_row < 160; clear_row++) {
-            clear_offset = RENDERED_MAP_BUFFER + (clear_row * 256);
-            clear_ptr = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, clear_offset);
-            
-            /* Write 256 bytes of zero to this row */
-            for (i = 0; i < 256; i++) {
-                clear_ptr[i] = 0;
+
+        for (tile_y = 0; tile_y < MAP_HEIGHT_TILES; tile_y++) {
+            map_row_base = (uint16_t)tile_y * MAP_WIDTH_TILES;
+            tile_map_row = (current_tiles_ptr != NULL) ? (current_tiles_ptr + map_row_base) : NULL;
+
+            for (pixel_row = 0; pixel_row < 16; pixel_row++) {
+                dst_offset = RENDERED_MAP_BUFFER + (((uint16_t)tile_y * 16 + pixel_row) << 8);
+                dst_row = (uint8_t __far *)MK_FP(VIDEO_MEMORY_BASE, dst_offset);
+
+                for (tile_x = 0; tile_x < MAP_WIDTH_TILES; tile_x++) {
+                    tile_id = (tile_map_row != NULL) ? tile_map_row[tile_x] : 0;
+                    src_offset = (uint16_t)tile_id * 128 + (uint16_t)plane * 32 + (uint16_t)pixel_row * 2;
+                    *dst_row++ = tileset_graphics[src_offset + 0];
+                    *dst_row++ = tileset_graphics[src_offset + 1];
+                }
             }
-        }
-    }
-    
-    /* Iterate through all tiles in the map (128×10) */
-    for (tile_y = 0; tile_y < MAP_HEIGHT_TILES; tile_y++) {
-        for (tile_x = 0; tile_x < MAP_WIDTH_TILES; tile_x++) {
-            /* Calculate index into tile map, casting to uint16_t to avoid overflow:
-             * tile_y (0-9) * MAP_WIDTH_TILES (128) + tile_x (0-127) = 0-1279 */
-            tile_index = (uint16_t)tile_y * MAP_WIDTH_TILES + tile_x;
-            
-            /* Get tile ID from current level's tile map */
-            if (current_tiles_ptr != NULL) {
-                tile_id = current_tiles_ptr[tile_index];
-            } else {
-                tile_id = 0;  /* No map loaded */
-            }
-            
-            /* Blit this tile to the rendered map buffer */
-            blit_tile_to_map(tile_id, tile_x, tile_y, tileset_graphics);
         }
     }
 }
@@ -2909,13 +2872,6 @@ void load_new_stage(void)
     
     /* Pre-render the entire map into RENDERED_MAP_BUFFER */
     render_map();
-
-    /* Ensure the initial frame is drawn and displayed: replicate the
-     * assembly behavior of blitting and swapping buffers at load time. */
-    blit_map_playfield_offscreen();
-    /* Skip blitting Comic here - if doing beam_in, Comic should not be visible yet;
-     * if not doing beam_in (entering via door), the game loop will render Comic normally */
-    swap_video_buffers();
 
 #ifdef ENABLE_SHP_SMOKE_TEST
     /* Smoke test: if a 16x32 SHP frame is loaded for shp index 0, blit its
@@ -3861,7 +3817,12 @@ void game_loop(void)
              *   - Not falling/jumping now
              *   - Open key is pressed */
             if (!was_in_air && comic_is_falling_or_jumping == 0 && key_state_open == 1) {
-                check_door_activation();
+                if (check_door_activation()) {
+                    /* Match assembly .check_open_input -> jmp activate_door:
+                     * do not continue pause/fire/render logic in this tick. */
+                    teleport_key_pressed = 0;
+                    continue;
+                }
             }
             
             /* Check teleport input - only if not previously in air, not falling/jumping,
@@ -3932,6 +3893,12 @@ void game_loop(void)
             
             /* Clear the teleport flag after checking */
             teleport_key_pressed = 0;
+        }
+
+        if (stage_transitioned_this_tick) {
+            /* Match assembly stage_edge_transition -> jmp load_new_stage -> jmp game_loop. */
+            stage_transitioned_this_tick = 0;
+            continue;
         }
         
         /* Check escape key (pause) */

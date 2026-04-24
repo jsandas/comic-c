@@ -39,6 +39,7 @@ extern uint16_t camera_x;
 extern uint8_t landed_this_tick;
 extern uint8_t comic_y_checkpoint;
 extern uint8_t comic_x_checkpoint;
+extern uint8_t stage_transitioned_this_tick;
 
 /* External input state (set by keyboard handling in game_main.c) */
 extern uint8_t key_state_jump;
@@ -286,6 +287,7 @@ void move_left(void)
         comic_y_checkpoint = comic_y;
         comic_x_checkpoint = MAP_WIDTH - 2;
         comic_x = MAP_WIDTH - 2;
+        stage_transitioned_this_tick = 1;
         load_new_stage();
         return;
     }
@@ -354,6 +356,7 @@ void move_right(void)
         comic_y_checkpoint = comic_y;
         comic_x_checkpoint = 0;
         comic_x = 0;
+        stage_transitioned_this_tick = 1;
         load_new_stage();
         return;
     }
